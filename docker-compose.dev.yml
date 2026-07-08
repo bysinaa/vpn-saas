@@ -1,0 +1,27 @@
+version: '3.9'
+
+# Development overrides - enables hot reload, exposes all services,
+# and mounts source code as a volume for live editing.
+#
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+services:
+  app:
+    build:
+      target: builder
+    command: npm run start:dev
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/dist
+    environment:
+      - NODE_ENV=development
+    ports:
+      - '3000:3000'
+      - '9229:9229'  # Debug port
+    healthcheck:
+      disable: true
+
+  minio:
+    ports:
+      - '9000:9000'
+      - '9001:9001'

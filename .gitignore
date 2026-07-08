@@ -1,0 +1,78 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build
+dist/
+build/
+*.tsbuildinfo
+.nest-cache/
+
+# Environment
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+*.pid
+*.seed
+startup.log
+dev_run.log
+run_log.txt
+server.log
+boot_check.log
+runtime_*.log
+build_*.log
+tsc_*.log
+tsc_*.txt
+se.txt
+so.txt
+se.txt
+cookiess.txt
+
+# Build artifacts / temp files
+build_*.txt
+build_*.log
+tsc_*.txt
+temp_*.txt
+temp_*.log
+debug-*.cjs
+{console.error(e)
+
+# Coverage / Tests
+coverage/
+test-results/
+.nyc_output/
+
+# Prisma
+prisma/migrations/dev.db*
+prisma/*.db
+
+# Docker
+docker-compose.override.yml
+
+# Misc
+.cache/
+tmp/
+*.pid
+uploads/
+TAZAXY/

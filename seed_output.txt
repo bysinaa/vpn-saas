@@ -1,0 +1,8 @@
+Environment variables loaded from .env
+Running seed command `ts-node prisma/seed.ts` ...
+🌱 Seeding database...
+✅ Seed completed.
+   Super admin: admin@vpn-saas.local / ChangeMe!2024
+   Roles: SUPER_ADMIN, ADMIN, OPERATOR, SUPPORT, USER
+
+The seed command has been executed.

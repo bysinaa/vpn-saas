@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VPN SaaS — Admin Dashboard</title>
+  <link rel="stylesheet" href="/dashboard/style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="login-screen" class="login-screen">
+    <div class="login-card">
+      <div class="login-logo">
+        <i class="fas fa-shield-halved"></i>
+      </div>
+      <h1>VPN SaaS Dashboard</h1>
+      <p class="login-subtitle">Sign in to your admin account</p>
+      <form id="login-form">
+        <div class="form-group">
+          <label for="login-email">Email</label>
+          <input type="email" id="login-email" placeholder="admin@example.com" required />
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" placeholder="••••••••" required />
+        </div>
+        <div id="login-error" class="error-msg hidden"></div>
+        <button type="submit" class="btn btn-primary btn-block" id="login-btn">
+          <i class="fas fa-sign-in-alt"></i> Sign In
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main App Shell -->
+  <div id="app-shell" class="app-shell hidden">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <i class="fas fa-shield-halved"></i>
+        <span>VPN SaaS</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" data-page="dashboard">
+          <i class="fas fa-chart-line"></i><span>Dashboard</span>
+        </a>
+        <a href="#" class="nav-item" data-page="users">
+          <i class="fas fa-users"></i><span>Users</span>
+        </a>
+        <a href="#" class="nav-item" data-page="subscriptions">
+          <i class="fas fa-id-card"></i><span>Subscriptions</span>
+        </a>
+        <a href="#" class="nav-item" data-page="orders">
+          <i class="fas fa-shopping-cart"></i><span>Orders</span>
+        </a>
+        <a href="#" class="nav-item" data-page="payments">
+          <i class="fas fa-credit-card"></i><span>Payments</span>
+        </a>
+        <a href="#" class="nav-item" data-page="wallet">
+          <i class="fas fa-wallet"></i><span>Wallet</span>
+        </a>
+        <a href="#" class="nav-item" data-page="plans">
+          <i class="fas fa-tags"></i><span>Plans</span>
+        </a>
+        <a href="#" class="nav-item" data-page="servers">
+          <i class="fas fa-server"></i><span>Servers</span>
+        </a>
+        <a href="#" class="nav-item" data-page="panels">
+          <i class="fas fa-network-wired"></i><span>Panels</span>
+        </a>
+        <a href="#" class="nav-item" data-page="tickets">
+          <i class="fas fa-ticket"></i><span>Tickets</span>
+        </a>
+        <a href="#" class="nav-item" data-page="broadcasts">
+          <i class="fas fa-bullhorn"></i><span>Broadcasts</span>
+        </a>
+        <a href="#" class="nav-item" data-page="affiliate">
+          <i class="fas fa-handshake"></i><span>Affiliates</span>
+        </a>
+        <a href="#" class="nav-item" data-page="settings">
+          <i class="fas fa-cog"></i><span>Settings</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info" id="user-info"></div>
+        <button class="btn btn-sm btn-outline" id="logout-btn">
+          <i class="fas fa-sign-out-alt"></i> Logout
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="topbar">
+        <button class="btn-icon" id="sidebar-toggle">
+          <i class="fas fa-bars"></i>
+        </button>
+        <h2 id="page-title">Dashboard</h2>
+        <div class="topbar-actions">
+          <span id="current-time" class="clock"></span>
+        </div>
+      </header>
+
+      <div class="content-area" id="content-area">
+        <!-- Pages rendered here by JS -->
+      </div>
+    </main>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Modal -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <h3 id="modal-title"></h3>
+        <button class="btn-icon modal-close" id="modal-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-footer" id="modal-footer"></div>
+    </div>
+  </div>
+
+  <script src="/dashboard/app.js"></script>
+</body>
+</html>

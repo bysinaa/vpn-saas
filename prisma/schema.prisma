@@ -1,0 +1,1389 @@
+// =============================================================================
+// VPN SaaS - Prisma Schema
+// PostgreSQL | Normalized | Indexed | Foreign Keys | Migration Ready
+// =============================================================================
+// Design principles:
+//  - Every business concept is its own model (Single Responsibility)
+//  - Money is stored as BigInteger "minor units" to avoid float rounding
+//  - Status / type fields use Enums for type-safety and DB-level validation
+//  - Soft-delete via deletedAt on business-critical tables
+//  - Audit columns (createdAt/updatedAt) on every table
+//  - Indexes on foreign keys and frequent filter columns
+//  - UUID public identifiers (publicId) vs sequential PKs for security/perf
+// =============================================================================
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  OPERATOR
+  SUPPORT
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+  PENDING
+  DELETED
+}
+
+enum Language {
+  EN
+  FA
+  RU
+  AR
+  TR
+}
+
+enum WalletTxnType {
+  DEPOSIT
+  WITHDRAW
+  PURCHASE
+  REFUND
+  BONUS
+  CASHBACK
+  REFERRAL_REWARD
+  GIFT
+  ADJUSTMENT
+  VOUCHER_REDEEM
+}
+
+enum WalletTxnStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  REVERSED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum OrderType {
+  NEW
+  RENEW
+  UPGRADE
+  EXTEND
+  GIFT
+  TRIAL
+  TRANSFER
+}
+
+enum PaymentMethod {
+  ONLINE
+  CARD_TO_CARD
+  CRYPTO
+  WALLET
+  GIFT_BALANCE
+  VOUCHER
+  REFERRAL_REWARD
+}
+
+enum PaymentStatus {
+  INITIATED
+  PENDING
+  AWAITING_VERIFY
+  CONFIRMED
+  REJECTED
+  EXPIRED
+  CANCELLED
+  REFUNDED
+}
+
+enum ReceiptStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CORRECTION_REQUESTED
+}
+
+enum CryptoCurrency {
+  USDT_TRC20
+  USDT_ERC20
+  TON
+  BTC
+  ETH
+}
+
+enum CryptoPaymentStatus {
+  WAITING
+  CONFIRMING
+  CONFIRMED
+  EXPIRED
+  FAILED
+}
+
+enum PlanType {
+  TRAFFIC
+  TIME
+  UNLIMITED
+  COMBINATION
+  MANUAL
+  AUTOMATIC
+  TRIAL
+  GIFT
+  FAMILY
+  BUSINESS
+  MULTI_DEVICE
+}
+
+enum PlanBillingUnit {
+  GB
+  DAY
+  MONTH
+  UNLIMITED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+  PENDING
+  PAUSED
+  CANCELLED
+  TRIAL
+}
+
+enum ServerStatus {
+  ONLINE
+  OFFLINE
+  DEGRADED
+  MAINTENANCE
+}
+
+enum Protocol {
+  VMESS
+  VLESS
+  TROJAN
+  SHADOWSOCKS
+  WIREGUARD
+  REALITY
+  ANY
+}
+
+enum PanelType {
+  SANITY
+  X_UI
+  THREE_X_UI
+  MARZBAN
+  CUSTOM
+}
+
+enum PanelSyncStatus {
+  IDLE
+  SYNCING
+  SYNCED
+  FAILED
+}
+
+enum PanelUserStatus {
+  ACTIVE
+  DISABLED
+  EXPIRED
+  LIMITED
+}
+
+enum TicketStatus {
+  OPEN
+  PENDING_USER
+  PENDING_AGENT
+  RESOLVED
+  CLOSED
+  REOPENED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum NotificationChannel {
+  TELEGRAM
+  EMAIL
+  SMS
+  PUSH
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+  READ
+}
+
+enum BroadcastStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+enum BroadcastSegment {
+  ALL
+  ACTIVE
+  INACTIVE
+  EXPIRED
+  NEW
+  REFERRAL
+  TRIAL
+  PAID
+}
+
+enum ReferralStatus {
+  PENDING
+  COMPLETED
+  REWARDED
+  CANCELLED
+}
+
+enum AffiliateStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum EducationTopic {
+  INSTALL_WINDOWS
+  INSTALL_ANDROID
+  INSTALL_IOS
+  INSTALL_MACOS
+  INSTALL_LINUX
+  CLASH
+  V2RAYNG
+  V2RAYN
+  HIDDIFY
+  STREISAND
+  SHADOWROCKET
+  SING_BOX
+  SUBSCRIPTION_LINK
+  MANUAL_CONFIG
+  FAQ
+  OTHER
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  EXPORT
+  IMPERSONATE
+  BROADCAST
+  // Business-domain actions added for VPN commerce workflows
+  APPROVE
+  REJECT
+  REDEEM
+  ACTIVATE
+  VERIFY
+  SUSPEND
+  RESUME
+  REVERSE
+}
+
+enum WebhookEvent {
+  PAYMENT_CONFIRMED
+  PAYMENT_REJECTED
+  PURCHASE_COMPLETED
+  SUBSCRIPTION_EXPIRED
+  TRIAL_EXPIRED
+  TICKET_REPLY
+  REFERRAL_COMPLETED
+}
+
+// =============================================================================
+// AUTH / IDENTITY
+// =============================================================================
+
+model User {
+  id                BigInt     @id @default(autoincrement())
+  publicId          String     @unique @default(uuid()) @db.Uuid
+  telegramId        String?    @unique
+  username          String?
+  firstName         String?
+  lastName          String?
+  email             String?    @unique
+  phone             String?    @unique
+  passwordHash      String?
+  language          Language   @default(EN)
+  role              UserRole   @default(USER)
+  status            UserStatus @default(PENDING)
+  referralCode      String     @unique
+  referredById      BigInt?
+  referredBy        User?      @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals         User[]     @relation("Referrals")
+  avatarUrl         String?
+  isEmailVerified   Boolean    @default(false)
+  isPhoneVerified   Boolean    @default(false)
+  twoFactorSecret   String?
+  lastLoginAt       DateTime?
+  lastSeenAt        DateTime?
+  deviceFingerprint String?
+  metadata          Json?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  deletedAt         DateTime?
+
+  wallet            Wallet?
+  orders            Order[]
+  subscriptions     Subscription[]
+  payments          Payment[]
+  tickets           Ticket[]                @relation("TicketOwner")
+  ticketAssignments Ticket[]                @relation("TicketAssignee")
+  notifications     Notification[]
+  receipts          Receipt[]
+  referralRewards   ReferralLog[]           @relation("ReferrerRewards")
+  referralEarnings  ReferralLog[]           @relation("ReferredEarnings")
+  affiliateAccount  AffiliateAccount?
+  sessions          UserSession[]
+  auditLogs         AuditLog[]
+  educationProgress UserEducationProgress[]
+  ticketMessages    TicketMessage[]
+  vpnUsers          VpnUser[]
+  broadcastTargets  BroadcastTarget[]
+  settingsOverrides UserSetting[]
+  webhookEndpoints  UserWebhook[]
+  Role              Role?                   @relation(fields: [roleId], references: [id])
+  roleId            BigInt?
+
+  @@index([referredById])
+  @@index([status])
+  @@index([role])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model UserSession {
+  id               BigInt    @id @default(autoincrement())
+  userId           BigInt
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String    @unique
+  deviceInfo       String?
+  ipAddress        String?
+  userAgent        String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("user_sessions")
+}
+
+model Role {
+  id          BigInt           @id @default(autoincrement())
+  name        String           @unique
+  description String?
+  isSystem    Boolean          @default(false)
+  permissions RolePermission[]
+  users       User[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@map("roles")
+}
+
+model Permission {
+  id          BigInt           @id @default(autoincrement())
+  name        String           @unique
+  resource    String
+  action      String
+  description String?
+  roles       RolePermission[]
+  createdAt   DateTime         @default(now())
+
+  @@index([resource])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       BigInt
+  permissionId BigInt
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserSetting {
+  id     BigInt @id @default(autoincrement())
+  userId BigInt
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key    String
+  value  String
+
+  @@unique([userId, key])
+  @@index([userId])
+  @@map("user_settings")
+}
+
+model UserWebhook {
+  id           BigInt         @id @default(autoincrement())
+  userId       BigInt
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url          String
+  secret       String
+  events       WebhookEvent[]
+  enabled      Boolean        @default(true)
+  lastFiredAt  DateTime?
+  failureCount Int            @default(0)
+  createdAt    DateTime       @default(now())
+
+  @@index([userId])
+  @@map("user_webhooks")
+}
+
+// =============================================================================
+// WALLET / TRANSACTIONS
+// =============================================================================
+
+model Wallet {
+  id             BigInt              @id @default(autoincrement())
+  userId         BigInt              @unique
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance        BigInt              @default(0) // minor units (cents/toman)
+  giftBalance    BigInt              @default(0)
+  totalDeposited BigInt              @default(0)
+  totalSpent     BigInt              @default(0)
+  currency       String              @default("USD")
+  transactions   WalletTransaction[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id            BigInt          @id @default(autoincrement())
+  publicId      String          @unique @default(uuid()) @db.Uuid
+  walletId      BigInt
+  wallet        Wallet          @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  type          WalletTxnType
+  status        WalletTxnStatus @default(PENDING)
+  amount        BigInt
+  fee           BigInt          @default(0)
+  balanceBefore BigInt
+  balanceAfter  BigInt
+  description   String?
+  reference     String? // external gateway ref
+  paymentId     BigInt?         @unique
+  payment       Payment?        @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  orderId       BigInt?
+  order         Order?          @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  metadata      Json?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([walletId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+  @@map("wallet_transactions")
+}
+
+// =============================================================================
+// PLANS / PRICING
+// =============================================================================
+
+model PlanCategory {
+  id          BigInt   @id @default(autoincrement())
+  publicId    String   @unique @default(uuid()) @db.Uuid
+  name        String
+  slug        String   @unique
+  description String?
+  sortOrder   Int      @default(0)
+  status      String   @default("ACTIVE")
+  plans       Plan[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("plan_categories")
+}
+
+model Plan {
+  id              BigInt          @id @default(autoincrement())
+  publicId        String          @unique @default(uuid()) @db.Uuid
+  categoryId      BigInt?
+  category        PlanCategory?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  name            String
+  slug            String          @unique
+  description     String?
+  type            PlanType
+  billingUnit     PlanBillingUnit @default(GB)
+  // Resource allocation
+  trafficLimitGb  BigInt? // null => unlimited
+  durationDays    Int? // null => unlimited
+  deviceLimit     Int             @default(1)
+  serverLimit     Int             @default(1)
+  // Server / inbound binding (so the bot uses the exact admin-configured panel
+  // inbound + server group when provisioning accounts in the Sanity panel).
+  inboundConfigId BigInt?
+  inboundConfig   InboundConfig?  @relation(fields: [inboundConfigId], references: [id], onDelete: SetNull)
+  serverGroupId   String? // logical grouping (e.g. "premium-eu") for routing
+  // Pricing
+  price           BigInt // minor units
+  originalPrice   BigInt?
+  discountPercent Decimal?        @db.Decimal(5, 2)
+  currency        String          @default("USD")
+  // Display / targeting
+  priority        Int             @default(0)
+  sortOrder       Int             @default(0)
+  isVisible       Boolean         @default(true)
+  isEnabled       Boolean         @default(true)
+  color           String? // hex color for UI/bot rendering
+  icon            String? // emoji or icon id
+  countries       String[]        @default([])
+  // Feature flags
+  isTrial         Boolean         @default(false)
+  isRenewable     Boolean         @default(true)
+  isTransferable  Boolean         @default(false)
+  allowPause      Boolean         @default(false)
+  metadata        Json?
+  status          String          @default("ACTIVE")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  orders        Order[]
+  subscriptions Subscription[]
+  Voucher       Voucher[]
+
+  @@index([categoryId])
+  @@index([status])
+  @@index([isVisible])
+  @@index([isEnabled])
+  @@index([priority])
+  @@index([sortOrder])
+  @@map("plans")
+}
+
+// =============================================================================
+// ORDERS / PAYMENTS / RECEIPTS
+// =============================================================================
+
+model Order {
+  id             BigInt         @id @default(autoincrement())
+  publicId       String         @unique @default(uuid()) @db.Uuid
+  userId         BigInt
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId         BigInt
+  plan           Plan           @relation(fields: [planId], references: [id])
+  type           OrderType      @default(NEW)
+  status         OrderStatus    @default(PENDING)
+  unitPrice      BigInt
+  quantity       Int            @default(1)
+  discountAmount BigInt         @default(0)
+  taxAmount      BigInt         @default(0)
+  totalAmount    BigInt
+  currency       String         @default("USD")
+  paymentMethod  PaymentMethod?
+  subscriptionId BigInt?
+  subscription   Subscription?  @relation("OrderSubscription", fields: [subscriptionId], references: [id], onDelete: SetNull)
+  giftForUserId  BigInt?
+  metadata       Json?
+  completedAt    DateTime?
+  cancelledAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  payments           Payment[]
+  transactions       WalletTransaction[]
+  receipts           Receipt[]
+  originSubscription Subscription?       @relation("SubscriptionOriginOrder")
+
+  @@index([userId])
+  @@index([status])
+  @@index([planId])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model Payment {
+  id              BigInt        @id @default(autoincrement())
+  publicId        String        @unique @default(uuid()) @db.Uuid
+  orderId         BigInt? // nullable for standalone wallet top-ups (spec #7)
+  order           Order?         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  userId          BigInt
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  method          PaymentMethod
+  status          PaymentStatus @default(INITIATED)
+  amount          BigInt
+  currency        String        @default("USD")
+  gateway         String?
+  gatewayRef      String?       @unique
+  gatewayResponse Json?
+  callbackUrl     String?
+  expiresAt       DateTime?
+  confirmedAt     DateTime?
+  metadata        Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  walletTransaction WalletTransaction?
+  receipt           Receipt?
+  cryptoPayment     CryptoPayment?
+
+  @@index([orderId])
+  @@index([userId])
+  @@index([status])
+  @@index([gatewayRef])
+  @@index([createdAt])
+  @@map("payments")
+}
+
+model Receipt {
+  id              BigInt        @id @default(autoincrement())
+  publicId        String        @unique @default(uuid()) @db.Uuid
+  paymentId       BigInt        @unique
+  payment         Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  orderId         BigInt? // nullable for standalone wallet top-ups (spec #7)
+  order           Order?         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  userId          BigInt
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileUrl         String
+  fileKey         String
+  mimeType        String
+  fileSize        Int
+  amount          BigInt?
+  payerName       String?
+  cardNumber      String?
+  status          ReceiptStatus @default(PENDING)
+  verifiedById    BigInt?
+  verifiedAt      DateTime?
+  rejectionReason String?
+  metadata        Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("receipts")
+}
+
+model CryptoPayment {
+  id                    BigInt              @id @default(autoincrement())
+  paymentId             BigInt              @unique
+  payment               Payment             @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  currency              CryptoCurrency
+  address               String
+  expectedAmount        Decimal             @db.Decimal(36, 18)
+  receivedAmount        Decimal?            @db.Decimal(36, 18)
+  txHash                String?
+  confirmations         Int                 @default(0)
+  requiredConfirmations Int                 @default(1)
+  status                CryptoPaymentStatus @default(WAITING)
+  expiresAt             DateTime
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  @@index([status])
+  @@index([address])
+  @@map("crypto_payments")
+}
+
+model Voucher {
+  id               BigInt    @id @default(autoincrement())
+  publicId         String    @unique @default(uuid()) @db.Uuid
+  code             String    @unique
+  // Voucher type. The commerce platform uses vouchers to activate VPN
+  // subscriptions directly (PLAN) — the legacy BALANCE path is retained for
+  // wallet-gift codes but is NOT exposed in the wallet deposit flow.
+  type             String    @default("PLAN") // PLAN | BALANCE
+  amount           BigInt?
+  // PLAN-type voucher binding: which plan to activate, plus optional overrides
+  // so an admin can mint a voucher for a custom traffic/duration/server group
+  // without editing the underlying plan.
+  planId           BigInt?
+  plan             Plan?     @relation(fields: [planId], references: [id], onDelete: SetNull)
+  trafficLimitGb   BigInt? // override plan.trafficLimitGb if set
+  durationDays     Int? // override plan.durationDays if set
+  serverGroupId    String? // override plan.serverGroupId if set
+  deviceLimit      Int?
+  maxRedemptions   Int       @default(1)
+  redemptions      Int       @default(0)
+  expiresAt        DateTime?
+  // Full usage tracking — once USED the voucher is never reusable.
+  redeemedById     BigInt?
+  usedByTelegramId String? // telegramId of the redeemer (for audit / dedupe)
+  usedByIp         String? // IP of the redeemer at redemption time
+  redeemedAt       DateTime?
+  isActive         Boolean   @default(true)
+  createdById      BigInt? // admin who generated the voucher
+  batchId          String? // groups vouchers minted together
+  note             String?
+  metadata         Json?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([code])
+  @@index([planId])
+  @@index([batchId])
+  @@index([isActive])
+  @@index([expiresAt])
+  @@map("vouchers")
+}
+
+// =============================================================================
+// PAYMENT CONFIG (admin-managed cards & crypto wallets)
+// =============================================================================
+// These models are the single source of truth for card-to-card bank cards and
+// cryptocurrency deposit addresses. The bot never hardcodes them — it always
+// reads the enabled rows from these tables.
+
+model BankCard {
+  id          BigInt   @id @default(autoincrement())
+  publicId    String   @unique @default(uuid()) @db.Uuid
+  // Card details shown to the user depositing via card-to-card
+  cardNumber  String
+  cardHolder  String
+  bankName    String
+  shebaNumber String? // Iranian IBAN (24-digit, optional)
+  // Admin metadata
+  label       String?
+  isActive    Boolean  @default(true)
+  isDefault   Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  // Audit
+  createdById BigInt?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([isDefault])
+  @@index([sortOrder])
+  @@map("bank_cards")
+}
+
+model CryptoWallet {
+  id           BigInt         @id @default(autoincrement())
+  publicId     String         @unique @default(uuid()) @db.Uuid
+  currency     CryptoCurrency
+  label        String?
+  address      String
+  network      String? // e.g. TRC20, ERC20, TON, Bitcoin, Ethereum
+  instructions String? // deposit instructions shown to the user
+  qrCodeUrl    String?
+  isActive     Boolean        @default(true)
+  isDefault    Boolean        @default(false)
+  sortOrder    Int            @default(0)
+  // Audit
+  createdById  BigInt?
+  metadata     Json?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@unique([currency, address])
+  @@index([currency])
+  @@index([isActive])
+  @@index([isDefault])
+  @@index([sortOrder])
+  @@map("crypto_wallets")
+}
+
+// =============================================================================
+// VPN PANEL / SERVERS / SUBSCRIPTIONS
+// =============================================================================
+
+model VpnPanel {
+  id            BigInt          @id @default(autoincrement())
+  publicId      String          @unique @default(uuid()) @db.Uuid
+  name          String
+  type          PanelType       @default(SANITY)
+  baseUrl       String
+  apiKey        String
+  apiSecret     String?
+  status        String          @default("ACTIVE")
+  syncStatus    PanelSyncStatus @default(IDLE)
+  lastSyncAt    DateTime?
+  lastSyncError String?
+  healthStatus  String          @default("UNKNOWN")
+  metadata      Json?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  servers        Server[]
+  vpnUsers       VpnUser[]
+  inboundConfigs InboundConfig[]
+
+  @@index([type])
+  @@index([status])
+  @@map("vpn_panels")
+}
+
+model Country {
+  id        BigInt   @id @default(autoincrement())
+  code      String   @unique // ISO 3166-1 alpha-2
+  name      String
+  flag      String?
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  cities    City[]
+  createdAt DateTime @default(now())
+  Server    Server[]
+
+  @@map("countries")
+}
+
+model City {
+  id        BigInt   @id @default(autoincrement())
+  countryId BigInt
+  country   Country  @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  name      String
+  isActive  Boolean  @default(true)
+  servers   Server[]
+  createdAt DateTime @default(now())
+
+  @@index([countryId])
+  @@map("cities")
+}
+
+model Server {
+  id              BigInt       @id @default(autoincrement())
+  publicId        String       @unique @default(uuid()) @db.Uuid
+  panelId         BigInt
+  panel           VpnPanel     @relation(fields: [panelId], references: [id], onDelete: Cascade)
+  countryId       BigInt?
+  country         Country?     @relation(fields: [countryId], references: [id], onDelete: SetNull)
+  cityId          BigInt?
+  city            City?        @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  name            String
+  hostname        String       @unique
+  ip              String
+  protocols       Protocol[]   @default([])
+  capacity        Int          @default(1000)
+  currentLoad     Int          @default(0)
+  status          ServerStatus @default(ONLINE)
+  priority        Int          @default(0)
+  maintenanceMode Boolean      @default(false)
+  failoverEnabled Boolean      @default(true)
+  healthCheckedAt DateTime?
+  metadata        Json?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  inbounds      InboundConfig[]
+  subscriptions SubscriptionServer[]
+  serverHealth  ServerHealthLog[]
+
+  @@index([panelId])
+  @@index([status])
+  @@index([countryId])
+  @@index([priority])
+  @@map("servers")
+}
+
+model ServerHealthLog {
+  id          BigInt       @id @default(autoincrement())
+  serverId    BigInt
+  server      Server       @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  status      ServerStatus
+  latencyMs   Int?
+  cpuPercent  Decimal?     @db.Decimal(5, 2)
+  memPercent  Decimal?     @db.Decimal(5, 2)
+  diskPercent Decimal?     @db.Decimal(5, 2)
+  activeUsers Int?
+  checkedAt   DateTime     @default(now())
+
+  @@index([serverId])
+  @@index([checkedAt])
+  @@map("server_health_logs")
+}
+
+model InboundConfig {
+  id        BigInt   @id @default(autoincrement())
+  panelId   BigInt
+  panel     VpnPanel @relation(fields: [panelId], references: [id], onDelete: Cascade)
+  serverId  BigInt
+  server    Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  inboundId String // id on the panel
+  protocol  Protocol
+  remark    String?
+  port      Int
+  network   String?
+  security  String?
+  isActive  Boolean  @default(true)
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Plan      Plan[]
+
+  @@index([serverId])
+  @@index([panelId])
+  @@map("inbound_configs")
+}
+
+model VpnUser {
+  id                BigInt          @id @default(autoincrement())
+  publicId          String          @unique @default(uuid()) @db.Uuid
+  panelId           BigInt
+  panel             VpnPanel        @relation(fields: [panelId], references: [id])
+  panelUserId       String          @unique // id assigned by Sanity panel
+  userId            BigInt
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionId    BigInt?         @unique
+  subscription      Subscription?   @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  status            PanelUserStatus @default(ACTIVE)
+  usedTrafficBytes  BigInt          @default(0)
+  totalTrafficBytes BigInt?
+  expiryAt          DateTime?
+  subLink           String?
+  subToken          String?         @unique
+  lastSyncAt        DateTime?
+  syncError         String?
+  metadata          Json?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([panelId])
+  @@index([userId])
+  @@index([subscriptionId])
+  @@index([panelUserId])
+  @@map("vpn_users")
+}
+
+model Subscription {
+  id                BigInt             @id @default(autoincrement())
+  publicId          String             @unique @default(uuid()) @db.Uuid
+  userId            BigInt
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId            BigInt
+  plan              Plan               @relation(fields: [planId], references: [id])
+  orderId           BigInt?            @unique
+  order             Order?             @relation("SubscriptionOriginOrder", fields: [orderId], references: [id], onDelete: SetNull)
+  status            SubscriptionStatus @default(PENDING)
+  type              PlanType
+  // Quota
+  trafficLimitBytes BigInt?
+  usedTrafficBytes  BigInt             @default(0)
+  durationDays      Int?
+  startsAt          DateTime
+  expiresAt         DateTime?
+  pausedAt          DateTime?
+  // Devices
+  deviceLimit       Int                @default(1)
+  activeDevices     Int                @default(0)
+  // Linked VPN user / link
+  vpnUser           VpnUser?
+  subscriptionLink  String?
+  // Trial / transfer
+  isTrial           Boolean            @default(false)
+  transferredFromId BigInt?
+  metadata          Json?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  orders  Order[]              @relation("OrderSubscription")
+  servers SubscriptionServer[]
+  events  SubscriptionEvent[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([planId])
+  @@map("subscriptions")
+}
+
+model SubscriptionServer {
+  subscriptionId BigInt
+  serverId       BigInt
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  server         Server       @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  assignedAt     DateTime     @default(now())
+
+  @@id([subscriptionId, serverId])
+  @@map("subscription_servers")
+}
+
+model SubscriptionEvent {
+  id             BigInt       @id @default(autoincrement())
+  subscriptionId BigInt
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  event          String // CREATED | RENEWED | UPGRADED | EXTENDED | SUSPENDED | RESET | PAUSED | RESUMED | EXPIRED
+  payload        Json?
+  createdAt      DateTime     @default(now())
+
+  @@index([subscriptionId])
+  @@map("subscription_events")
+}
+
+// =============================================================================
+// REFERRAL / AFFILIATE
+// =============================================================================
+
+model ReferralLog {
+  id             BigInt         @id @default(autoincrement())
+  referrerId     BigInt
+  referrer       User           @relation("ReferrerRewards", fields: [referrerId], references: [id], onDelete: Cascade)
+  referredId     BigInt
+  referred       User           @relation("ReferredEarnings", fields: [referredId], references: [id], onDelete: Cascade)
+  level          Int            @default(1)
+  status         ReferralStatus @default(PENDING)
+  rewardType     String         @default("WALLET") // WALLET | PLAN | NONE
+  referrerReward BigInt         @default(0)
+  referredReward BigInt         @default(0)
+  completedAt    DateTime?
+  metadata       Json?
+  createdAt      DateTime       @default(now())
+
+  @@unique([referrerId, referredId])
+  @@index([referrerId])
+  @@index([status])
+  @@map("referral_logs")
+}
+
+model AffiliateAccount {
+  id                  BigInt                @id @default(autoincrement())
+  userId              BigInt                @unique
+  user                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code                String                @unique
+  status              AffiliateStatus       @default(ACTIVE)
+  commissionRate      Decimal               @default(10.00) @db.Decimal(5, 2)
+  totalEarnings       BigInt                @default(0)
+  availableBalance    BigInt                @default(0)
+  withdrawnAmount     BigInt                @default(0)
+  payoutMethod        String?
+  payoutDetails       Json?
+  metadata            Json?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  AffiliateCommission AffiliateCommission[]
+
+  @@map("affiliate_accounts")
+}
+
+model AffiliateCommission {
+  id          BigInt           @id @default(autoincrement())
+  affiliateId BigInt
+  affiliate   AffiliateAccount @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  orderId     BigInt
+  amount      BigInt
+  rate        Decimal          @db.Decimal(5, 2)
+  status      String           @default("PENDING") // PENDING | APPROVED | PAID | REVERSED
+  paidAt      DateTime?
+  createdAt   DateTime         @default(now())
+
+  @@index([affiliateId])
+  @@index([status])
+  @@map("affiliate_commissions")
+}
+
+// =============================================================================
+// TICKETS
+// =============================================================================
+
+model Ticket {
+  id              BigInt         @id @default(autoincrement())
+  publicId        String         @unique @default(uuid()) @db.Uuid
+  userId          BigInt
+  user            User           @relation("TicketOwner", fields: [userId], references: [id], onDelete: Cascade)
+  assigneeId      BigInt?
+  assignee        User?          @relation("TicketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  category        String
+  subject         String
+  status          TicketStatus   @default(OPEN)
+  priority        TicketPriority @default(NORMAL)
+  firstResponseAt DateTime?
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  slaBreached     Boolean        @default(false)
+  tags            String[]       @default([])
+  metadata        Json?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  messages    TicketMessage[]
+  attachments TicketAttachment[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([assigneeId])
+  @@index([createdAt])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id         BigInt    @id @default(autoincrement())
+  ticketId   BigInt
+  ticket     Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId     BigInt
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  senderType String // USER | AGENT | SYSTEM
+  body       String
+  isInternal Boolean   @default(false)
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  attachments TicketAttachment[]
+
+  @@index([ticketId])
+  @@index([userId])
+  @@map("ticket_messages")
+}
+
+model TicketAttachment {
+  id        BigInt         @id @default(autoincrement())
+  ticketId  BigInt
+  ticket    Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  messageId BigInt?
+  message   TicketMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  fileUrl   String
+  fileKey   String
+  mimeType  String
+  fileSize  Int
+  createdAt DateTime       @default(now())
+
+  @@index([ticketId])
+  @@map("ticket_attachments")
+}
+
+// =============================================================================
+// NOTIFICATIONS / BROADCAST
+// =============================================================================
+
+model Notification {
+  id        BigInt              @id @default(autoincrement())
+  userId    BigInt
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   NotificationChannel
+  event     String
+  title     String
+  body      String
+  status    NotificationStatus  @default(QUEUED)
+  payload   Json?
+  sentAt    DateTime?
+  readAt    DateTime?
+  error     String?
+  createdAt DateTime            @default(now())
+
+  @@index([userId])
+  @@index([status])
+  @@index([channel])
+  @@map("notifications")
+}
+
+model Broadcast {
+  id          BigInt           @id @default(autoincrement())
+  publicId    String           @unique @default(uuid()) @db.Uuid
+  name        String
+  segment     BroadcastSegment @default(ALL)
+  message     String
+  photoUrl    String?
+  videoUrl    String?
+  documentUrl String?
+  buttons     Json?
+  isMarkdown  Boolean          @default(true)
+  status      BroadcastStatus  @default(DRAFT)
+  scheduledAt DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  totalCount  Int              @default(0)
+  sentCount   Int              @default(0)
+  failedCount Int              @default(0)
+  createdById BigInt?
+  metadata    Json?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  targets BroadcastTarget[]
+
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("broadcasts")
+}
+
+model BroadcastTarget {
+  id          BigInt    @id @default(autoincrement())
+  broadcastId BigInt
+  broadcast   Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  userId      BigInt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      String    @default("PENDING") // PENDING | SENT | FAILED
+  sentAt      DateTime?
+  error       String?
+  createdAt   DateTime  @default(now())
+
+  @@unique([broadcastId, userId])
+  @@index([broadcastId])
+  @@map("broadcast_targets")
+}
+
+// =============================================================================
+// EDUCATION
+// =============================================================================
+
+model EducationArticle {
+  id        BigInt         @id @default(autoincrement())
+  publicId  String         @unique @default(uuid()) @db.Uuid
+  topic     EducationTopic
+  title     String
+  slug      String         @unique
+  summary   String?
+  content   String
+  videoUrl  String?
+  coverUrl  String?
+  category  String?
+  tags      String[]       @default([])
+  sortOrder Int            @default(0)
+  isVisible Boolean        @default(true)
+  views     Int            @default(0)
+  metadata  Json?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  progress UserEducationProgress[]
+
+  @@index([topic])
+  @@index([isVisible])
+  @@index([category])
+  @@map("education_articles")
+}
+
+model UserEducationProgress {
+  id         BigInt           @id @default(autoincrement())
+  userId     BigInt
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  articleId  BigInt
+  article    EducationArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  isRead     Boolean          @default(false)
+  readAt     DateTime?
+  bookmarked Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@unique([userId, articleId])
+  @@map("user_education_progress")
+}
+
+// =============================================================================
+// ANALYTICS / LOGS / AUDIT / SETTINGS
+// =============================================================================
+
+model AuditLog {
+  id         BigInt      @id @default(autoincrement())
+  userId     BigInt?
+  user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     AuditAction
+  resource   String
+  resourceId String?
+  ip         String?
+  userAgent  String?
+  before     Json?
+  after      Json?
+  metadata   Json?
+  createdAt  DateTime    @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  id          BigInt   @id @default(autoincrement())
+  key         String   @unique
+  value       String
+  category    String   @default("GENERAL")
+  type        String   @default("STRING") // STRING | NUMBER | BOOLEAN | JSON
+  isPublic    Boolean  @default(false)
+  editable    Boolean  @default(true)
+  description String?
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@index([category])
+  @@index([isPublic])
+  @@map("system_settings")
+}
+
+model AnalyticsSnapshot {
+  id             BigInt   @id @default(autoincrement())
+  date           DateTime @db.Date
+  metric         String // REVENUE | NEW_USERS | ACTIVE_SUBS | TRIALS | ...
+  value          Decimal  @db.Decimal(20, 4)
+  dimension      String?
+  dimensionValue String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  @@unique([date, metric, dimension, dimensionValue])
+  @@index([date])
+  @@index([metric])
+  @@map("analytics_snapshots")
+}
+
+model ApiKey {
+  id         BigInt    @id @default(autoincrement())
+  publicId   String    @unique @default(uuid()) @db.Uuid
+  name       String
+  keyHash    String    @unique
+  keyPrefix  String
+  userId     BigInt?
+  scopes     String[]  @default([])
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("api_keys")
+}
+
+model JobLog {
+  id         BigInt    @id @default(autoincrement())
+  queue      String
+  jobName    String
+  jobId      String?
+  status     String // QUEUED | ACTIVE | COMPLETED | FAILED | RETRY
+  attempts   Int       @default(0)
+  payload    Json?
+  result     Json?
+  error      String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([queue])
+  @@index([jobName])
+  @@index([status])
+  @@map("job_logs")
+}
+
+model FeatureFlag {
+  id             BigInt   @id @default(autoincrement())
+  key            String   @unique
+  enabled        Boolean  @default(false)
+  description    String?
+  rolloutPercent Int      @default(0)
+  metadata       Json?
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
+
+  @@map("feature_flags")
+}
