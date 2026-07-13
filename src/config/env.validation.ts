@@ -91,6 +91,8 @@ export const envSchema = z.object({
   SANITY_PANEL_TIMEOUT_MS: z.coerce.number().default(15000),
   SANITY_PANEL_MAX_RETRIES: z.coerce.number().default(3),
   SANITY_PANEL_SYNC_CRON: z.string().default('0 */6 * * *'),
+  SANITY_PANEL_SUB_PORT: z.coerce.number().default(2053),
+  SANITY_PANEL_SUB_PATH: z.string().default('sub'),
 
   ONLINE_GATEWAY_ENABLED: envBool(true),
   ONLINE_GATEWAY_BASE_URL: z.string().default(''),

@@ -82,6 +82,10 @@ export interface PanelConnection {
   type?: string;
   baseUrl: string;
   apiKey: string;
+  /** Subscription port (e.g., 20596 for 3x-UI subscription service) */
+  subPort?: number;
+  /** Subscription path (e.g., "sub" for /sub/{subId}) */
+  subPath?: string;
   extraConfig?: Record<string, unknown>;
 }
 

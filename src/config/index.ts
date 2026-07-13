@@ -72,6 +72,8 @@ export const config = {
     timeoutMs: env.SANITY_PANEL_TIMEOUT_MS,
     maxRetries: env.SANITY_PANEL_MAX_RETRIES,
     syncCron: env.SANITY_PANEL_SYNC_CRON,
+    subPort: env.SANITY_PANEL_SUB_PORT,
+    subPath: env.SANITY_PANEL_SUB_PATH,
   },
   payments: {
     online: {

@@ -818,6 +818,9 @@ model VpnPanel {
   baseUrl       String
   apiKey        String
   apiSecret     String?
+  // Subscription link configuration (port and path for sub endpoint)
+  subPort       Int?             @default(2053)
+  subPath       String?          @default("sub")
   status        String          @default("ACTIVE")
   syncStatus    PanelSyncStatus @default(IDLE)
   lastSyncAt    DateTime?

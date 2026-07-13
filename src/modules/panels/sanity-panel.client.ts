@@ -560,10 +560,20 @@ export class SanityPanelClient implements IPanelClient {
     if (!raw.enable) status = 'disabled';
     else if (raw.expiryTime > 0 && raw.expiryTime < Date.now()) status = 'expired';
 
+    // Build subscription URL using configured subPort and subPath
+    // Format: http(s)://host:subPort/subPath/subId
     const baseUrl = panel?.baseUrl ?? config.sanity.baseUrl;
-    const subLink = raw.subId
-      ? `${baseUrl.replace(/\/$/, '')}/sub/${raw.subId}`
-      : '';
+    const subPort = panel?.subPort ?? config.sanity.subPort ?? 20596;
+    const subPath = panel?.subPath ?? 'sub';
+
+    let subLink = '';
+    if (raw.subId) {
+      // Extract host from baseUrl (e.g., http://1.2.3.4:2053 -> 1.2.3.4)
+      const urlMatch = baseUrl.match(/^https?:\/\/([^\/:]+)(?::(\d+))?/);
+      const host = urlMatch ? urlMatch[1] : new URL(baseUrl).hostname;
+      const protocol = baseUrl.startsWith('https') ? 'https' : 'http';
+      subLink = `${protocol}://${host}:${subPort}/${subPath}/${raw.subId}`;
+    }
 
     return {
       uuid: String(raw.uuid ?? raw.id ?? ''),
