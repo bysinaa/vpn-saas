@@ -293,7 +293,9 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
           : 'fa';
         const userMsg = this.runtime.translateError(locale, err) || t(locale, 'error.generic');
         await ctx?.reply?.(userMsg).catch(() => {});
-        await ctx?.answerCbQuery?.().catch(() => {});
+if (ctx.callbackQuery) {
+  await ctx?.answerCbQuery?.().catch(() => {});
+}
       }
     });
   }
@@ -624,7 +626,11 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
 
     // Stub answerCbQuery for text updates so flow handlers don't crash.
     if (typeof ctx.answerCbQuery !== 'function') {
-      ctx.answerCbQuery = async () => {};
+ctx.answerCbQuery = async () => {
+  if (ctx.callbackQuery) {
+    await ctx?.answerCbQuery?.().catch(() => {});
+  }
+};
     }
 
     // Onboarding guard: a brand-new user must pick a language before they can

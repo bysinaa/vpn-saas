@@ -46,6 +46,7 @@ export const envSchema = z.object({
   RATE_LIMIT_LIMIT: z.coerce.number().default(120),
 
   DATABASE_URL: z.string().min(1),
+  PRISMA_MIGRATE_ON_BOOT: envBool(false),
 
   REDIS_HOST: z.string().default('localhost'),
   REDIS_PORT: z.coerce.number().default(6379),

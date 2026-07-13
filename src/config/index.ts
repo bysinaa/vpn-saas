@@ -26,6 +26,7 @@ export const config = {
   },
   database: {
     url: env.DATABASE_URL,
+    migrateOnBoot: env.PRISMA_MIGRATE_ON_BOOT,
   },
   redis: {
     host: env.REDIS_HOST,

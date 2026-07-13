@@ -1,51 +1,56 @@
-# ---- Stage 1: Build ----
-FROM node:20-alpine AS builder
+FROM node:20-alpine AS base
 
 WORKDIR /app
 
-# Copy package files for dependency installation
+RUN apk add --no-cache dumb-init openssl libc6-compat
+
+# ---- Stage 1: Install production dependencies ----
+FROM base AS production-deps
+
 COPY package*.json ./
 COPY prisma ./prisma
 
-# Install ALL dependencies (including devDependencies for build)
+RUN npm ci --omit=dev \
+  && npx prisma generate
+
+# ---- Stage 2: Build application ----
+FROM base AS builder
+
+COPY package*.json ./
+COPY prisma ./prisma
+
 RUN npm ci
 
-# Generate Prisma client
-RUN npx prisma generate
-
-# Copy source code
 COPY . .
 
-# Build the application
-RUN npm run build
+RUN npx prisma generate \
+  && npm run build \
+  && npm prune --omit=dev
 
-# Remove devDependencies for smaller production image
-RUN npm prune --production
-
-# ---- Stage 2: Production ----
+# ---- Stage 3: Production runtime ----
 FROM node:20-alpine AS production
-
-# Install dumb-init for proper signal handling + OpenSSL for Prisma
-RUN apk add --no-cache dumb-init openssl
-
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nestjs -u 1001 -G nodejs
 
 WORKDIR /app
 
-# Copy built application and production dependencies
-COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nestjs:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=nestjs:nodejs /app/package*.json ./
-
-USER nestjs
+RUN apk add --no-cache dumb-init openssl libc6-compat \
+  && addgroup -g 1001 -S nodejs \
+  && adduser -S nestjs -u 1001 -G nodejs
 
 ENV NODE_ENV=production
 ENV PORT=3000
 
+COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nestjs:nodejs /app/public ./public
+COPY --from=builder --chown=nestjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nestjs:nodejs /app/package*.json ./
+COPY --from=builder --chown=nestjs:nodejs /app/docker/start.sh ./docker/start.sh
+
+RUN chmod +x ./docker/start.sh
+
+USER nestjs
+
 EXPOSE 3000
 
-# dumb-init handles SIGTERM/SIGINT properly for graceful shutdown
-ENTRYPOINT ["dumb-init", "node", "dist/main.js"]
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["./docker/start.sh"]

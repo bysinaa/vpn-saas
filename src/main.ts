@@ -51,7 +51,7 @@ async function bootstrap(): Promise<void> {
   // ---- Global prefix ----
   if (config.app.globalPrefix) {
     app.setGlobalPrefix(config.app.globalPrefix, {
-      exclude: ['health', 'health/liveness', 'health/readiness'],
+      exclude: ['health', 'health/ready'],
     });
   }
 
