@@ -1,5 +1,5 @@
 /**
- * Panel Command - Manage 3x-UI panel connections
+ * Panel Command - Manage 3X-UI panel connections and runtime discovery.
  */
 import { BaseCommand } from './install.interface';
 export interface PanelOptions {
@@ -13,19 +13,23 @@ export interface PanelOptions {
     pass?: string;
     subPort?: number;
     subPath?: string;
+    discover?: boolean;
 }
 export declare class PanelCommand extends BaseCommand {
-    private readonly configPath;
     execute(options: PanelOptions): Promise<void>;
-    private loadConfig;
-    private saveConfig;
     private listPanels;
     private addPanel;
     private removePanel;
     private testPanel;
     private syncPanel;
+    private discoverCurrentPanel;
     private showMenu;
-    private testPanelConnection;
+    private discoverPanelRuntime;
+    private extractSubscriptionPath;
+    private detectInstallationDirectory;
+    private detectReverseProxy;
+    private login;
+    private persistPanelEnv;
     private httpRequest;
 }
 //# sourceMappingURL=panel.d.ts.map

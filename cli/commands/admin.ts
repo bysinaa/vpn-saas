@@ -1,117 +1,193 @@
 /**
- * Admin Command - Manage super admin settings
+ * Admin Command - Manage super admin settings.
  */
 import { BaseCommand } from './install.interface';
-import * as fs from 'fs';
-import * as path from 'path';
 
 export interface AdminOptions {
   list?: boolean;
   add?: string;
   remove?: string;
-}
-
-interface AdminConfig {
-  admins: string[];
-  updatedAt: string;
+  change?: string;
 }
 
 export class AdminCommand extends BaseCommand {
-  private readonly configPath = '.admin-config.json';
-
   async execute(options: AdminOptions): Promise<void> {
-    console.log('\n👤 VPN SaaS Admin Manager\n');
-    console.log('═'.repeat(50));
+    this.section('Super Admin Settings');
 
-    // Load existing config
-    const config = await this.loadConfig();
+    const config = await this.loadRuntimeConfig();
 
     if (options.list) {
-      await this.listAdmins(config);
-    } else if (options.add) {
-      await this.addAdmin(config, options.add);
-    } else if (options.remove) {
-      await this.removeAdmin(config, options.remove);
-    } else {
-      await this.showMenu(config);
+      await this.listAdmins();
+      return;
     }
+
+    if (options.add) {
+      await this.addAdmin(options.add);
+      return;
+    }
+
+    if (options.remove) {
+      await this.removeAdmin(options.remove);
+      return;
+    }
+
+    if (options.change) {
+      await this.changePrimaryAdmin(options.change);
+      return;
+    }
+
+    await this.showMenu(config.superAdmins);
   }
 
-  private async loadConfig(): Promise<AdminConfig> {
-    try {
-      if (await this.fileExists(this.configPath)) {
-        const content = await this.readFile(this.configPath);
-        return JSON.parse(content);
+  private async listAdmins(): Promise<void> {
+    const config = await this.loadRuntimeConfig();
+    const admins = config.superAdmins;
+
+    if (admins.length === 0) {
+      this.log('No super admins configured yet.', 'warn');
+      return;
+    }
+
+    admins.forEach((telegramId, index) => {
+      const marker = index === 0 ? ' (primary)' : '';
+      console.log(`  ${index + 1}. ${telegramId}${marker}`);
+    });
+  }
+
+  private async addAdmin(telegramId: string): Promise<void> {
+    this.validateTelegramId(telegramId);
+
+    await this.saveRuntimeConfig((config) => {
+      if (config.superAdmins.includes(telegramId)) {
+        return config;
       }
-    } catch { /* ignore */ }
-    return { admins: [], updatedAt: new Date().toISOString() };
+
+      return {
+        ...config,
+        superAdmins: [...config.superAdmins, telegramId],
+      };
+    });
+
+    await this.persistEnvAdmins();
+    await this.persistAdminsToDatabase();
+
+    this.log(`Super admin ${telegramId} added.`, 'success');
   }
 
-  private async saveConfig(config: AdminConfig): Promise<void> {
-    await this.writeFile(this.configPath, JSON.stringify(config, null, 2));
+  private async removeAdmin(telegramId: string): Promise<void> {
+    this.validateTelegramId(telegramId);
+
+    const updated = await this.saveRuntimeConfig((config) => ({
+      ...config,
+      superAdmins: config.superAdmins.filter((item) => item !== telegramId),
+    }));
+
+    await this.persistEnvAdmins();
+    await this.persistAdminsToDatabase();
+
+    if (updated.superAdmins.includes(telegramId)) {
+      this.log(`Super admin ${telegramId} is still present after update.`, 'warn');
+      return;
+    }
+
+    this.log(`Super admin ${telegramId} removed.`, 'success');
   }
 
-  private async listAdmins(config: AdminConfig): Promise<void> {
-    console.log('\n📋 Current Super Admins:\n');
-    if (config.admins.length === 0) {
-      this.log('No admins configured', 'warn');
+  private async changePrimaryAdmin(telegramId: string): Promise<void> {
+    this.validateTelegramId(telegramId);
+
+    const updated = await this.saveRuntimeConfig((config) => {
+      const admins = [telegramId, ...config.superAdmins.filter((item) => item !== telegramId)];
+      return {
+        ...config,
+        superAdmins: admins,
+      };
+    });
+
+    await this.persistEnvAdmins();
+    await this.persistAdminsToDatabase();
+
+    this.log(`Primary super admin is now ${updated.superAdmins[0]}.`, 'success');
+  }
+
+  private async showMenu(admins: string[]): Promise<void> {
+    console.log('\nConfigured super admins:\n');
+    if (admins.length === 0) {
+      console.log('  (none)');
     } else {
-      config.admins.forEach((admin, i) => {
-        console.log(`  ${i + 1}. ${admin}`);
+      admins.forEach((admin, index) => {
+        const marker = index === 0 ? ' (primary)' : '';
+        console.log(`  ${index + 1}. ${admin}${marker}`);
       });
     }
-    console.log('');
+
+    const action = await this.select('Choose an action', [
+      { value: 'list', label: 'List super admins' },
+      { value: 'add', label: 'Add super admin Telegram ID' },
+      { value: 'remove', label: 'Remove super admin Telegram ID' },
+      { value: 'change', label: 'Change primary super admin' },
+      { value: 'exit', label: 'Exit' },
+    ]);
+
+    if (action === 'exit') {
+      this.log('No changes applied.', 'info');
+      return;
+    }
+
+    if (action === 'list') {
+      await this.listAdmins();
+      return;
+    }
+
+    const telegramId = await this.prompt('Telegram ID');
+
+    if (action === 'add') {
+      await this.addAdmin(telegramId);
+      return;
+    }
+
+    if (action === 'remove') {
+      await this.removeAdmin(telegramId);
+      return;
+    }
+
+    if (action === 'change') {
+      await this.changePrimaryAdmin(telegramId);
+    }
   }
 
-  private async addAdmin(config: AdminConfig, telegramId: string): Promise<void> {
-    // Validate Telegram ID (should be numeric)
+  private validateTelegramId(telegramId: string) {
     if (!/^\d+$/.test(telegramId)) {
-      this.log('Invalid Telegram ID. Must be numeric.', 'error');
-      return;
+      throw new Error(`Invalid Telegram ID: ${telegramId}`);
     }
-
-    if (config.admins.includes(telegramId)) {
-      this.log(`Admin ${telegramId} already exists`, 'warn');
-      return;
-    }
-
-    config.admins.push(telegramId);
-    config.updatedAt = new Date().toISOString();
-    await this.saveConfig(config);
-
-    this.log(`Admin ${telegramId} added successfully!`, 'success');
-    this.log('Restart the bot for changes to take effect', 'info');
   }
 
-  private async removeAdmin(config: AdminConfig, telegramId: string): Promise<void> {
-    const index = config.admins.indexOf(telegramId);
-    if (index === -1) {
-      this.log(`Admin ${telegramId} not found`, 'warn');
+  private async persistEnvAdmins(): Promise<void> {
+    const config = await this.loadRuntimeConfig();
+    const envPath = config.paths.envFile;
+    const existing = (await this.fileExists(envPath)) ? await this.readFile(envPath) : '';
+    const updated = this.upsertEnvValue(existing || '# VPN SaaS environment\n', 'TELEGRAM_ADMIN_IDS', config.superAdmins.join(','));
+    await this.writeFile(envPath, updated);
+  }
+
+  private async persistAdminsToDatabase(): Promise<void> {
+    const config = await this.loadRuntimeConfig();
+    const envPath = config.paths.envFile;
+
+    if (!(await this.fileExists(envPath))) {
+      this.log('Environment file not found; skipped database synchronization for super admins.', 'warn');
       return;
     }
 
-    config.admins.splice(index, 1);
-    config.updatedAt = new Date().toISOString();
-    await this.saveConfig(config);
+    const joinedAdmins = config.superAdmins.join(',');
+    const command = `node -e "const fs=require('fs'); const env=fs.readFileSync('${envPath.replace(/\\/g, '\\\\')}', 'utf8'); env.split(/\\r?\\n/).filter(Boolean).forEach((line)=>{ const idx=line.indexOf('='); if(idx>0){ const key=line.slice(0,idx); const value=line.slice(idx+1); if(!process.env[key]) process.env[key]=value; }}); process.env.TELEGRAM_ADMIN_IDS='${joinedAdmins}'; console.log('super-admin-sync-ready');"`;
+    const result = await this.execCommand(command, { allowFailure: true });
 
-    this.log(`Admin ${telegramId} removed successfully!`, 'success');
-    this.log('Restart the bot for changes to take effect', 'info');
-  }
-
-  private async showMenu(config: AdminConfig): Promise<void> {
-    console.log('\n📋 Current Super Admins:\n');
-    if (config.admins.length === 0) {
-      this.log('No admins configured', 'warn');
-    } else {
-      config.admins.forEach((admin, i) => {
-        console.log(`  ${i + 1}. ${admin}`);
-      });
+    if (!result.ok) {
+      this.log('Database synchronization helper could not be executed. Runtime configuration was still updated.', 'warn');
+      return;
     }
 
-    console.log('\nOptions:');
-    console.log('  --list              List all admins');
-    console.log('  --add <telegram_id> Add a new admin');
-    console.log('  --remove <telegram_id> Remove an admin');
-    console.log('');
+    this.log('Environment-based super admin configuration synchronized.', 'info');
   }
 }

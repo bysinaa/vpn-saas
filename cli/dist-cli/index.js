@@ -2,197 +2,169 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 /**
- * VPN SaaS CLI - Server Installation and Management Tool
+ * VPN SaaS CLI - Production installation and management entrypoint.
  */
 const install_3xui_1 = require("./commands/install.3xui");
 const admin_1 = require("./commands/admin");
 const panel_1 = require("./commands/panel");
 const status_1 = require("./commands/status");
-// Parse command line arguments
 const args = process.argv.slice(2);
 const command = args[0];
 const options = parseOptions(args.slice(1));
 async function main() {
-    console.log('\n🔧 VPN SaaS CLI v1.0.0\n');
+    console.log('\n🔧 VPN SaaS CLI v2.0.0\n');
     switch (command) {
         case 'install':
         case 'i':
-            await runInstall(options);
+            await new install_3xui_1.InstallCommand().execute(options);
             break;
         case 'admin':
+        case 'admins':
         case 'a':
-            await runAdmin(options);
+            await new admin_1.AdminCommand().execute(options);
             break;
         case 'panel':
+        case 'panels':
         case 'p':
-            await runPanel(options);
+            await new panel_1.PanelCommand().execute(options);
             break;
         case 'status':
+        case 'health':
         case 's':
-            await runStatus(options);
+            await new status_1.StatusCommand().execute(options);
+            break;
+        case 'menu':
+        case 'm':
+        case undefined:
+            await showInteractiveMenu();
             break;
         case 'help':
         case 'h':
-        case undefined:
+        case '--help':
             showHelp();
             break;
         default:
             console.log(`Unknown command: ${command}\n`);
             showHelp();
-            process.exit(1);
+            process.exitCode = 1;
     }
 }
-function parseOptions(args) {
+function parseOptions(argv) {
     const opts = {};
-    let i = 0;
-    while (i < args.length) {
-        const arg = args[i];
+    let index = 0;
+    while (index < argv.length) {
+        const arg = argv[index];
         if (arg.startsWith('--')) {
-            const key = arg.slice(2);
-            const nextArg = args[i + 1];
-            // Boolean flags
-            if (['list', 'add', 'remove', 'test', 'sync', 'skip3xui', 'yes', 'y', 'verbose', 'v'].includes(key)) {
+            const key = toCamelCase(arg.slice(2));
+            const nextArg = argv[index + 1];
+            if (!nextArg || nextArg.startsWith('-')) {
                 opts[key] = true;
-                i++;
+                index += 1;
+                continue;
             }
-            // Value flags
-            else if (nextArg && !nextArg.startsWith('--')) {
-                // Convert numeric values
-                if (/^\d+$/.test(nextArg)) {
-                    opts[key] = parseInt(nextArg, 10);
+            opts[key] = /^\d+$/.test(nextArg) ? Number.parseInt(nextArg, 10) : nextArg;
+            index += 2;
+            continue;
+        }
+        if (arg.startsWith('-')) {
+            const flags = arg.slice(1).split('');
+            flags.forEach((flag) => {
+                switch (flag) {
+                    case 'y':
+                        opts.yes = true;
+                        break;
+                    case 'v':
+                        opts.verbose = true;
+                        break;
+                    case 'h':
+                        opts.help = true;
+                        break;
+                    default:
+                        opts[flag] = true;
                 }
-                else {
-                    opts[key] = nextArg;
-                }
-                i += 2;
-            }
-            else {
-                opts[key] = true;
-                i++;
-            }
+            });
+            index += 1;
+            continue;
         }
-        else if (arg.startsWith('-')) {
-            // Short flags
-            const short = arg.slice(1);
-            switch (short) {
-                case 'l':
-                    opts.list = true;
-                    break;
-                case 'a':
-                    opts.add = true;
-                    break;
-                case 'r':
-                    opts.remove = true;
-                    break;
-                case 't':
-                    opts.test = true;
-                    break;
-                case 's':
-                    opts.sync = true;
-                    break;
-                case 'y':
-                    opts.yes = true;
-                    break;
-                case 'v':
-                    opts.verbose = true;
-                    break;
-                case 'h':
-                    opts.help = true;
-                    break;
-                default: opts[short] = true;
-            }
-            i++;
-        }
-        else {
-            // Positional arguments
-            i++;
-        }
+        index += 1;
     }
     return opts;
 }
-async function runInstall(options) {
-    const installCmd = new install_3xui_1.InstallCommand();
-    await installCmd.execute(options);
+function toCamelCase(input) {
+    return input.replace(/-([a-z])/g, (_, character) => character.toUpperCase());
 }
-async function runAdmin(options) {
-    const adminCmd = new admin_1.AdminCommand();
-    await adminCmd.execute(options);
-}
-async function runPanel(options) {
-    const panelCmd = new panel_1.PanelCommand();
-    await panelCmd.execute(options);
-}
-async function runStatus(options) {
-    const statusCmd = new status_1.StatusCommand();
-    await statusCmd.execute(options);
+async function showInteractiveMenu() {
+    console.log('VPN SaaS CLI');
+    console.log('');
+    console.log('1. Install Platform');
+    console.log('2. Update Platform');
+    console.log('3. Start Services');
+    console.log('4. Stop Services');
+    console.log('5. Restart Services');
+    console.log('6. View Logs');
+    console.log('7. Health Status');
+    console.log('8. Configure Super Admin');
+    console.log('9. Configure Telegram');
+    console.log('10. Configure 3X-UI');
+    console.log('11. Backup');
+    console.log('12. Restore');
+    console.log('13. Exit');
+    console.log('');
+    console.log('Use one of the dedicated commands, for example:');
+    console.log('  vpn-cli install --yes');
+    console.log('  vpn-cli status --verbose');
+    console.log('  vpn-cli admin --add 123456789');
+    console.log('  vpn-cli panel --discover --url http://127.0.0.1:2053 --user admin --pass secret');
 }
 function showHelp() {
     console.log(`
-🔧 VPN SaaS CLI - Server Installation and Management Tool
+VPN SaaS CLI - Production installation and management
 
 USAGE:
   vpn-cli <command> [options]
 
 COMMANDS:
-  install, i     Install 3x-UI and configure the bot
-  admin, a       Manage super admin settings
-  panel, p       Manage 3x-UI panel connections
-  status, s      Show system status
-  help, h        Show this help message
+  install, i         Install or repair the platform
+  admin, a           Manage super admin Telegram IDs
+  panel, p           Discover and configure 3X-UI panel runtime
+  status, s          Show health and runtime status
+  menu, m            Show management menu
+  help, h            Show help
+
+GLOBAL OPTIONS:
+  --yes, -y          Auto-approve prompts when safe
+  --verbose, -v      Enable verbose command logging
 
 INSTALL OPTIONS:
-  --yes, -y      Skip all confirmations
-  --skip3xui     Skip 3x-UI installation
-  --panel-url    Panel URL
-  --panel-user   Panel username
-  --panel-pass   Panel password
+  --skip-3xui        Skip fresh 3X-UI installation
+  --panel-url        Existing panel URL
+  --panel-user       Existing panel username
+  --panel-pass       Existing panel password
+  --domain           Public domain name
+  --email            Administrative email
 
 ADMIN OPTIONS:
-  --list         List all admins
-  --add <id>     Add admin by Telegram ID
-  --remove <id>  Remove admin by Telegram ID
+  --list             List super admins
+  --add <id>         Add super admin
+  --remove <id>      Remove super admin
+  --change <id>      Set primary super admin
 
 PANEL OPTIONS:
-  --list         List all panels
-  --add          Add a new panel
-  --remove       Remove a panel
-  --test         Test panel connection
-  --sync         Sync users from panel
-  --url          Panel URL
-  --user         Panel username
-  --pass         Panel password
-  --sub-port     Subscription port (default: 2053)
-  --sub-path     Subscription path (default: sub)
-
-STATUS OPTIONS:
-  --verbose, -v  Show detailed status information
-
-EXAMPLES:
-  # Install everything from scratch
-  vpn-cli install
-
-  # Connect to existing 3x-UI
-  vpn-cli install --skip3xui --panel-url http://1.2.3.4:2053 --panel-user admin --panel-pass secret
-
-  # Add admin
-  vpn-cli admin --add 123456789
-
-  # List admins
-  vpn-cli admin --list
-
-  # Add panel
-  vpn-cli panel --add --url http://1.2.3.4:2053 --user admin --pass secret --sub-port 2053 --sub-path sub
-
-  # Check status
-  vpn-cli status
-
-  # Check detailed status
-  vpn-cli status --verbose
+  --list             Show runtime panel configuration
+  --add              Add or update panel configuration
+  --discover         Discover runtime panel settings automatically
+  --test             Validate panel connectivity
+  --remove           Remove saved panel configuration
+  --url <url>        Panel URL
+  --user <user>      Panel username
+  --pass <pass>      Panel password
+  --sub-port <port>  Subscription port
+  --sub-path <path>  Subscription path
 `);
 }
-// Run the CLI
 main().catch((error) => {
-    console.error('Error:', error.message);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Error: ${message}`);
     process.exit(1);
 });
 //# sourceMappingURL=index.js.map

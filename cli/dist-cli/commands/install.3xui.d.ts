@@ -1,30 +1,23 @@
 /**
- * Install Command - Install 3x-ui and configure the bot
+ * Production installer for VPN SaaS and 3X-UI integration.
  */
 import { BaseCommand, type InstallOptions } from './install.interface';
 export type { InstallOptions };
 export declare class InstallCommand extends BaseCommand {
-    private readonly XUI_REPO;
-    private readonly XUI_TAG;
-    private readonly XUI_INSTALL_URL;
+    private readonly xuiInstallUrl;
     execute(options: InstallOptions): Promise<void>;
-    private check3xuiInstalled;
-    private get3xuiStatus;
-    private handleExisting3xui;
-    private handleNew3xui;
-    private configure3xui;
-    private configureBot;
-    private showFinalInstructions;
-    private getServerIp;
-    private testPanelConnection;
-    private syncExistingUsers;
-    private savePanelConfig;
-    private checkPostgresInstalled;
-    private checkRedisInstalled;
-    private installPostgres;
-    private installRedis;
-    private downloadFile;
-    private httpRequest;
-    private generateEnvFile;
+    private validatePlatform;
+    private ensureRootPrivileges;
+    private ensureDockerInstalled;
+    private ensureDockerComposeInstalled;
+    private ensureBasePackages;
+    private configureFirewall;
+    private ensure3xuiRuntime;
+    private ensureEnvironment;
+    private buildAndStartContainers;
+    private runPrismaTasks;
+    private ensureSuperAdmin;
+    private validateInstallation;
+    private showFinalSummary;
 }
 //# sourceMappingURL=install.3xui.d.ts.map

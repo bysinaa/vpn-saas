@@ -1,5 +1,5 @@
 /**
- * Status Command - System health check
+ * Status Command - Production runtime health inspection.
  */
 import { BaseCommand } from './install.interface';
 export interface StatusOptions {
@@ -7,10 +7,12 @@ export interface StatusOptions {
 }
 export declare class StatusCommand extends BaseCommand {
     execute(options: StatusOptions): Promise<void>;
+    private checkDocker;
+    private checkCompose;
     private check3xui;
     private checkDatabase;
     private checkRedis;
-    private checkBotProcess;
-    private checkPorts;
+    private checkApplication;
+    private checkConfiguredPorts;
 }
 //# sourceMappingURL=status.d.ts.map
