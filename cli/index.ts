@@ -374,7 +374,7 @@ async function runComposeCommand(subCommand: string) {
   console.log(`Running: docker compose -f ${composeFile} --env-file ${envPath} ${subCommand}`);
 
   const { stdout, stderr } = await execAsync(
-    `docker compose -f "${composeFile}" --env-file "${envPath}" ${subCommand} --no-color`,
+    `docker compose -f "${composeFile}" --env-file "${envPath}" ${subCommand}`,
     {
       cwd: workspaceRoot,
       windowsHide: true,
