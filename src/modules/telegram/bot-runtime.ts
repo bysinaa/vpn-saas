@@ -49,18 +49,22 @@ export class BotRuntime {
     const raw = await this.redis.getJson<BotSession & { userId?: string }>(
       `bot:session:${telegramId}`,
     );
-if (!raw) {
-  const user = await this.prisma.user.findUnique({
-    where: { telegramId },
-    select: { id: true },
-  });
-  return {
-    telegramId,
-    state: 'idle',
-    menuStack: ['main'],
-    userId: user?.id ? BigInt(user.id) : undefined,
-  };
-}
+    if (!raw) {
+      const user = await this.prisma.user.findUnique({
+        where: { telegramId },
+        select: { id: true, role: true },
+      });
+
+      const normalize = (s?: string) => (s ? s.trim().replace(/^\+/, '') : '');
+      const isConfiguredSuperAdmin = normalize(config.superAdmin.telegramId) === normalize(telegramId);
+      return {
+        telegramId,
+        state: 'idle',
+        menuStack: ['main'],
+        userId: user?.id ? BigInt(user.id) : undefined,
+        data: isConfiguredSuperAdmin ? { forceAdminMenu: true } : undefined,
+      };
+    }
     return {
       ...raw,
       userId: raw.userId ? BigInt(raw.userId) : undefined,
@@ -352,6 +356,13 @@ if (!raw) {
   async getMainMenuKeyboard(telegramId: string): Promise<any> {
     const locale = await this.getLocale(telegramId);
     const session = await this.getSession(telegramId);
+    const normalize = (s?: string) => (s ? s.trim().replace(/^\+/, '') : '');
+    const isConfiguredSuperAdmin = normalize(config.superAdmin.telegramId) === normalize(telegramId);
+
+    if (isConfiguredSuperAdmin) {
+      return mainMenuKeyboard(locale, 'SUPER_ADMIN');
+    }
+
     if (!session.userId) {
       // Not yet authenticated — return the user layout (no admin panel).
       return mainMenuKeyboard(locale);
