@@ -181,13 +181,13 @@ async function showInteractiveMenu() {
           await new PanelCommand().execute(options as PanelOptions);
           break;
         case 'start':
-          await runComposeCommand('up -d');
+          await runLifecycleAction('start');
           break;
         case 'stop':
-          await runComposeCommand('stop');
+          await runLifecycleAction('stop');
           break;
         case 'restart':
-          await runComposeCommand('restart');
+          await runLifecycleAction('restart');
           break;
         case 'logs':
           await runComposeCommand('logs --tail=100 app');
@@ -353,7 +353,7 @@ async function manageEnvFile() {
   console.log(`${key} updated in ${envPath}`);
 }
 
-async function runComposeCommand(subCommand: string) {
+async function runLifecycleAction(action: 'start' | 'stop' | 'restart') {
   const envPath = path.join(workspaceRoot, '.env');
   const composeFile = path.join(workspaceRoot, 'docker-compose.yml');
 
@@ -362,25 +362,70 @@ async function runComposeCommand(subCommand: string) {
     return;
   }
 
-  if (!fs.existsSync(envPath) && subCommand !== 'stop') {
+  if (!fs.existsSync(envPath) && action !== 'stop') {
     console.log('Environment file not found. Run "Install Platform" first to generate .env and configure the project.');
     return;
   }
+
+  if (action === 'stop') {
+    await runComposeCommand('stop');
+    return;
+  }
+
+  if (action === 'restart') {
+    await runComposeCommand('down');
+  }
+
+  await runComposeCommand('build');
+  await runComposeCommand('up -d');
+  await runPrismaDeploy();
+}
+
+async function runComposeCommand(subCommand: string) {
+  const envPath = path.join(workspaceRoot, '.env');
+  const composeFile = path.join(workspaceRoot, 'docker-compose.yml');
+  const command = `docker compose -f "${composeFile}" --env-file "${envPath}" ${subCommand}`;
 
   const { exec } = await import('child_process');
   const { promisify } = await import('util');
   const execAsync = promisify(exec);
 
-  console.log(`Running: docker compose -f ${composeFile} --env-file ${envPath} ${subCommand}`);
+  console.log(`Running: ${command}`);
 
-  const { stdout, stderr } = await execAsync(
-    `docker compose -f "${composeFile}" --env-file "${envPath}" ${subCommand}`,
-    {
-      cwd: workspaceRoot,
-      windowsHide: true,
-      maxBuffer: 1024 * 1024 * 10,
-    },
-  );
+  const { stdout, stderr } = await execAsync(command, {
+    cwd: workspaceRoot,
+    windowsHide: true,
+    maxBuffer: 1024 * 1024 * 10,
+  });
+
+  const out = stdout.toString().trim();
+  const err = stderr.toString().trim();
+
+  if (out) {
+    console.log(out);
+  }
+
+  if (err) {
+    console.error(err);
+  }
+}
+
+async function runPrismaDeploy() {
+  const envPath = path.join(workspaceRoot, '.env');
+  const composeFile = path.join(workspaceRoot, 'docker-compose.yml');
+  const command = `docker compose -f "${composeFile}" --env-file "${envPath}" exec -T app npx prisma migrate deploy`;
+
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
+
+  console.log(`Running: ${command}`);
+
+  const { stdout, stderr } = await execAsync(command, {
+    cwd: workspaceRoot,
+    windowsHide: true,
+    maxBuffer: 1024 * 1024 * 10,
+  });
 
   const out = stdout.toString().trim();
   const err = stderr.toString().trim();
