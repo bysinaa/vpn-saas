@@ -76,12 +76,15 @@ export class InstallCommand extends BaseCommand {
     this.section('Installing Docker');
 
     if (family === 'debian') {
-      await this.execOrThrow('apt-get update');
       await this.execOrThrow('apt-get install -y ca-certificates curl gnupg lsb-release');
+
+      await this.execCommand('rm -f /etc/apt/sources.list.d/docker.list', { allowFailure: true });
+      await this.execCommand('rm -f /etc/apt/keyrings/docker.gpg', { allowFailure: true });
       await this.execOrThrow('install -m 0755 -d /etc/apt/keyrings');
-      await this.execOrThrow('sh -c "curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo $ID)/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg"');
+      await this.execOrThrow('sh -c "curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo $ID)/gpg | gpg --dearmor --batch --yes -o /etc/apt/keyrings/docker.gpg"');
       await this.execOrThrow('chmod a+r /etc/apt/keyrings/docker.gpg');
-      await this.execOrThrow('sh -c ". /etc/os-release && echo \\"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$ID $VERSION_CODENAME stable\\" > /etc/apt/sources.list.d/docker.list"');
+      await this.execOrThrow('sh -c ". /etc/os-release && echo \\"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$ID $VERSION_CODENAME stable\\" | tee /etc/apt/sources.list.d/docker.list >/dev/null"');
+      await this.execOrThrow('cat /etc/apt/sources.list.d/docker.list');
       await this.execOrThrow('apt-get update');
       await this.execOrThrow('apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin');
     } else {
