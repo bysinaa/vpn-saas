@@ -167,7 +167,7 @@ async function showInteractiveMenu() {
           await new InstallCommand().execute(options as InstallOptions);
           break;
         case 'editEnv':
-          await openEnvFile();
+          await manageEnvFile();
           break;
         case 'status':
           await new StatusCommand().execute(options as StatusOptions);
@@ -279,7 +279,7 @@ async function promptMenuSelection(): Promise<MenuAction> {
   }
 }
 
-async function openEnvFile() {
+async function manageEnvFile() {
   const envPath = path.join(process.cwd(), '.env');
 
   if (!fs.existsSync(envPath)) {
@@ -287,17 +287,68 @@ async function openEnvFile() {
     return;
   }
 
-  const editor = process.env.EDITOR || 'nano';
-  const { exec } = await import('child_process');
-  const { promisify } = await import('util');
-  const execAsync = promisify(exec);
+  const readline = await import('readline');
+  const envContent = fs.readFileSync(envPath, 'utf8');
 
-  console.log(`Opening ${envPath} with ${editor}`);
-  await execAsync(`${editor} "${envPath}"`, {
-    cwd: process.cwd(),
-    windowsHide: true,
-    maxBuffer: 1024 * 1024 * 10,
+  console.log(`Environment file: ${envPath}`);
+  console.log('1. View .env');
+  console.log('2. Edit one key');
+  console.log('3. Back');
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
   });
+
+  const action = await new Promise<string>((resolve) => {
+    rl.question('Select an action (1-3): ', (value) => {
+      rl.close();
+      resolve(value.trim());
+    });
+  });
+
+  if (action === '1') {
+    console.log('');
+    console.log(envContent.trim());
+    return;
+  }
+
+  if (action !== '2') {
+    return;
+  }
+
+  const rlEdit = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  const key = await new Promise<string>((resolve) => {
+    rlEdit.question('Enter env key to edit: ', (value) => resolve(value.trim()));
+  });
+
+  if (!key) {
+    rlEdit.close();
+    return;
+  }
+
+  const currentMatch = envContent.match(new RegExp(`^${key}=(.*)$`, 'm'));
+  const currentValue = currentMatch?.[1] ?? '';
+
+  const nextValue = await new Promise<string>((resolve) => {
+    const suffix = currentValue ? ` [current: ${currentValue}]` : '';
+    rlEdit.question(`Enter new value for ${key}${suffix}: `, (value) => resolve(value));
+  });
+
+  rlEdit.close();
+
+  const line = `${key}=${nextValue.trim()}`;
+  const regex = new RegExp(`^${key}=.*$`, 'm');
+  const nextContent = regex.test(envContent)
+    ? envContent.replace(regex, line)
+    : `${envContent.trimEnd()}\n${line}\n`;
+
+  fs.writeFileSync(envPath, nextContent, 'utf8');
+  console.log(`${key} updated in ${envPath}`);
 }
 
 async function runComposeCommand(subCommand: string) {

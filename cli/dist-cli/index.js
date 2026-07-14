@@ -158,7 +158,7 @@ async function showInteractiveMenu() {
                     await new install_3xui_1.InstallCommand().execute(options);
                     break;
                 case 'editEnv':
-                    await openEnvFile();
+                    await manageEnvFile();
                     break;
                 case 'status':
                     await new status_1.StatusCommand().execute(options);
@@ -263,22 +263,61 @@ async function promptMenuSelection() {
             return 'exit';
     }
 }
-async function openEnvFile() {
+async function manageEnvFile() {
     const envPath = path.join(process.cwd(), '.env');
     if (!fs.existsSync(envPath)) {
         console.log('Environment file not found. Run "Install Platform" first.');
         return;
     }
-    const editor = process.env.EDITOR || 'nano';
-    const { exec } = await Promise.resolve().then(() => __importStar(require('child_process')));
-    const { promisify } = await Promise.resolve().then(() => __importStar(require('util')));
-    const execAsync = promisify(exec);
-    console.log(`Opening ${envPath} with ${editor}`);
-    await execAsync(`${editor} "${envPath}"`, {
-        cwd: process.cwd(),
-        windowsHide: true,
-        maxBuffer: 1024 * 1024 * 10,
+    const readline = await Promise.resolve().then(() => __importStar(require('readline')));
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    console.log(`Environment file: ${envPath}`);
+    console.log('1. View .env');
+    console.log('2. Edit one key');
+    console.log('3. Back');
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
     });
+    const action = await new Promise((resolve) => {
+        rl.question('Select an action (1-3): ', (value) => {
+            rl.close();
+            resolve(value.trim());
+        });
+    });
+    if (action === '1') {
+        console.log('');
+        console.log(envContent.trim());
+        return;
+    }
+    if (action !== '2') {
+        return;
+    }
+    const rlEdit = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+    });
+    const key = await new Promise((resolve) => {
+        rlEdit.question('Enter env key to edit: ', (value) => resolve(value.trim()));
+    });
+    if (!key) {
+        rlEdit.close();
+        return;
+    }
+    const currentMatch = envContent.match(new RegExp(`^${key}=(.*)$`, 'm'));
+    const currentValue = currentMatch?.[1] ?? '';
+    const nextValue = await new Promise((resolve) => {
+        const suffix = currentValue ? ` [current: ${currentValue}]` : '';
+        rlEdit.question(`Enter new value for ${key}${suffix}: `, (value) => resolve(value));
+    });
+    rlEdit.close();
+    const line = `${key}=${nextValue.trim()}`;
+    const regex = new RegExp(`^${key}=.*$`, 'm');
+    const nextContent = regex.test(envContent)
+        ? envContent.replace(regex, line)
+        : `${envContent.trimEnd()}\n${line}\n`;
+    fs.writeFileSync(envPath, nextContent, 'utf8');
+    console.log(`${key} updated in ${envPath}`);
 }
 async function runComposeCommand(subCommand) {
     const envPath = path.join(process.cwd(), '.env');
