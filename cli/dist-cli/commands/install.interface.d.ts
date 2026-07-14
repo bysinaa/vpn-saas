@@ -112,7 +112,8 @@ export declare abstract class BaseCommand {
     protected log(message: string, type?: LogLevel): void;
     protected section(title: string): void;
     protected prompt(question: string, defaultValue?: string): Promise<string>;
-    protected promptSecret(question: string): Promise<string>;
+    protected promptRequired(question: string, defaultValue?: string): Promise<string>;
+    protected promptSecret(question: string, defaultValue?: string): Promise<string>;
     protected confirm(question: string, defaultValue?: boolean): Promise<boolean>;
     protected select<T extends string>(question: string, options: MenuChoice<T>[], defaultValue?: T): Promise<T>;
     protected execCommand(cmd: string, options?: ExecOptions): Promise<ExecResult>;

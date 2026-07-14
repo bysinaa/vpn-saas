@@ -176,12 +176,22 @@ export abstract class BaseCommand {
     });
   }
 
-  protected async promptSecret(question: string): Promise<string> {
+  protected async promptRequired(question: string, defaultValue = ''): Promise<string> {
+    while (true) {
+      const value = await this.prompt(question, defaultValue);
+      if (value.trim()) {
+        return value.trim();
+      }
+      this.log(`${question} is required.`, 'warn');
+    }
+  }
+
+  protected async promptSecret(question: string, defaultValue = ''): Promise<string> {
     if (this.autoApprove) {
-      return '';
+      return defaultValue;
     }
 
-    return this.prompt(question);
+    return this.promptRequired(question, defaultValue);
   }
 
   protected async confirm(question: string, defaultValue = false): Promise<boolean> {

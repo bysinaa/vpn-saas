@@ -94,11 +94,20 @@ class BaseCommand {
             });
         });
     }
-    async promptSecret(question) {
-        if (this.autoApprove) {
-            return '';
+    async promptRequired(question, defaultValue = '') {
+        while (true) {
+            const value = await this.prompt(question, defaultValue);
+            if (value.trim()) {
+                return value.trim();
+            }
+            this.log(`${question} is required.`, 'warn');
         }
-        return this.prompt(question);
+    }
+    async promptSecret(question, defaultValue = '') {
+        if (this.autoApprove) {
+            return defaultValue;
+        }
+        return this.promptRequired(question, defaultValue);
     }
     async confirm(question, defaultValue = false) {
         if (this.autoApprove) {

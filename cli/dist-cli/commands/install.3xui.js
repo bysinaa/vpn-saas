@@ -149,7 +149,7 @@ class InstallCommand extends install_interface_1.BaseCommand {
         const tlsEnabled = false;
         const panelUrl = options.panelUrl || `http://${publicIp}:${panelPort}`;
         const panelUser = options.panelUser || (await this.prompt('3X-UI admin username', 'admin'));
-        const panelPass = options.panelPass || (await this.prompt('3X-UI admin password', this.generatePassword(16)));
+        const panelPass = options.panelPass || (await this.promptSecret('3X-UI admin password', this.generatePassword(16)));
         await this.saveRuntimeConfig((config) => ({
             ...config,
             panel: {
@@ -171,18 +171,18 @@ class InstallCommand extends install_interface_1.BaseCommand {
     async ensureEnvironmentWizard(options, publicIp, apiPort, panel) {
         this.section('Step 1/4 - Application and bot configuration');
         const appUrl = options.domain ? `https://${options.domain}` : `http://${publicIp}:${apiPort}`;
-        const botToken = await this.prompt('Telegram bot token', '');
-        const primarySuperAdminTelegramId = (await this.prompt('Primary super admin Telegram ID', '')).trim();
+        const botToken = await this.promptRequired('Telegram bot token');
+        const primarySuperAdminTelegramId = await this.promptRequired('Primary super admin Telegram ID');
         const superAdminEmail = (await this.prompt('Super admin email', 'admin@vpn-saas.local')).trim() || 'admin@vpn-saas.local';
-        const superAdminPassword = await this.promptSecret('Super admin password');
+        const superAdminPassword = await this.promptSecret('Super admin password', this.generatePassword(16));
         const webhookSecret = this.generateSecret(40);
         this.section('Step 2/4 - Database configuration');
         const postgresDb = (await this.prompt('PostgreSQL database name', 'vpn_saas')).trim() || 'vpn_saas';
         const postgresUser = (await this.prompt('PostgreSQL username', 'postgres')).trim() || 'postgres';
-        const postgresPassword = await this.promptSecret('PostgreSQL password');
+        const postgresPassword = await this.promptSecret('PostgreSQL password', this.generatePassword(20));
         this.section('Step 3/4 - Object storage configuration');
         const s3AccessKey = (await this.prompt('S3 access key', 'minioadmin')).trim() || 'minioadmin';
-        const s3SecretKey = await this.promptSecret('S3 secret key');
+        const s3SecretKey = await this.promptSecret('S3 secret key', this.generatePassword(20));
         const s3PublicUrl = `http://${publicIp}:9000/vpn-saas`;
         this.section('Step 4/4 - Writing environment and validating');
         const runtime = await this.loadRuntimeConfig();
