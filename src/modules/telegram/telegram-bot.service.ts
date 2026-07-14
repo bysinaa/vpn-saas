@@ -468,8 +468,17 @@ if (ctx.callbackQuery) {
   private async onStart(ctx: Context): Promise<void> {
     const telegramId = ctx.from?.id?.toString();
     if (!telegramId) return;
+    const session = await this.runtime.getSession(telegramId);
     const locale = await this.runtime.getLocale(telegramId);
-    const exists = !!(await this.runtime.getSession(telegramId)).userId;
+    const exists = !!session.userId;
+    // If this is the configured Super Admin and they don't yet have a DB user,
+    // create/promote them immediately so they see the admin menu on /start.
+    if (!exists && session.data?.forceAdminMenu) {
+      await this.ensureUser(ctx);
+      await this.runtime.setState(telegramId, 'idle');
+      await this.showMenu(ctx);
+      return;
+    }
     if (!exists) {
       await this.runtime.setLocale(telegramId, 'fa');
       await this.runtime.setState(telegramId, 'awaiting_language');
@@ -522,7 +531,8 @@ if (ctx.callbackQuery) {
   private async showMenu(ctx: Context): Promise<void> {
     const telegramId = ctx.from?.id?.toString()!;
     const locale = await this.runtime.getLocale(telegramId);
-    const role = await this.getUserRole(telegramId);
+const session = await this.runtime.getSession(telegramId);
+const role = session.data?.forceAdminMenu ? 'SUPER_ADMIN' : await this.getUserRole(telegramId);
     await this.runtime.resetMenu(telegramId, 'main');
     await this.runtime.setState(telegramId, 'idle');
     // Spec #7 UX: edit the existing message in place (no new message on menu tap).
