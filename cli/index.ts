@@ -10,12 +10,23 @@ import { StatusCommand, type StatusOptions } from './commands/status';
 
 type ParsedOptions = Record<string, unknown>;
 
+type MenuAction =
+  | 'install'
+  | 'status'
+  | 'admin'
+  | 'panel'
+  | 'start'
+  | 'stop'
+  | 'restart'
+  | 'logs'
+  | 'exit';
+
 const args = process.argv.slice(2);
 const command = args[0];
 const options = parseOptions(args.slice(1));
 
 async function main() {
-  console.log('\n🔧 VPN SaaS CLI v2.0.0\n');
+  console.log('\n🔧 Tazaxy CLI v2.0.0\n');
 
   switch (command) {
     case 'install':
@@ -114,42 +125,124 @@ function toCamelCase(input: string): string {
 }
 
 async function showInteractiveMenu() {
-  console.log('VPN SaaS CLI');
+  const action = await promptMenuSelection();
+
+  switch (action) {
+    case 'install':
+      await new InstallCommand().execute(options as InstallOptions);
+      return;
+    case 'status':
+      await new StatusCommand().execute(options as StatusOptions);
+      return;
+    case 'admin':
+      await new AdminCommand().execute(options as AdminOptions);
+      return;
+    case 'panel':
+      await new PanelCommand().execute(options as PanelOptions);
+      return;
+    case 'start':
+      await runComposeCommand('up -d');
+      return;
+    case 'stop':
+      await runComposeCommand('stop');
+      return;
+    case 'restart':
+      await runComposeCommand('restart');
+      return;
+    case 'logs':
+      await runComposeCommand('logs --tail=100');
+      return;
+    case 'exit':
+    default:
+      console.log('Exiting Tazaxy CLI.');
+  }
+}
+
+async function promptMenuSelection(): Promise<MenuAction> {
+  const readline = await import('readline');
+
+  console.log('Tazaxy CLI');
   console.log('');
   console.log('1. Install Platform');
-  console.log('2. Update Platform');
-  console.log('3. Start Services');
-  console.log('4. Stop Services');
-  console.log('5. Restart Services');
-  console.log('6. View Logs');
-  console.log('7. Health Status');
-  console.log('8. Configure Super Admin');
-  console.log('9. Configure Telegram');
-  console.log('10. Configure 3X-UI');
-  console.log('11. Backup');
-  console.log('12. Restore');
-  console.log('13. Exit');
+  console.log('2. Health Status');
+  console.log('3. Configure Super Admin');
+  console.log('4. Configure 3X-UI');
+  console.log('5. Start Services');
+  console.log('6. Stop Services');
+  console.log('7. Restart Services');
+  console.log('8. View Logs');
+  console.log('9. Exit');
   console.log('');
-  console.log('Use one of the dedicated commands, for example:');
-  console.log('  vpn-cli install --yes');
-  console.log('  vpn-cli status --verbose');
-  console.log('  vpn-cli admin --add 123456789');
-  console.log('  vpn-cli panel --discover --url http://127.0.0.1:2053 --user admin --pass secret');
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  const answer = await new Promise<string>((resolve) => {
+    rl.question('Select an action (1-9): ', (value) => {
+      rl.close();
+      resolve(value.trim());
+    });
+  });
+
+  switch (answer) {
+    case '1':
+      return 'install';
+    case '2':
+      return 'status';
+    case '3':
+      return 'admin';
+    case '4':
+      return 'panel';
+    case '5':
+      return 'start';
+    case '6':
+      return 'stop';
+    case '7':
+      return 'restart';
+    case '8':
+      return 'logs';
+    default:
+      return 'exit';
+  }
+}
+
+async function runComposeCommand(subCommand: string) {
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
+
+  console.log(`Running: docker compose ${subCommand}`);
+
+  const { stdout, stderr } = await execAsync(`docker compose ${subCommand}`, {
+    cwd: process.cwd(),
+    windowsHide: true,
+    maxBuffer: 1024 * 1024 * 10,
+  });
+
+  if (stdout.trim()) {
+    console.log(stdout.trim());
+  }
+
+  if (stderr.trim()) {
+    console.error(stderr.trim());
+  }
 }
 
 function showHelp() {
   console.log(`
-VPN SaaS CLI - Production installation and management
+Tazaxy CLI - Production installation and management
 
 USAGE:
-  vpn-cli <command> [options]
+  tazaxy <command> [options]
 
 COMMANDS:
   install, i         Install or repair the platform
   admin, a           Manage super admin Telegram IDs
   panel, p           Discover and configure 3X-UI panel runtime
   status, s          Show health and runtime status
-  menu, m            Show management menu
+  menu, m            Show interactive management menu
   help, h            Show help
 
 GLOBAL OPTIONS:

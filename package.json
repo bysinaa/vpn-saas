@@ -5,6 +5,7 @@
   "license": "MIT",
   "private": true,
   "bin": {
+    "tazaxy": "./cli/dist-cli/index.js",
     "vpn-cli": "./cli/dist-cli/index.js"
   },
   "scripts": {

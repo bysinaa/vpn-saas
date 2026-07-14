@@ -24,6 +24,33 @@ Environment values are written to:
 
 ---
 
+## One-Line Whole Project Install
+
+Run the full project installer directly on a Linux VPS as root:
+
+```bash
+bash <(curl -Ls https://raw.githubusercontent.com/bysinaa/vpn-saas/main/scripts/install.sh)
+```
+
+What it does:
+
+1. installs Git, curl, and Node.js when missing
+2. clones or updates the `vpn-saas` repository into `/opt/vpn-saas`
+3. installs npm dependencies
+4. builds the CLI
+5. runs the full interactive `install` flow
+6. installs the global `tazaxy` command
+7. opens the CLI menu again after installation for post-install management
+
+Optional environment overrides:
+
+```bash
+export VPN_SAAS_BRANCH=main
+export VPN_SAAS_INSTALL_DIR=/opt/vpn-saas
+export VPN_SAAS_REPO_URL=https://github.com/bysinaa/vpn-saas.git
+bash <(curl -Ls https://raw.githubusercontent.com/bysinaa/vpn-saas/main/scripts/install.sh)
+```
+
 ## Build and Run
 
 ```bash
@@ -35,6 +62,9 @@ npm run cli:start -- help
 
 # Example installer run
 npm run cli:start -- install
+
+# Open the menu directly
+npm run cli:start
 
 # Optional global execution after packaging
 vpn-cli help
@@ -209,24 +239,20 @@ vpn-cli status --verbose
 Displays the interactive management menu.
 
 ```bash
-vpn-cli menu
+tazaxy menu
 ```
 
 Current menu includes:
 
 1. Install Platform
-2. Update Platform
-3. Start Services
-4. Stop Services
-5. Restart Services
-6. View Logs
-7. Health Status
-8. Configure Super Admin
-9. Configure Telegram
-10. Configure 3X-UI
-11. Backup
-12. Restore
-13. Exit
+2. Health Status
+3. Configure Super Admin
+4. Configure 3X-UI
+5. Start Services
+6. Stop Services
+7. Restart Services
+8. View Logs
+9. Exit
 
 ---
 
