@@ -123,6 +123,26 @@ show_management_menu() {
   node cli/dist-cli/index.js menu
 }
 
+uninstall_everything() {
+  log "Uninstalling VPN SaaS and cleaning up all files"
+  if [ -d "$INSTALL_DIR" ]; then
+    rm -rf "$INSTALL_DIR"
+    log "Removed installation directory: $INSTALL_DIR"
+  fi
+
+  if [ -f /usr/local/bin/tazaxy ]; then
+    rm -f /usr/local/bin/tazaxy
+    log "Removed tazaxy launcher"
+  fi
+
+  if [ -f /usr/local/bin/vpn-cli ]; then
+    rm -f /usr/local/bin/vpn-cli
+    log "Removed vpn-cli launcher"
+  fi
+
+  log "Uninstallation complete. System is clean."
+}
+
 main() {
   require_root
   install_base_dependencies
