@@ -18,7 +18,7 @@ class InstallCommand extends install_interface_1.BaseCommand {
         await this.ensureRootPrivileges();
         const publicIp = await this.detectPublicIp();
         const domain = options.domain || '';
-        const apiPort = await this.findAvailablePort(3000, 3000);
+        const apiPort = await this.findAvailablePort(3000, 3001);
         const httpPort = await this.findAvailablePort(80, 8080);
         const httpsPort = await this.findAvailablePort(443, 8443);
         await this.saveRuntimeConfig((config) => ({
@@ -143,8 +143,8 @@ class InstallCommand extends install_interface_1.BaseCommand {
             await this.execOrThrow('bash /tmp/3x-ui-install.sh', { timeout: 300000 });
             this.log('3X-UI installed.', 'success');
         }
-        const panelPort = await this.findAvailablePort(2053, 2053);
-        const subscriptionPort = await this.findAvailablePort(2096, 2096);
+        const panelPort = await this.findAvailablePort(2053, 2054);
+        const subscriptionPort = await this.findAvailablePort(2096, 2097);
         const subscriptionPath = this.normalizePathSegment('sub', 'sub');
         const tlsEnabled = false;
         const panelUrl = options.panelUrl || `http://${publicIp}:${panelPort}`;

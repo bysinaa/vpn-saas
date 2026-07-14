@@ -127,35 +127,47 @@ function toCamelCase(input) {
     return input.replace(/-([a-z])/g, (_, character) => character.toUpperCase());
 }
 async function showInteractiveMenu() {
-    const action = await promptMenuSelection();
-    switch (action) {
-        case 'install':
-            await new install_3xui_1.InstallCommand().execute(options);
-            return;
-        case 'status':
-            await new status_1.StatusCommand().execute(options);
-            return;
-        case 'admin':
-            await new admin_1.AdminCommand().execute(options);
-            return;
-        case 'panel':
-            await new panel_1.PanelCommand().execute(options);
-            return;
-        case 'start':
-            await runComposeCommand('up -d');
-            return;
-        case 'stop':
-            await runComposeCommand('stop');
-            return;
-        case 'restart':
-            await runComposeCommand('restart');
-            return;
-        case 'logs':
-            await runComposeCommand('logs --tail=100');
-            return;
-        case 'exit':
-        default:
+    while (true) {
+        const action = await promptMenuSelection();
+        if (action === 'exit') {
             console.log('Exiting Tazaxy CLI.');
+            return;
+        }
+        try {
+            switch (action) {
+                case 'install':
+                    await new install_3xui_1.InstallCommand().execute(options);
+                    break;
+                case 'status':
+                    await new status_1.StatusCommand().execute(options);
+                    break;
+                case 'admin':
+                    await new admin_1.AdminCommand().execute(options);
+                    break;
+                case 'panel':
+                    await new panel_1.PanelCommand().execute(options);
+                    break;
+                case 'start':
+                    await runComposeCommand('up -d');
+                    break;
+                case 'stop':
+                    await runComposeCommand('stop');
+                    break;
+                case 'restart':
+                    await runComposeCommand('restart');
+                    break;
+                case 'logs':
+                    await runComposeCommand('logs --tail=100');
+                    break;
+            }
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error(`Error: ${message}`);
+        }
+        console.log('');
+        console.log('Returning to Tazaxy main menu...');
+        console.log('');
     }
 }
 async function promptMenuSelection() {

@@ -125,36 +125,49 @@ function toCamelCase(input: string): string {
 }
 
 async function showInteractiveMenu() {
-  const action = await promptMenuSelection();
+  while (true) {
+    const action = await promptMenuSelection();
 
-  switch (action) {
-    case 'install':
-      await new InstallCommand().execute(options as InstallOptions);
-      return;
-    case 'status':
-      await new StatusCommand().execute(options as StatusOptions);
-      return;
-    case 'admin':
-      await new AdminCommand().execute(options as AdminOptions);
-      return;
-    case 'panel':
-      await new PanelCommand().execute(options as PanelOptions);
-      return;
-    case 'start':
-      await runComposeCommand('up -d');
-      return;
-    case 'stop':
-      await runComposeCommand('stop');
-      return;
-    case 'restart':
-      await runComposeCommand('restart');
-      return;
-    case 'logs':
-      await runComposeCommand('logs --tail=100');
-      return;
-    case 'exit':
-    default:
+    if (action === 'exit') {
       console.log('Exiting Tazaxy CLI.');
+      return;
+    }
+
+    try {
+      switch (action) {
+        case 'install':
+          await new InstallCommand().execute(options as InstallOptions);
+          break;
+        case 'status':
+          await new StatusCommand().execute(options as StatusOptions);
+          break;
+        case 'admin':
+          await new AdminCommand().execute(options as AdminOptions);
+          break;
+        case 'panel':
+          await new PanelCommand().execute(options as PanelOptions);
+          break;
+        case 'start':
+          await runComposeCommand('up -d');
+          break;
+        case 'stop':
+          await runComposeCommand('stop');
+          break;
+        case 'restart':
+          await runComposeCommand('restart');
+          break;
+        case 'logs':
+          await runComposeCommand('logs --tail=100');
+          break;
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`Error: ${message}`);
+    }
+
+    console.log('');
+    console.log('Returning to Tazaxy main menu...');
+    console.log('');
   }
 }
 
