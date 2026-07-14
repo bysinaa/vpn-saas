@@ -38,7 +38,7 @@ class InstallCommand extends install_interface_1.BaseCommand {
         await this.ensureBasePackages(platform.family);
         await this.configureFirewall(httpPort, httpsPort, apiPort);
         const panelRuntime = await this.ensure3xuiRuntime(options, publicIp);
-        await this.ensureEnvironment(options, publicIp, apiPort, panelRuntime);
+        await this.ensureEnvironmentWizard(options, publicIp, apiPort, panelRuntime);
         await this.buildAndStartContainers();
         await this.runPrismaTasks();
         await this.ensureSuperAdmin();
@@ -168,20 +168,25 @@ class InstallCommand extends install_interface_1.BaseCommand {
         const runtime = await this.loadRuntimeConfig();
         return runtime.panel;
     }
-    async ensureEnvironment(options, publicIp, apiPort, panel) {
-        this.section('Generating environment configuration');
+    async ensureEnvironmentWizard(options, publicIp, apiPort, panel) {
+        this.section('Step 1/4 - Application and bot configuration');
+        const appUrl = options.domain ? `https://${options.domain}` : `http://${publicIp}:${apiPort}`;
+        const botToken = await this.prompt('Telegram bot token', '');
+        const superAdminEmail = (await this.prompt('Super admin email', 'admin@vpn-saas.local')).trim() || 'admin@vpn-saas.local';
+        const superAdminPassword = await this.promptSecret('Super admin password');
+        const webhookSecret = this.generateSecret(40);
+        this.section('Step 2/4 - Database configuration');
+        const postgresDb = (await this.prompt('PostgreSQL database name', 'vpn_saas')).trim() || 'vpn_saas';
+        const postgresUser = (await this.prompt('PostgreSQL username', 'postgres')).trim() || 'postgres';
+        const postgresPassword = await this.promptSecret('PostgreSQL password');
+        this.section('Step 3/4 - Object storage configuration');
+        const s3AccessKey = (await this.prompt('S3 access key', 'minioadmin')).trim() || 'minioadmin';
+        const s3SecretKey = await this.promptSecret('S3 secret key');
+        const s3PublicUrl = `http://${publicIp}:9000/vpn-saas`;
+        this.section('Step 4/4 - Writing environment and validating');
         const runtime = await this.loadRuntimeConfig();
         const envTemplate = await this.readFile('.env.example');
         let envContent = envTemplate;
-        const appUrl = options.domain ? `https://${options.domain}` : `http://${publicIp}:${apiPort}`;
-        const botToken = await this.prompt('Telegram bot token', '');
-        const postgresDb = (await this.prompt('PostgreSQL database name', 'vpn_saas')).trim() || 'vpn_saas';
-        const postgresUser = (await this.prompt('PostgreSQL username', 'postgres')).trim() || 'postgres';
-        const postgresPassword = await this.prompt('PostgreSQL password', this.generatePassword(20));
-        const superAdminEmail = (await this.prompt('Super admin email', 'admin@vpn-saas.local')).trim() || 'admin@vpn-saas.local';
-        const superAdminPassword = await this.prompt('Super admin password', this.generatePassword(16));
-        const s3AccessKey = (await this.prompt('S3 access key', 'minioadmin')).trim() || 'minioadmin';
-        const s3SecretKey = await this.prompt('S3 secret key', 'minioadmin');
         const jwtAccessSecret = this.generateSecret(48);
         const jwtRefreshSecret = this.generateSecret(48);
         const encryptionKey = this.generateSecret(32);
@@ -199,9 +204,12 @@ class InstallCommand extends install_interface_1.BaseCommand {
         envContent = this.upsertEnvValue(envContent, 'TELEGRAM_BOT_TOKEN', botToken);
         envContent = this.upsertEnvValue(envContent, 'JWT_ACCESS_SECRET', jwtAccessSecret);
         envContent = this.upsertEnvValue(envContent, 'JWT_REFRESH_SECRET', jwtRefreshSecret);
+        envContent = this.upsertEnvValue(envContent, 'WEBHOOK_SECRET', webhookSecret);
         envContent = this.upsertEnvValue(envContent, 'ENCRYPTION_KEY', encryptionKey);
+        envContent = this.upsertEnvValue(envContent, 'S3_BUCKET', 'vpn-saas');
         envContent = this.upsertEnvValue(envContent, 'S3_ACCESS_KEY', s3AccessKey);
         envContent = this.upsertEnvValue(envContent, 'S3_SECRET_KEY', s3SecretKey);
+        envContent = this.upsertEnvValue(envContent, 'S3_PUBLIC_URL', s3PublicUrl);
         envContent = this.upsertEnvValue(envContent, 'SUPER_ADMIN_EMAIL', superAdminEmail);
         envContent = this.upsertEnvValue(envContent, 'SUPER_ADMIN_PASSWORD', superAdminPassword);
         envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_BASE_URL', panel.panelUrl);
@@ -210,6 +218,22 @@ class InstallCommand extends install_interface_1.BaseCommand {
         envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_SUB_PORT', String(panel.subscriptionPort));
         envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_SUB_PATH', panel.subscriptionPath);
         envContent = this.upsertEnvValue(envContent, 'ONLINE_GATEWAY_CALLBACK_URL', `${appUrl}/api/v1/payments/online/callback`);
+        this.assertEnvHasValues(envContent, [
+            'APP_URL',
+            'DATABASE_URL',
+            'JWT_ACCESS_SECRET',
+            'JWT_REFRESH_SECRET',
+            'S3_BUCKET',
+            'S3_ACCESS_KEY',
+            'S3_SECRET_KEY',
+            'S3_PUBLIC_URL',
+            'TELEGRAM_BOT_TOKEN',
+            'SANITY_PANEL_BASE_URL',
+            'WEBHOOK_SECRET',
+            'ENCRYPTION_KEY',
+            'SUPER_ADMIN_EMAIL',
+            'SUPER_ADMIN_PASSWORD',
+        ]);
         await this.writeFile(this.defaultEnvPath, envContent);
         await this.writeFile(runtime.paths.envFile, envContent);
         await this.saveRuntimeConfig((config) => ({
@@ -279,6 +303,15 @@ class InstallCommand extends install_interface_1.BaseCommand {
         console.log(`Runtime config: ${runtime.paths.stateFile}`);
         console.log(`Installer log: ${runtime.paths.installLogFile}`);
         this.log('Installation flow completed. Re-open the CLI to use the main menu.', 'success');
+    }
+    assertEnvHasValues(content, keys) {
+        const missing = keys.filter((key) => {
+            const match = content.match(new RegExp(`^${key}=(.*)$`, 'm'));
+            return !match || !match[1].trim();
+        });
+        if (missing.length > 0) {
+            throw new Error(`Generated .env is missing required values: ${missing.join(', ')}`);
+        }
     }
     generatePassword(length) {
         return this.generateSecret(length).slice(0, Math.max(12, length));

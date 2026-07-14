@@ -13,12 +13,13 @@ export declare class InstallCommand extends BaseCommand {
     private ensureBasePackages;
     private configureFirewall;
     private ensure3xuiRuntime;
-    private ensureEnvironment;
+    private ensureEnvironmentWizard;
     private buildAndStartContainers;
     private runPrismaTasks;
     private ensureSuperAdmin;
     private validateInstallation;
     private showFinalSummary;
+    private assertEnvHasValues;
     private generatePassword;
 }
 //# sourceMappingURL=install.3xui.d.ts.map
