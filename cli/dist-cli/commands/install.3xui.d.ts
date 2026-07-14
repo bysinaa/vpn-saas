@@ -19,5 +19,6 @@ export declare class InstallCommand extends BaseCommand {
     private ensureSuperAdmin;
     private validateInstallation;
     private showFinalSummary;
+    private generatePassword;
 }
 //# sourceMappingURL=install.3xui.d.ts.map

@@ -148,12 +148,14 @@ class InstallCommand extends install_interface_1.BaseCommand {
         const subscriptionPath = this.normalizePathSegment('sub', 'sub');
         const tlsEnabled = false;
         const panelUrl = options.panelUrl || `http://${publicIp}:${panelPort}`;
+        const panelUser = options.panelUser || (await this.prompt('3X-UI admin username', 'admin'));
+        const panelPass = options.panelPass || (await this.prompt('3X-UI admin password', this.generatePassword(16)));
         await this.saveRuntimeConfig((config) => ({
             ...config,
             panel: {
                 panelUrl,
-                panelUser: options.panelUser || 'admin',
-                panelPass: options.panelPass || '',
+                panelUser,
+                panelPass,
                 apiUrl: `${panelUrl}/panel/api`,
                 subscriptionBaseUrl: `http://${publicIp}:${subscriptionPort}`,
                 subscriptionPath,
@@ -169,41 +171,75 @@ class InstallCommand extends install_interface_1.BaseCommand {
     async ensureEnvironment(options, publicIp, apiPort, panel) {
         this.section('Generating environment configuration');
         const runtime = await this.loadRuntimeConfig();
-        let envContent = (await this.fileExists(runtime.paths.envFile))
-            ? await this.readFile(runtime.paths.envFile)
-            : '# VPN SaaS environment\n';
+        const envTemplate = await this.readFile('.env.example');
+        let envContent = envTemplate;
+        const appUrl = options.domain ? `https://${options.domain}` : `http://${publicIp}:${apiPort}`;
         const botToken = await this.prompt('Telegram bot token', '');
+        const postgresDb = (await this.prompt('PostgreSQL database name', 'vpn_saas')).trim() || 'vpn_saas';
+        const postgresUser = (await this.prompt('PostgreSQL username', 'postgres')).trim() || 'postgres';
+        const postgresPassword = await this.prompt('PostgreSQL password', this.generatePassword(20));
+        const superAdminEmail = (await this.prompt('Super admin email', 'admin@vpn-saas.local')).trim() || 'admin@vpn-saas.local';
+        const superAdminPassword = await this.prompt('Super admin password', this.generatePassword(16));
+        const s3AccessKey = (await this.prompt('S3 access key', 'minioadmin')).trim() || 'minioadmin';
+        const s3SecretKey = await this.prompt('S3 secret key', 'minioadmin');
         const jwtAccessSecret = this.generateSecret(48);
         const jwtRefreshSecret = this.generateSecret(48);
         const encryptionKey = this.generateSecret(32);
+        const databaseUrl = `postgresql://${encodeURIComponent(postgresUser)}:${encodeURIComponent(postgresPassword)}@postgres:5432/${postgresDb}?schema=public`;
         envContent = this.upsertEnvValue(envContent, 'NODE_ENV', 'production');
         envContent = this.upsertEnvValue(envContent, 'APP_PORT', String(apiPort));
-        envContent = this.upsertEnvValue(envContent, 'APP_URL', `${options.domain ? `https://${options.domain}` : `http://${publicIp}:${apiPort}`}`);
-        envContent = this.upsertEnvValue(envContent, 'DATABASE_URL', 'postgresql://postgres:postgres@postgres:5432/vpn_saas?schema=public');
+        envContent = this.upsertEnvValue(envContent, 'APP_URL', appUrl);
+        envContent = this.upsertEnvValue(envContent, 'CORS_ORIGINS', appUrl);
+        envContent = this.upsertEnvValue(envContent, 'DATABASE_URL', databaseUrl);
+        envContent = this.upsertEnvValue(envContent, 'POSTGRES_DB', postgresDb);
+        envContent = this.upsertEnvValue(envContent, 'POSTGRES_USER', postgresUser);
+        envContent = this.upsertEnvValue(envContent, 'POSTGRES_PASSWORD', postgresPassword);
         envContent = this.upsertEnvValue(envContent, 'REDIS_HOST', 'redis');
         envContent = this.upsertEnvValue(envContent, 'REDIS_PORT', '6379');
         envContent = this.upsertEnvValue(envContent, 'TELEGRAM_BOT_TOKEN', botToken);
         envContent = this.upsertEnvValue(envContent, 'JWT_ACCESS_SECRET', jwtAccessSecret);
         envContent = this.upsertEnvValue(envContent, 'JWT_REFRESH_SECRET', jwtRefreshSecret);
         envContent = this.upsertEnvValue(envContent, 'ENCRYPTION_KEY', encryptionKey);
-        envContent = this.upsertEnvValue(envContent, 'VPN_PANEL_URL', panel.panelUrl);
-        envContent = this.upsertEnvValue(envContent, 'VPN_PANEL_API_URL', panel.apiUrl);
-        envContent = this.upsertEnvValue(envContent, 'VPN_PANEL_SUBSCRIPTION_BASE_URL', panel.subscriptionBaseUrl);
-        envContent = this.upsertEnvValue(envContent, 'VPN_PANEL_SUBSCRIPTION_PATH', panel.subscriptionPath);
-        envContent = this.upsertEnvValue(envContent, 'VPN_PANEL_SUBSCRIPTION_PORT', String(panel.subscriptionPort));
+        envContent = this.upsertEnvValue(envContent, 'S3_ACCESS_KEY', s3AccessKey);
+        envContent = this.upsertEnvValue(envContent, 'S3_SECRET_KEY', s3SecretKey);
+        envContent = this.upsertEnvValue(envContent, 'SUPER_ADMIN_EMAIL', superAdminEmail);
+        envContent = this.upsertEnvValue(envContent, 'SUPER_ADMIN_PASSWORD', superAdminPassword);
+        envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_BASE_URL', panel.panelUrl);
+        envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_USERNAME', panel.panelUser);
+        envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_PASSWORD', panel.panelPass);
+        envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_SUB_PORT', String(panel.subscriptionPort));
+        envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_SUB_PATH', panel.subscriptionPath);
+        envContent = this.upsertEnvValue(envContent, 'ONLINE_GATEWAY_CALLBACK_URL', `${appUrl}/api/v1/payments/online/callback`);
+        await this.writeFile(this.defaultEnvPath, envContent);
         await this.writeFile(runtime.paths.envFile, envContent);
-        this.log(`Environment file written to ${runtime.paths.envFile}.`, 'success');
+        await this.saveRuntimeConfig((config) => ({
+            ...config,
+            telegram: {
+                ...(config.telegram || {}),
+                botToken,
+            },
+            panel: config.panel
+                ? {
+                    ...config.panel,
+                    panelUser: panel.panelUser,
+                    panelPass: panel.panelPass,
+                }
+                : config.panel,
+        }));
+        this.log(`Environment file written to ${this.defaultEnvPath}.`, 'success');
     }
     async buildAndStartContainers() {
         this.section('Building and starting containers');
-        await this.execOrThrow('docker compose build', { timeout: 600000 });
-        await this.execOrThrow('docker compose up -d', { timeout: 600000 });
+        await this.execOrThrow(`docker compose --env-file "${this.defaultEnvPath}" build`, { timeout: 600000 });
+        await this.execOrThrow(`docker compose --env-file "${this.defaultEnvPath}" up -d`, { timeout: 600000 });
         this.log('Containers started.', 'success');
     }
     async runPrismaTasks() {
         this.section('Running Prisma tasks');
-        await this.execOrThrow('npx prisma generate', { timeout: 180000 });
-        await this.execOrThrow('npx prisma migrate deploy', { timeout: 180000 });
+        await this.execOrThrow(`npx prisma generate --schema "${this.workspaceRoot}/prisma/schema.prisma"`, { timeout: 180000 });
+        await this.execOrThrow(`docker compose --env-file "${this.defaultEnvPath}" exec -T app npx prisma migrate deploy`, {
+            timeout: 180000,
+        });
         this.log('Prisma client generated and migrations applied.', 'success');
     }
     async ensureSuperAdmin() {
@@ -213,6 +249,11 @@ class InstallCommand extends install_interface_1.BaseCommand {
             this.log('No super admin Telegram ID provided; this step was skipped.', 'warn');
             return;
         }
+        const envContent = await this.readFile(this.defaultEnvPath);
+        await this.writeFile(this.defaultEnvPath, this.upsertEnvValue(envContent, 'SUPER_ADMIN_TELEGRAM_ID', telegramId));
+        const runtime = await this.loadRuntimeConfig();
+        const runtimeEnvContent = await this.readFile(runtime.paths.envFile);
+        await this.writeFile(runtime.paths.envFile, this.upsertEnvValue(runtimeEnvContent, 'SUPER_ADMIN_TELEGRAM_ID', telegramId));
         await this.saveRuntimeConfig((config) => ({
             ...config,
             superAdmins: [telegramId, ...config.superAdmins.filter((item) => item !== telegramId)],
@@ -221,8 +262,8 @@ class InstallCommand extends install_interface_1.BaseCommand {
     }
     async validateInstallation(panel) {
         this.section('Validating installation');
-        await this.execCommand('docker compose ps', { allowFailure: true });
-        await this.execCommand('node -e "console.log(\'runtime-subscription-endpoint:\', process.env.VPN_PANEL_SUBSCRIPTION_BASE_URL || \'\')"', { allowFailure: true });
+        await this.execCommand(`docker compose --env-file "${this.defaultEnvPath}" ps`, { allowFailure: true });
+        await this.execCommand(`docker compose --env-file "${this.defaultEnvPath}" exec -T app node -e "console.log('runtime-subscription-endpoint:', process.env.SANITY_PANEL_BASE_URL || '')"`, { allowFailure: true });
         this.log(`Resolved subscription endpoint: ${this.buildSubscriptionUrl(panel, '<subscription_id>')}`, 'info');
     }
     async showFinalSummary(panel) {
@@ -233,10 +274,14 @@ class InstallCommand extends install_interface_1.BaseCommand {
         console.log(`Domain: ${runtime.app?.domain || '(not configured)'}`);
         console.log(`API Port: ${runtime.app?.apiPort || 'unknown'}`);
         console.log(`Subscription Endpoint: ${this.buildSubscriptionUrl(panel, '<subscription_id>')}`);
+        console.log(`Environment File: ${this.defaultEnvPath}`);
         console.log(`Super Admins: ${runtime.superAdmins.length > 0 ? runtime.superAdmins.join(', ') : '(none)'}`);
         console.log(`Runtime config: ${runtime.paths.stateFile}`);
         console.log(`Installer log: ${runtime.paths.installLogFile}`);
-        this.log('Installation flow completed.', 'success');
+        this.log('Installation flow completed. Re-open the CLI to use the main menu.', 'success');
+    }
+    generatePassword(length) {
+        return this.generateSecret(length).slice(0, Math.max(12, length));
     }
 }
 exports.InstallCommand = InstallCommand;
