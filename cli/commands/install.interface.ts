@@ -401,14 +401,23 @@ export abstract class BaseCommand {
       return preferred;
     }
 
-    for (let port = fallbackStart; port < fallbackStart + 200; port += 1) {
-      const status = await this.inspectPort(port);
-      if (!status.inUse) {
-        return port;
+    const searchRanges: Array<[number, number]> = [
+      [Math.max(1024, fallbackStart), Math.max(1024, fallbackStart) + 1000],
+      [10000, 12000],
+      [20000, 22000],
+    ];
+
+    for (const [start, end] of searchRanges) {
+      for (let port = start; port < end; port += 1) {
+        const status = await this.inspectPort(port);
+        if (!status.inUse) {
+          this.log(`Preferred port ${preferred} is busy. Using ${port} instead.`, 'warn');
+          return port;
+        }
       }
     }
 
-    throw new Error(`Unable to find free port near ${preferred}`);
+    throw new Error(`Unable to find a free TCP port for preferred port ${preferred}`);
   }
 
   protected async inspectPort(port: number): Promise<PortProbeResult> {
