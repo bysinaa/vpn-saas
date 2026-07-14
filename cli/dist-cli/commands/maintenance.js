@@ -88,6 +88,8 @@ class MaintenanceCommand extends install_interface_1.BaseCommand {
         this.log('Platform runtime and launchers removed from this server.', 'success');
         console.log(`Project directory kept at: ${this.workspaceRoot}`);
         console.log('Remove the project directory manually if you also want the source code deleted.');
+        console.log('Exiting Tazaxy CLI after uninstall.');
+        process.exit(0);
     }
 }
 exports.MaintenanceCommand = MaintenanceCommand;

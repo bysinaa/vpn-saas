@@ -16,6 +16,7 @@ type ParsedOptions = Record<string, unknown>;
 
 type MenuAction =
   | 'install'
+  | 'editEnv'
   | 'status'
   | 'admin'
   | 'panel'
@@ -165,6 +166,9 @@ async function showInteractiveMenu() {
         case 'install':
           await new InstallCommand().execute(options as InstallOptions);
           break;
+        case 'editEnv':
+          await openEnvFile();
+          break;
         case 'status':
           await new StatusCommand().execute(options as StatusOptions);
           break;
@@ -213,9 +217,12 @@ async function showInteractiveMenu() {
 async function promptMenuSelection(): Promise<MenuAction> {
   const readline = await import('readline');
 
+  const installed = fs.existsSync(path.join(process.cwd(), '.env'));
+  const firstActionLabel = installed ? 'Edit .env File' : 'Install Platform';
+
   console.log('Tazaxy CLI');
   console.log('');
-  console.log('1. Install Platform');
+  console.log(`1. ${firstActionLabel}`);
   console.log('2. Health Status');
   console.log('3. Configure Super Admin');
   console.log('4. Configure 3X-UI');
@@ -244,7 +251,7 @@ async function promptMenuSelection(): Promise<MenuAction> {
 
   switch (answer) {
     case '1':
-      return 'install';
+      return installed ? 'editEnv' : 'install';
     case '2':
       return 'status';
     case '3':
@@ -272,6 +279,27 @@ async function promptMenuSelection(): Promise<MenuAction> {
   }
 }
 
+async function openEnvFile() {
+  const envPath = path.join(process.cwd(), '.env');
+
+  if (!fs.existsSync(envPath)) {
+    console.log('Environment file not found. Run "Install Platform" first.');
+    return;
+  }
+
+  const editor = process.env.EDITOR || 'nano';
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
+
+  console.log(`Opening ${envPath} with ${editor}`);
+  await execAsync(`${editor} "${envPath}"`, {
+    cwd: process.cwd(),
+    windowsHide: true,
+    maxBuffer: 1024 * 1024 * 10,
+  });
+}
+
 async function runComposeCommand(subCommand: string) {
   const envPath = path.join(process.cwd(), '.env');
 
@@ -286,7 +314,7 @@ async function runComposeCommand(subCommand: string) {
 
   console.log(`Running: docker compose --env-file ${envPath} ${subCommand}`);
 
-  const { stdout, stderr } = await execAsync(`docker compose --env-file "${envPath}" ${subCommand}`, {
+  const { stdout, stderr } = await execAsync(`docker compose --env-file "${envPath}" ${subCommand} --no-color`, {
     cwd: process.cwd(),
     windowsHide: true,
     maxBuffer: 1024 * 1024 * 10,

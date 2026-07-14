@@ -200,6 +200,7 @@ export class InstallCommand extends BaseCommand {
     this.section('Step 1/4 - Application and bot configuration');
     const appUrl = options.domain ? `https://${options.domain}` : `http://${publicIp}:${apiPort}`;
     const botToken = await this.prompt('Telegram bot token', '');
+    const primarySuperAdminTelegramId = (await this.prompt('Primary super admin Telegram ID', '')).trim();
     const superAdminEmail = (await this.prompt('Super admin email', 'admin@vpn-saas.local')).trim() || 'admin@vpn-saas.local';
     const superAdminPassword = await this.promptSecret('Super admin password');
     const webhookSecret = this.generateSecret(40);
@@ -245,6 +246,9 @@ export class InstallCommand extends BaseCommand {
     envContent = this.upsertEnvValue(envContent, 'S3_PUBLIC_URL', s3PublicUrl);
     envContent = this.upsertEnvValue(envContent, 'SUPER_ADMIN_EMAIL', superAdminEmail);
     envContent = this.upsertEnvValue(envContent, 'SUPER_ADMIN_PASSWORD', superAdminPassword);
+    if (primarySuperAdminTelegramId) {
+      envContent = this.upsertEnvValue(envContent, 'SUPER_ADMIN_TELEGRAM_ID', primarySuperAdminTelegramId);
+    }
     envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_BASE_URL', panel.panelUrl);
     envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_USERNAME', panel.panelUser);
     envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_PASSWORD', panel.panelPass);
@@ -285,6 +289,9 @@ export class InstallCommand extends BaseCommand {
             panelPass: panel.panelPass,
           }
         : config.panel,
+      superAdmins: primarySuperAdminTelegramId
+        ? [primarySuperAdminTelegramId, ...config.superAdmins.filter((item) => item !== primarySuperAdminTelegramId)]
+        : config.superAdmins,
     }));
 
     this.log(`Environment file written to ${this.defaultEnvPath}.`, 'success');
@@ -308,14 +315,22 @@ export class InstallCommand extends BaseCommand {
 
   private async ensureSuperAdmin(): Promise<void> {
     this.section('Configuring initial super admin');
+    const envContent = await this.readFile(this.defaultEnvPath);
+    const existingTelegramId = /^(?:SUPER_ADMIN_TELEGRAM_ID)=(.*)$/m.exec(envContent)?.[1]?.trim();
+
+    if (existingTelegramId) {
+      this.log(`Primary super admin already configured: ${existingTelegramId}`, 'success');
+      return;
+    }
+
     const telegramId = await this.prompt('Primary super admin Telegram ID', '');
     if (!telegramId) {
       this.log('No super admin Telegram ID provided; this step was skipped.', 'warn');
       return;
     }
 
-    const envContent = await this.readFile(this.defaultEnvPath);
-    await this.writeFile(this.defaultEnvPath, this.upsertEnvValue(envContent, 'SUPER_ADMIN_TELEGRAM_ID', telegramId));
+    const updatedEnvContent = this.upsertEnvValue(envContent, 'SUPER_ADMIN_TELEGRAM_ID', telegramId);
+    await this.writeFile(this.defaultEnvPath, updatedEnvContent);
 
     const runtime = await this.loadRuntimeConfig();
     const runtimeEnvContent = await this.readFile(runtime.paths.envFile);
