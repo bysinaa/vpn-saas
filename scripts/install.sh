@@ -75,9 +75,9 @@ install_base_dependencies() {
 install_or_update_repo() {
   if [ -d "$INSTALL_DIR/.git" ]; then
     log "Updating existing repository at $INSTALL_DIR"
-    git -C "$INSTALL_DIR" fetch --all --prune
-    git -C "$INSTALL_DIR" checkout "$BRANCH"
-    git -C "$INSTALL_DIR" pull --ff-only origin "$BRANCH"
+git -C "$INSTALL_DIR" fetch origin
+git -C "$INSTALL_DIR" reset --hard origin/main
+git -C "$INSTALL_DIR" clean -fdx
     return
   fi
 
