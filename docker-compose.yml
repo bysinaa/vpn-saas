@@ -15,8 +15,6 @@ services:
       REDIS_PORT: 6379
       S3_ENDPOINT: http://minio:9000
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
       minio:
@@ -31,28 +29,6 @@ services:
       timeout: 10s
       retries: 5
       start_period: 45s
-
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-vpn_saas}
-      POSTGRES_USER: ${POSTGRES_USER:-vpn_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-postgres-password}
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    ports:
-      - '5433:5432'
-    networks:
-      - vpn-saas-network
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -h 127.0.0.1']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
 
   redis:
     image: redis:7-alpine
@@ -122,8 +98,6 @@ networks:
     driver: bridge
 
 volumes:
-  postgres-data:
-    name: vpn-saas-postgres-data
   redis-data:
     name: vpn-saas-redis-data
   minio-data:

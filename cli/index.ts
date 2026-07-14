@@ -11,6 +11,7 @@ import { PanelCommand, type PanelOptions } from './commands/panel';
 import { StatusCommand, type StatusOptions } from './commands/status';
 import { PaymentCommand, type PaymentOptions } from './commands/payment';
 import { MaintenanceCommand, type MaintenanceOptions } from './commands/maintenance';
+import { InfrastructureCommand, type InfrastructureOptions } from './commands/infrastructure';
 
 type ParsedOptions = Record<string, unknown>;
 
@@ -25,6 +26,7 @@ type MenuAction =
   | 'restart'
   | 'logs'
   | 'payments'
+  | 'infrastructure'
   | 'update'
   | 'install3xui'
   | 'uninstall'
@@ -62,13 +64,19 @@ async function main() {
       await new PaymentCommand().execute(options as PaymentOptions);
       break;
 
-    case 'status':
-    case 'health':
-    case 's':
-      await new StatusCommand().execute(options as StatusOptions);
-      break;
-
-    case 'update':
+     case 'status':
+     case 'health':
+     case 's':
+       await new StatusCommand().execute(options as StatusOptions);
+       break;
+ 
+     case 'infrastructure':
+     case 'infra':
+     case 'db':
+       await new InfrastructureCommand().execute(options as InfrastructureOptions);
+       break;
+ 
+     case 'update':
       await new MaintenanceCommand().execute({ ...(options as MaintenanceOptions), update: true });
       break;
 
@@ -192,10 +200,13 @@ async function showInteractiveMenu() {
         case 'logs':
           await runComposeCommand('logs --tail=100 app');
           break;
-        case 'payments':
-          await new PaymentCommand().execute({});
-          break;
-        case 'update':
+         case 'payments':
+           await new PaymentCommand().execute({});
+           break;
+         case 'infrastructure':
+           await new InfrastructureCommand().execute({});
+           break;
+         case 'update':
           await new MaintenanceCommand().execute({ update: true });
           break;
         case 'install3xui':
@@ -233,10 +244,11 @@ async function promptMenuSelection(): Promise<MenuAction> {
   console.log('7. Restart Services');
   console.log('8. View Logs');
   console.log('9. Payment Gateways');
-  console.log('10. Check for Updates');
-  console.log('11. Install 3X-UI');
-  console.log('12. Full Uninstall');
-  console.log('13. Exit');
+   console.log('10. Infrastructure');
+   console.log('11. Check for Updates');
+   console.log('12. Install 3X-UI');
+   console.log('13. Full Uninstall');
+   console.log('14. Exit');
   console.log('');
 
   const rl = readline.createInterface({
@@ -245,7 +257,7 @@ async function promptMenuSelection(): Promise<MenuAction> {
   });
 
   const answer = await new Promise<string>((resolve) => {
-    rl.question('Select an action (1-13): ', (value) => {
+     rl.question('Select an action (1-14): ', (value) => {
       rl.close();
       resolve(value.trim());
     });
@@ -270,14 +282,16 @@ async function promptMenuSelection(): Promise<MenuAction> {
       return 'logs';
     case '9':
       return 'payments';
-    case '10':
-      return 'update';
-    case '11':
-      return 'install3xui';
-    case '12':
-      return 'uninstall';
-    default:
-      return 'exit';
+     case '10':
+       return 'infrastructure';
+     case '11':
+       return 'update';
+     case '12':
+       return 'install3xui';
+     case '13':
+       return 'uninstall';
+     default:
+       return 'exit';
   }
 }
 
@@ -473,6 +487,7 @@ COMMANDS:
   panel, p           Discover and configure 3X-UI panel runtime
   payments           Configure crypto and card-to-card payment gateways
   status, s          Show health and runtime status
+  infrastructure     Detect, connect, install, backup and restore PostgreSQL
   update             Update the installed project
   install-3xui       Install or repair 3X-UI
   uninstall          Fully uninstall runtime files and launchers

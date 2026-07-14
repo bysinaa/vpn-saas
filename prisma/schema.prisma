@@ -23,6 +23,22 @@ datasource db {
 }
 
 // =============================================================================
+// CENTRALIZED RUNTIME CONFIGURATION (3X-UI style settings table)
+// Loaded by ConfigService. Sensitive values are stored encrypted (AES-256-GCM).
+// =============================================================================
+
+model Setting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String?
+  encrypted Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
+  @@map("settings")
+}
+
+// =============================================================================
 // ENUMS
 // =============================================================================
 

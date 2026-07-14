@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { AllExceptionsFilter } from '@/common/filters/all-exceptions.filter';
 import { CommonModule } from '@/common/common.module';
+import { ConfigModule } from '@/common/config/config.module';
 import { PrismaModule } from '@/common/prisma/prisma.module';
 import { RedisModule } from '@/common/redis/redis.module';
 import { QueueModule } from '@/common/queue/queue.module';
@@ -46,6 +47,7 @@ import { XuiModule } from './integrations/xui/xui.module';
   imports: [
     // ---- Global infrastructure ----
     AppLoggerModule,
+    ConfigModule,
     PrismaModule,
     RedisModule,
     QueueModule,

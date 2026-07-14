@@ -1,0 +1,49 @@
+# =============================================================================
+# Standalone PostgreSQL infrastructure service (3X-UI style persistence)
+#
+# This is an INDEPENDENT service. VPN SaaS NEVER owns or destroys PostgreSQL.
+# Removing or reinstalling VPN SaaS must never remove this data.
+# Reinstalling 3X-UI must never affect VPN SaaS data.
+# Both apps share the SAME PostgreSQL server but use SEPARATE databases.
+#
+# IMPORTANT:
+#   * The `postgres_data` volume is declared `external: true`.
+#   * Never run `docker compose down -v` here — it would NOT delete an external
+#     volume, but do not remove the volume manually either.
+#   * Recreate the external volume once before first start:
+#       docker volume create postgres_data
+# =============================================================================
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-strong-password}
+      POSTGRES_DB: ${POSTGRES_USER:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -h 127.0.0.1']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - postgres-network
+
+networks:
+  postgres-network:
+    name: postgres-network
+    driver: bridge
+
+volumes:
+  postgres_data:
+    external: true

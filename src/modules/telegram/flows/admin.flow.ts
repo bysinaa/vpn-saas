@@ -193,6 +193,20 @@ export class AdminFlow {
   // ===========================================================================
 
   private async renderDashboard(ctx: Context, _refresh = false): Promise<void> {
+    const validateUrl = (url: string): boolean => {
+      try {
+        const parsedUrl = new URL(url);
+        return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    };
+
+    const handleDnsError = async (ctx: Context, error: any): Promise<void> => {
+      const locale = await this.runtime.getLocale(ctx.from?.id?.toString()!);
+      const errorMessage = `❌ ${t(locale, 'admin.gateway.error')}: ${error.message}`;
+      await this.runtime.editOrSend(ctx, errorMessage, this.backHomeKeyboard(locale));
+    };
     const telegramId = ctx.from?.id?.toString()!;
     const locale = await this.runtime.getLocale(telegramId);
     const normalize = (s?: string) => (s ? s.trim().replace(/^\+/, '') : '');
@@ -343,7 +357,6 @@ export class AdminFlow {
     await this.runtime.editOrSend(ctx, msg, this.backHomeKeyboard(locale));
   }
 
-  /** PAYMENTS — pending receipts awaiting approval with receipt photos forwarded. */
   private async viewPayments(ctx: Context): Promise<void> {
     const locale = await this.guard(ctx);
     if (!locale) return;
