@@ -48,6 +48,8 @@ const maintenance_1 = require("./commands/maintenance");
 const args = process.argv.slice(2);
 const command = args[0];
 const options = parseOptions(args.slice(1));
+const workspaceRoot = resolveWorkspaceRoot();
+process.chdir(workspaceRoot);
 async function main() {
     console.log('\n🔧 Tazaxy CLI v2.0.0\n');
     switch (command) {
@@ -264,7 +266,7 @@ async function promptMenuSelection() {
     }
 }
 async function manageEnvFile() {
-    const envPath = path.join(process.cwd(), '.env');
+    const envPath = path.join(workspaceRoot, '.env');
     if (!fs.existsSync(envPath)) {
         console.log('Environment file not found. Run "Install Platform" first.');
         return;
@@ -320,7 +322,7 @@ async function manageEnvFile() {
     console.log(`${key} updated in ${envPath}`);
 }
 async function runComposeCommand(subCommand) {
-    const envPath = path.join(process.cwd(), '.env');
+    const envPath = path.join(workspaceRoot, '.env');
     if (!fs.existsSync(envPath) && subCommand !== 'stop') {
         console.log('Environment file not found. Run "Install Platform" first to generate .env and configure the project.');
         return;
@@ -330,7 +332,7 @@ async function runComposeCommand(subCommand) {
     const execAsync = promisify(exec);
     console.log(`Running: docker compose --env-file ${envPath} ${subCommand}`);
     const { stdout, stderr } = await execAsync(`docker compose --env-file "${envPath}" ${subCommand} --no-color`, {
-        cwd: process.cwd(),
+        cwd: workspaceRoot,
         windowsHide: true,
         maxBuffer: 1024 * 1024 * 10,
     });
@@ -340,6 +342,25 @@ async function runComposeCommand(subCommand) {
     if (stderr.trim()) {
         console.error(stderr.trim());
     }
+}
+function resolveWorkspaceRoot() {
+    const candidates = [
+        process.env.TAZAXY_HOME,
+        '/opt/vpn-saas',
+        path.resolve(__dirname, '..', '..'),
+        process.cwd(),
+    ].filter((value) => Boolean(value));
+    for (const candidate of candidates) {
+        try {
+            if (fs.existsSync(path.join(candidate, 'docker-compose.yml'))) {
+                return candidate;
+            }
+        }
+        catch {
+            // ignore invalid candidate
+        }
+    }
+    return process.cwd();
 }
 function showHelp() {
     console.log(`
