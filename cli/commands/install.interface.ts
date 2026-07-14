@@ -422,10 +422,10 @@ export abstract class BaseCommand {
 
   protected async inspectPort(port: number): Promise<PortProbeResult> {
     const result = await this.execCommand(
-      `sh -c "ss -ltnp '( sport = :${port} )' 2>/dev/null || netstat -ltnp 2>/dev/null | grep ':${port} '"`,
+      `sh -c "if command -v ss >/dev/null 2>&1; then ss -ltn '( sport = :${port} )' 2>/dev/null | tail -n +2; elif command -v netstat >/dev/null 2>&1; then netstat -ltn 2>/dev/null | grep -E '[:.]${port}[[:space:]]' || true; else true; fi"`,
       { allowFailure: true },
     );
-    const output = `${result.stdout}\n${result.stderr}`.trim();
+    const output = result.stdout.trim();
 
     return {
       port,
