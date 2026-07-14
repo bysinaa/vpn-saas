@@ -1692,15 +1692,26 @@ export class AdminFlow {
   private async assertAdmin(ctx: Context, locale: BotLocale): Promise<boolean> {
     const telegramId = ctx.from?.id?.toString()!;
     const session = await this.runtime.getSession(telegramId);
+    const normalize = (s?: string) => (s ? s.trim().replace(/^\+/, '') : '');
+    const isConfiguredSuperAdmin = normalize(config.superAdmin.telegramId) === normalize(telegramId);
+
+    if (isConfiguredSuperAdmin) {
+      return true;
+    }
+
     if (!session.userId) {
       await this.runtime.alert(ctx, t(locale, 'auth.required'));
       return false;
     }
+
     const user = await this.prisma.user.findUnique({
       where: { id: session.userId },
-      select: { role: true },
+      select: { role: true, telegramId: true },
     });
-    const role = user?.role;
+
+    const isDbConfiguredSuperAdmin = normalize(user?.telegramId ?? undefined) === normalize(config.superAdmin.telegramId);
+    const role = isDbConfiguredSuperAdmin ? 'SUPER_ADMIN' : user?.role;
+
     if (role !== 'SUPER_ADMIN' && role !== 'ADMIN' && role !== 'OPERATOR') {
       await this.runtime.editOrSend(ctx, t(locale, 'admin.access.denied'), this.backHomeKeyboard(locale));
       return false;
