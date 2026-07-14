@@ -14,6 +14,7 @@ import { SettingsService } from '../../settings/settings.service';
 import { PanelsService } from '../../panels/panels.service';
 import { BroadcastService } from '../../notifications/broadcast.service';
 import { VpnService } from '../../vpn/vpn.service';
+import { config } from '@/config';
 
 /**
  * AdminFlow (spec #9, #10) — fully in-bot admin panel.
@@ -194,7 +195,10 @@ export class AdminFlow {
   private async renderDashboard(ctx: Context, _refresh = false): Promise<void> {
     const telegramId = ctx.from?.id?.toString()!;
     const locale = await this.runtime.getLocale(telegramId);
-    if (!(await this.assertAdmin(ctx, locale))) return;
+    const normalize = (s?: string) => (s ? s.trim().replace(/^\+/, '') : '');
+    const isConfiguredSuperAdmin = normalize(config.superAdmin.telegramId) === normalize(telegramId);
+
+    if (!isConfiguredSuperAdmin && !(await this.assertAdmin(ctx, locale))) return;
     await this.runtime.pushMenu(telegramId, 'admin');
     await this.runtime.setState(telegramId, 'idle');
 
