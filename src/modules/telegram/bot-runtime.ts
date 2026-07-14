@@ -49,7 +49,18 @@ export class BotRuntime {
     const raw = await this.redis.getJson<BotSession & { userId?: string }>(
       `bot:session:${telegramId}`,
     );
-    if (!raw) return { telegramId, state: 'idle', menuStack: ['main'] };
+if (!raw) {
+  const user = await this.prisma.user.findUnique({
+    where: { telegramId },
+    select: { id: true },
+  });
+  return {
+    telegramId,
+    state: 'idle',
+    menuStack: ['main'],
+    userId: user?.id ? BigInt(user.id) : undefined,
+  };
+}
     return {
       ...raw,
       userId: raw.userId ? BigInt(raw.userId) : undefined,
