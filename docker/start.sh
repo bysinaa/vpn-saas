@@ -20,7 +20,7 @@ wait_for_postgres() {
 
   log "Waiting for PostgreSQL to accept connections..."
   ATTEMPT=0
-  until node -e "const { Client } = require('pg'); const client = new Client({ connectionString: process.env.DATABASE_URL }); client.connect().then(() => client.end()).then(() => process.exit(0)).catch(() => process.exit(1));"; do
+  until node -e "const { Client } = require('pg'); const client = new Client({ connectionString: process.env.DATABASE_URL }); client.connect().then(() => { console.log('[startup] PostgreSQL connection successful'); client.end(); process.exit(0); }).catch((err) => { console.error('[startup] PostgreSQL connection failed:', err.message); process.exit(1); });"; do
     ATTEMPT=$((ATTEMPT + 1))
     if [ "$ATTEMPT" -ge 60 ]; then
       fail "PostgreSQL did not become ready in time"
