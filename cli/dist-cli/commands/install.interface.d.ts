@@ -132,6 +132,26 @@ export declare abstract class BaseCommand {
     protected loadRuntimeConfig(): Promise<VpnSaasPlatformConfig>;
     protected saveRuntimeConfig(updater: VpnSaasPlatformConfig | ((config: VpnSaasPlatformConfig) => VpnSaasPlatformConfig | Promise<VpnSaasPlatformConfig>)): Promise<VpnSaasPlatformConfig>;
     protected buildSubscriptionUrl(config: VpnSaasPanelRuntimeConfig, subId: string, html?: boolean): string;
+    protected normalizePanelUrl(input: string, tlsEnabled?: boolean, defaultPort?: number, basePath?: string): string;
+    protected buildPanelUrlFromParts(input: {
+        host?: string;
+        domain?: string;
+        port?: number;
+        tlsEnabled?: boolean;
+        basePath?: string;
+    }): string;
+    protected buildPanelRuntimePreview(input: {
+        panelUrl?: string;
+        host?: string;
+        domain?: string;
+        port?: number;
+        tlsEnabled?: boolean;
+        panelPath?: string;
+        subscriptionPort?: number;
+        subscriptionPath?: string;
+        panelUser?: string;
+        panelPass?: string;
+    }): VpnSaasPanelRuntimeConfig;
     protected generateSecret(length?: number): string;
     protected upsertEnvValue(content: string, key: string, value: string): string;
     protected normalizePathSegment(segment: string, fallback: string): string;

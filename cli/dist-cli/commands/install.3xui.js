@@ -67,12 +67,14 @@ class InstallCommand extends install_interface_1.BaseCommand {
         }
         this.section('Installing Docker');
         if (family === 'debian') {
-            await this.execOrThrow('apt-get update');
             await this.execOrThrow('apt-get install -y ca-certificates curl gnupg lsb-release');
+            await this.execCommand('rm -f /etc/apt/sources.list.d/docker.list', { allowFailure: true });
+            await this.execCommand('rm -f /etc/apt/keyrings/docker.gpg', { allowFailure: true });
             await this.execOrThrow('install -m 0755 -d /etc/apt/keyrings');
-            await this.execOrThrow('sh -c "curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo $ID)/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg"');
+            await this.execOrThrow('sh -c "curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo $ID)/gpg | gpg --dearmor --batch --yes -o /etc/apt/keyrings/docker.gpg"');
             await this.execOrThrow('chmod a+r /etc/apt/keyrings/docker.gpg');
-            await this.execOrThrow('sh -c ". /etc/os-release && echo \\"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$ID $VERSION_CODENAME stable\\" > /etc/apt/sources.list.d/docker.list"');
+            await this.execOrThrow('sh -c ". /etc/os-release && echo \\"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$ID $VERSION_CODENAME stable\\" | tee /etc/apt/sources.list.d/docker.list >/dev/null"');
+            await this.execOrThrow('cat /etc/apt/sources.list.d/docker.list');
             await this.execOrThrow('apt-get update');
             await this.execOrThrow('apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin');
         }
@@ -146,23 +148,31 @@ class InstallCommand extends install_interface_1.BaseCommand {
         const panelPort = await this.findAvailablePort(2053, 2054);
         const subscriptionPort = await this.findAvailablePort(2096, 2097);
         const subscriptionPath = this.normalizePathSegment('sub', 'sub');
-        const tlsEnabled = false;
-        const panelUrl = options.panelUrl || `http://${publicIp}:${panelPort}`;
+        const tlsEnabled = options.panelUrl
+            ? new URL(this.normalizePanelUrl(options.panelUrl, undefined, panelPort)).protocol === 'https:'
+            : (await this.confirm('TLS Enabled for panel URL?', true));
+        const defaultPanelUrl = this.buildPanelUrlFromParts({
+            host: publicIp,
+            port: panelPort,
+            tlsEnabled,
+            basePath: '',
+        });
+        const panelUrl = this.normalizePanelUrl(options.panelUrl || (await this.prompt('Panel URL', defaultPanelUrl)), tlsEnabled, panelPort);
         const panelUser = options.panelUser || (await this.prompt('3X-UI admin username', 'admin'));
         const panelPass = options.panelPass || (await this.promptSecret('3X-UI admin password', this.generatePassword(16)));
+        const runtimePreview = this.buildPanelRuntimePreview({
+            panelUrl,
+            panelUser,
+            panelPass,
+            tlsEnabled,
+            subscriptionPort,
+            subscriptionPath,
+        });
         await this.saveRuntimeConfig((config) => ({
             ...config,
             panel: {
-                panelUrl,
-                panelUser,
-                panelPass,
-                apiUrl: `${panelUrl}/panel/api`,
-                subscriptionBaseUrl: `http://${publicIp}:${subscriptionPort}`,
-                subscriptionPath,
-                subscriptionPort,
-                tlsEnabled,
+                ...runtimePreview,
                 installationDirectory: '/usr/local/x-ui',
-                updatedAt: new Date().toISOString(),
             },
         }));
         const runtime = await this.loadRuntimeConfig();
@@ -221,6 +231,10 @@ class InstallCommand extends install_interface_1.BaseCommand {
         envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_PASSWORD', panel.panelPass);
         envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_SUB_PORT', String(panel.subscriptionPort));
         envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_SUB_PATH', panel.subscriptionPath);
+        envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_TLS_ENABLED', String(panel.tlsEnabled));
+        envContent = this.upsertEnvValue(envContent, 'XUI_PANEL_URL', panel.panelUrl);
+        envContent = this.upsertEnvValue(envContent, 'XUI_USERNAME', panel.panelUser);
+        envContent = this.upsertEnvValue(envContent, 'XUI_PASSWORD', panel.panelPass);
         envContent = this.upsertEnvValue(envContent, 'ONLINE_GATEWAY_CALLBACK_URL', `${appUrl}/api/v1/payments/online/callback`);
         this.assertEnvHasValues(envContent, [
             'APP_URL',

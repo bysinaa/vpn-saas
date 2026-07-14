@@ -88,17 +88,26 @@ class PanelCommand extends install_interface_1.BaseCommand {
         console.log(`  Updated At: ${panel.updatedAt}`);
     }
     async addPanel(options) {
-        const panelUrl = options.url || (await this.prompt('Panel URL', 'http://127.0.0.1:2053'));
+        const tlsEnabled = options.url
+            ? new url_1.URL(this.normalizePanelUrl(options.url)).protocol === 'https:'
+            : (await this.confirm('TLS Enabled?', true));
+        const panelUrl = this.normalizePanelUrl(options.url || (await this.prompt('Panel URL', 'https://domain:2053/basePath/')), tlsEnabled, 2053);
         const panelUser = options.user || (await this.prompt('Panel username', 'admin'));
         const panelPass = options.pass || (await this.promptSecret('Panel password'));
-        const subPort = options.subPort || Number.parseInt(await this.prompt('Subscription port', '2053'), 10) || 2053;
-        const subPath = this.normalizePathSegment(options.subPath || (await this.prompt('Subscription path', 'sub')), 'sub');
-        const discovered = await this.discoverPanelRuntime({
+        const runtimePreview = this.buildPanelRuntimePreview({
             panelUrl,
+            tlsEnabled,
             panelUser,
             panelPass,
-            requestedSubPort: subPort,
-            requestedSubPath: subPath,
+            subscriptionPort: options.subPort || Number.parseInt(await this.prompt('Subscription port', '2053'), 10) || 2053,
+            subscriptionPath: options.subPath || (await this.prompt('Subscription path', 'sub')),
+        });
+        const discovered = await this.discoverPanelRuntime({
+            panelUrl: runtimePreview.panelUrl,
+            panelUser,
+            panelPass,
+            requestedSubPort: runtimePreview.subscriptionPort,
+            requestedSubPath: runtimePreview.subscriptionPath,
         });
         await this.saveRuntimeConfig((config) => ({
             ...config,
@@ -135,7 +144,7 @@ class PanelCommand extends install_interface_1.BaseCommand {
             return;
         }
         const runtime = await this.discoverPanelRuntime({
-            panelUrl: options.url || existing.panelUrl,
+            panelUrl: this.normalizePanelUrl(options.url || existing.panelUrl),
             panelUser: options.user || existing.panelUser,
             panelPass: options.pass || existing.panelPass,
             requestedSubPort: options.subPort || existing?.subscriptionPort,
@@ -154,8 +163,11 @@ class PanelCommand extends install_interface_1.BaseCommand {
         this.log(`Current runtime endpoint: ${this.buildSubscriptionUrl(config.panel, '<subscription_id>')}`, 'info');
     }
     async discoverCurrentPanel(options) {
+        const tlsEnabled = options.url
+            ? new url_1.URL(this.normalizePanelUrl(options.url)).protocol === 'https:'
+            : (await this.confirm('TLS Enabled?', true));
         const runtime = await this.discoverPanelRuntime({
-            panelUrl: options.url || 'http://127.0.0.1:2053',
+            panelUrl: this.normalizePanelUrl(options.url || 'https://127.0.0.1:2053/', tlsEnabled, 2053),
             panelUser: options.user || 'admin',
             panelPass: options.pass || '',
             requestedSubPort: options.subPort,
@@ -205,7 +217,7 @@ class PanelCommand extends install_interface_1.BaseCommand {
         await this.addPanel({});
     }
     async discoverPanelRuntime(input) {
-        const normalizedPanelUrl = input.panelUrl.replace(/\/+$/, '');
+        const normalizedPanelUrl = this.normalizePanelUrl(input.panelUrl);
         const loginResponse = await this.login(normalizedPanelUrl, input.panelUser, input.panelPass);
         if (loginResponse.statusCode >= 400) {
             throw new Error(`Unable to authenticate to 3X-UI (${loginResponse.statusCode})`);
@@ -269,13 +281,38 @@ class PanelCommand extends install_interface_1.BaseCommand {
         return undefined;
     }
     async login(panelUrl, username, password) {
-        const body = JSON.stringify({ username, password });
+        const csrfResponse = await this.httpRequest({
+            url: `${panelUrl.replace(/\/+$/, '')}/csrf-token`,
+            method: 'GET',
+            headers: {
+                Accept: 'application/json',
+            },
+        });
+        let csrfToken = '';
+        const csrfCookieHeader = csrfResponse.headers['set-cookie'];
+        const csrfCookieValue = Array.isArray(csrfCookieHeader)
+            ? csrfCookieHeader[0]
+            : typeof csrfCookieHeader === 'string'
+                ? csrfCookieHeader
+                : '';
+        const csrfCookie = csrfCookieValue ? csrfCookieValue.split(';')[0] : '';
+        try {
+            const payload = JSON.parse(csrfResponse.body || '{}');
+            csrfToken = payload?.obj || payload?.token || '';
+        }
+        catch {
+            csrfToken = '';
+        }
+        const body = new URLSearchParams({ username, password }).toString();
         return this.httpRequest({
-            url: `${panelUrl}/login`,
+            url: `${panelUrl.replace(/\/+$/, '')}/login`,
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                'Content-Type': 'application/x-www-form-urlencoded',
                 'Content-Length': Buffer.byteLength(body).toString(),
+                ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+                ...(csrfCookie ? { Cookie: csrfCookie } : {}),
             },
             body,
         });
@@ -298,13 +335,15 @@ class PanelCommand extends install_interface_1.BaseCommand {
     async httpRequest(options) {
         return new Promise((resolve, reject) => {
             const urlObject = new url_1.URL(options.url);
-            const protocol = urlObject.protocol === 'https:' ? https : http;
+            const isHttps = urlObject.protocol === 'https:';
+            const protocol = isHttps ? https : http;
             const request = protocol.request({
                 hostname: urlObject.hostname,
-                port: urlObject.port,
+                port: urlObject.port || (isHttps ? 443 : 80),
                 path: `${urlObject.pathname}${urlObject.search}`,
                 method: options.method,
                 headers: options.headers,
+                ...(isHttps ? { agent: new https.Agent({ rejectUnauthorized: false }) } : {}),
             }, (response) => {
                 let responseBody = '';
                 response.on('data', (chunk) => {

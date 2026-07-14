@@ -45,6 +45,7 @@ const panel_1 = require("./commands/panel");
 const status_1 = require("./commands/status");
 const payment_1 = require("./commands/payment");
 const maintenance_1 = require("./commands/maintenance");
+const infrastructure_1 = require("./commands/infrastructure");
 const args = process.argv.slice(2);
 const command = args[0];
 const options = parseOptions(args.slice(1));
@@ -75,6 +76,11 @@ async function main() {
         case 'health':
         case 's':
             await new status_1.StatusCommand().execute(options);
+            break;
+        case 'infrastructure':
+        case 'infra':
+        case 'db':
+            await new infrastructure_1.InfrastructureCommand().execute(options);
             break;
         case 'update':
             await new maintenance_1.MaintenanceCommand().execute({ ...options, update: true });
@@ -172,19 +178,22 @@ async function showInteractiveMenu() {
                     await new panel_1.PanelCommand().execute(options);
                     break;
                 case 'start':
-                    await runComposeCommand('up -d');
+                    await runLifecycleAction('start');
                     break;
                 case 'stop':
-                    await runComposeCommand('stop');
+                    await runLifecycleAction('stop');
                     break;
                 case 'restart':
-                    await runComposeCommand('restart');
+                    await runLifecycleAction('restart');
                     break;
                 case 'logs':
                     await runComposeCommand('logs --tail=100 app');
                     break;
                 case 'payments':
                     await new payment_1.PaymentCommand().execute({});
+                    break;
+                case 'infrastructure':
+                    await new infrastructure_1.InfrastructureCommand().execute({});
                     break;
                 case 'update':
                     await new maintenance_1.MaintenanceCommand().execute({ update: true });
@@ -221,17 +230,18 @@ async function promptMenuSelection() {
     console.log('7. Restart Services');
     console.log('8. View Logs');
     console.log('9. Payment Gateways');
-    console.log('10. Check for Updates');
-    console.log('11. Install 3X-UI');
-    console.log('12. Full Uninstall');
-    console.log('13. Exit');
+    console.log('10. Infrastructure');
+    console.log('11. Check for Updates');
+    console.log('12. Install 3X-UI');
+    console.log('13. Full Uninstall');
+    console.log('14. Exit');
     console.log('');
     const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout,
     });
     const answer = await new Promise((resolve) => {
-        rl.question('Select an action (1-13): ', (value) => {
+        rl.question('Select an action (1-14): ', (value) => {
             rl.close();
             resolve(value.trim());
         });
@@ -256,10 +266,12 @@ async function promptMenuSelection() {
         case '9':
             return 'payments';
         case '10':
-            return 'update';
+            return 'infrastructure';
         case '11':
-            return 'install3xui';
+            return 'update';
         case '12':
+            return 'install3xui';
+        case '13':
             return 'uninstall';
         default:
             return 'exit';
@@ -321,22 +333,59 @@ async function manageEnvFile() {
     fs.writeFileSync(envPath, nextContent, 'utf8');
     console.log(`${key} updated in ${envPath}`);
 }
-async function runComposeCommand(subCommand) {
+async function runLifecycleAction(action) {
     const envPath = path.join(workspaceRoot, '.env');
     const composeFile = path.join(workspaceRoot, 'docker-compose.yml');
     if (!fs.existsSync(composeFile)) {
         console.log(`docker-compose.yml not found in ${workspaceRoot}`);
         return;
     }
-    if (!fs.existsSync(envPath) && subCommand !== 'stop') {
+    if (!fs.existsSync(envPath) && action !== 'stop') {
         console.log('Environment file not found. Run "Install Platform" first to generate .env and configure the project.');
         return;
     }
+    if (action === 'stop') {
+        await runComposeCommand('stop');
+        return;
+    }
+    if (action === 'restart') {
+        await runComposeCommand('down');
+    }
+    await runComposeCommand('build');
+    await runComposeCommand('up -d');
+    await runPrismaDeploy();
+}
+async function runComposeCommand(subCommand) {
+    const envPath = path.join(workspaceRoot, '.env');
+    const composeFile = path.join(workspaceRoot, 'docker-compose.yml');
+    const command = `docker compose -f "${composeFile}" --env-file "${envPath}" ${subCommand}`;
     const { exec } = await Promise.resolve().then(() => __importStar(require('child_process')));
     const { promisify } = await Promise.resolve().then(() => __importStar(require('util')));
     const execAsync = promisify(exec);
-    console.log(`Running: docker compose -f ${composeFile} --env-file ${envPath} ${subCommand}`);
-    const { stdout, stderr } = await execAsync(`docker compose -f "${composeFile}" --env-file "${envPath}" ${subCommand} --no-color`, {
+    console.log(`Running: ${command}`);
+    const { stdout, stderr } = await execAsync(command, {
+        cwd: workspaceRoot,
+        windowsHide: true,
+        maxBuffer: 1024 * 1024 * 10,
+    });
+    const out = stdout.toString().trim();
+    const err = stderr.toString().trim();
+    if (out) {
+        console.log(out);
+    }
+    if (err) {
+        console.error(err);
+    }
+}
+async function runPrismaDeploy() {
+    const envPath = path.join(workspaceRoot, '.env');
+    const composeFile = path.join(workspaceRoot, 'docker-compose.yml');
+    const command = `docker compose -f "${composeFile}" --env-file "${envPath}" exec -T app npx prisma migrate deploy`;
+    const { exec } = await Promise.resolve().then(() => __importStar(require('child_process')));
+    const { promisify } = await Promise.resolve().then(() => __importStar(require('util')));
+    const execAsync = promisify(exec);
+    console.log(`Running: ${command}`);
+    const { stdout, stderr } = await execAsync(command, {
         cwd: workspaceRoot,
         windowsHide: true,
         maxBuffer: 1024 * 1024 * 10,
@@ -382,6 +431,7 @@ COMMANDS:
   panel, p           Discover and configure 3X-UI panel runtime
   payments           Configure crypto and card-to-card payment gateways
   status, s          Show health and runtime status
+  infrastructure     Detect, connect, install, backup and restore PostgreSQL
   update             Update the installed project
   install-3xui       Install or repair 3X-UI
   uninstall          Fully uninstall runtime files and launchers
