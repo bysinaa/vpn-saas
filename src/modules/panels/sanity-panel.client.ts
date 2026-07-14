@@ -66,7 +66,7 @@ interface PanelSession {
 }
 
 /**
- * SanityPanelClient — real implementation of IPanelClient for 3X-UI (Sanaei)
+ * ThreeXuiPanelClient — real implementation of IPanelClient for 3X-UI (Sanaei)
  * v3.4.x.
  *
  * 3X-UI uses session-cookie + CSRF-token authentication (NOT a Bearer token):
@@ -83,10 +83,10 @@ interface PanelSession {
  * PanelConnection/PanelUser is therefore treated as the client email.
  */
 @Injectable()
-export class SanityPanelClient implements IPanelClient {
+export class ThreeXuiPanelClient implements IPanelClient {
   readonly type = 'SANITY';
 
-  private readonly logger = new Logger(SanityPanelClient.name);
+  private readonly logger = new Logger(ThreeXuiPanelClient.name);
   /** In-memory session cache keyed by panel id. */
   private readonly sessions = new Map<bigint, PanelSession>();
 

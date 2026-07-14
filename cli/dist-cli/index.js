@@ -41,6 +41,8 @@ const install_3xui_1 = require("./commands/install.3xui");
 const admin_1 = require("./commands/admin");
 const panel_1 = require("./commands/panel");
 const status_1 = require("./commands/status");
+const payment_1 = require("./commands/payment");
+const maintenance_1 = require("./commands/maintenance");
 const args = process.argv.slice(2);
 const command = args[0];
 const options = parseOptions(args.slice(1));
@@ -61,10 +63,25 @@ async function main() {
         case 'p':
             await new panel_1.PanelCommand().execute(options);
             break;
+        case 'payments':
+        case 'payment':
+            await new payment_1.PaymentCommand().execute(options);
+            break;
         case 'status':
         case 'health':
         case 's':
             await new status_1.StatusCommand().execute(options);
+            break;
+        case 'update':
+            await new maintenance_1.MaintenanceCommand().execute({ ...options, update: true });
+            break;
+        case 'uninstall':
+            await new maintenance_1.MaintenanceCommand().execute({ ...options, uninstall: true });
+            break;
+        case 'install-3xui':
+        case 'install3xui':
+        case 'xui':
+            await new maintenance_1.MaintenanceCommand().execute({ ...options, install3xui: true });
             break;
         case 'menu':
         case 'm':
@@ -159,6 +176,18 @@ async function showInteractiveMenu() {
                 case 'logs':
                     await runComposeCommand('logs --tail=100');
                     break;
+                case 'payments':
+                    await new payment_1.PaymentCommand().execute({});
+                    break;
+                case 'update':
+                    await new maintenance_1.MaintenanceCommand().execute({ update: true });
+                    break;
+                case 'install3xui':
+                    await new maintenance_1.MaintenanceCommand().execute({ install3xui: true });
+                    break;
+                case 'uninstall':
+                    await new maintenance_1.MaintenanceCommand().execute({ uninstall: true });
+                    break;
             }
         }
         catch (error) {
@@ -182,14 +211,18 @@ async function promptMenuSelection() {
     console.log('6. Stop Services');
     console.log('7. Restart Services');
     console.log('8. View Logs');
-    console.log('9. Exit');
+    console.log('9. Payment Gateways');
+    console.log('10. Check for Updates');
+    console.log('11. Install 3X-UI');
+    console.log('12. Full Uninstall');
+    console.log('13. Exit');
     console.log('');
     const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout,
     });
     const answer = await new Promise((resolve) => {
-        rl.question('Select an action (1-9): ', (value) => {
+        rl.question('Select an action (1-13): ', (value) => {
             rl.close();
             resolve(value.trim());
         });
@@ -211,6 +244,14 @@ async function promptMenuSelection() {
             return 'restart';
         case '8':
             return 'logs';
+        case '9':
+            return 'payments';
+        case '10':
+            return 'update';
+        case '11':
+            return 'install3xui';
+        case '12':
+            return 'uninstall';
         default:
             return 'exit';
     }
@@ -243,7 +284,11 @@ COMMANDS:
   install, i         Install or repair the platform
   admin, a           Manage super admin Telegram IDs
   panel, p           Discover and configure 3X-UI panel runtime
+  payments           Configure crypto and card-to-card payment gateways
   status, s          Show health and runtime status
+  update             Update the installed project
+  install-3xui       Install or repair 3X-UI
+  uninstall          Fully uninstall runtime files and launchers
   menu, m            Show interactive management menu
   help, h            Show help
 
