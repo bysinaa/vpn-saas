@@ -37,6 +37,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 /**
  * VPN SaaS CLI - Production installation and management entrypoint.
  */
+const fs = __importStar(require("fs"));
+const path = __importStar(require("path"));
 const install_3xui_1 = require("./commands/install.3xui");
 const admin_1 = require("./commands/admin");
 const panel_1 = require("./commands/panel");
@@ -257,11 +259,16 @@ async function promptMenuSelection() {
     }
 }
 async function runComposeCommand(subCommand) {
+    const envPath = path.join(process.cwd(), '.env');
+    if (!fs.existsSync(envPath) && subCommand !== 'stop') {
+        console.log('Environment file not found. Run "Install Platform" first to generate .env and configure the project.');
+        return;
+    }
     const { exec } = await Promise.resolve().then(() => __importStar(require('child_process')));
     const { promisify } = await Promise.resolve().then(() => __importStar(require('util')));
     const execAsync = promisify(exec);
-    console.log(`Running: docker compose ${subCommand}`);
-    const { stdout, stderr } = await execAsync(`docker compose ${subCommand}`, {
+    console.log(`Running: docker compose --env-file ${envPath} ${subCommand}`);
+    const { stdout, stderr } = await execAsync(`docker compose --env-file "${envPath}" ${subCommand}`, {
         cwd: process.cwd(),
         windowsHide: true,
         maxBuffer: 1024 * 1024 * 10,
