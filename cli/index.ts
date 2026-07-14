@@ -4,7 +4,6 @@
  * VPN SaaS CLI - Production installation and management entrypoint.
  */
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { InstallCommand, type InstallOptions } from './commands/install.3xui';
 import { AdminCommand, type AdminOptions } from './commands/admin';
@@ -191,7 +190,7 @@ async function showInteractiveMenu() {
           await runComposeCommand('restart');
           break;
         case 'logs':
-          await runComposeCommand('logs --tail=100');
+          await runComposeCommand('logs --tail=100 app');
           break;
         case 'payments':
           await new PaymentCommand().execute({});
@@ -220,7 +219,7 @@ async function showInteractiveMenu() {
 async function promptMenuSelection(): Promise<MenuAction> {
   const readline = await import('readline');
 
-  const installed = fs.existsSync(path.join(process.cwd(), '.env'));
+  const installed = fs.existsSync(path.join(workspaceRoot, '.env'));
   const firstActionLabel = installed ? 'Edit .env File' : 'Install Platform';
 
   console.log('Tazaxy CLI');
@@ -356,6 +355,12 @@ async function manageEnvFile() {
 
 async function runComposeCommand(subCommand: string) {
   const envPath = path.join(workspaceRoot, '.env');
+  const composeFile = path.join(workspaceRoot, 'docker-compose.yml');
+
+  if (!fs.existsSync(composeFile)) {
+    console.log(`docker-compose.yml not found in ${workspaceRoot}`);
+    return;
+  }
 
   if (!fs.existsSync(envPath) && subCommand !== 'stop') {
     console.log('Environment file not found. Run "Install Platform" first to generate .env and configure the project.');
@@ -366,20 +371,26 @@ async function runComposeCommand(subCommand: string) {
   const { promisify } = await import('util');
   const execAsync = promisify(exec);
 
-  console.log(`Running: docker compose --env-file ${envPath} ${subCommand}`);
+  console.log(`Running: docker compose -f ${composeFile} --env-file ${envPath} ${subCommand}`);
 
-  const { stdout, stderr } = await execAsync(`docker compose --env-file "${envPath}" ${subCommand} --no-color`, {
-    cwd: workspaceRoot,
-    windowsHide: true,
-    maxBuffer: 1024 * 1024 * 10,
-  });
+  const { stdout, stderr } = await execAsync(
+    `docker compose -f "${composeFile}" --env-file "${envPath}" ${subCommand} --no-color`,
+    {
+      cwd: workspaceRoot,
+      windowsHide: true,
+      maxBuffer: 1024 * 1024 * 10,
+    },
+  );
 
-  if (stdout.trim()) {
-    console.log(stdout.trim());
+  const out = stdout.toString().trim();
+  const err = stderr.toString().trim();
+
+  if (out) {
+    console.log(out);
   }
 
-  if (stderr.trim()) {
-    console.error(stderr.trim());
+  if (err) {
+    console.error(err);
   }
 }
 
