@@ -19,6 +19,7 @@ export declare class InstallCommand extends BaseCommand {
     private ensureSuperAdmin;
     private validateInstallation;
     private showFinalSummary;
+    private promptForValidTelegramBotToken;
     private assertEnvHasValues;
     private generatePassword;
 }

@@ -171,7 +171,7 @@ class InstallCommand extends install_interface_1.BaseCommand {
     async ensureEnvironmentWizard(options, publicIp, apiPort, panel) {
         this.section('Step 1/4 - Application and bot configuration');
         const appUrl = options.domain ? `https://${options.domain}` : `http://${publicIp}:${apiPort}`;
-        const botToken = await this.promptRequired('Telegram bot token');
+        const botToken = await this.promptForValidTelegramBotToken();
         const primarySuperAdminTelegramId = await this.promptRequired('Primary super admin Telegram ID');
         const superAdminEmail = (await this.prompt('Super admin email', 'admin@vpn-saas.local')).trim() || 'admin@vpn-saas.local';
         const superAdminPassword = await this.promptSecret('Super admin password', this.generatePassword(16));
@@ -261,7 +261,9 @@ class InstallCommand extends install_interface_1.BaseCommand {
     }
     async buildAndStartContainers() {
         this.section('Building and starting containers');
-        await this.execOrThrow(`docker compose --env-file "${this.defaultEnvPath}" build`, { timeout: 600000 });
+        this.log('Building Docker images. This can take several minutes on first install.', 'info');
+        await this.execOrThrow(`docker compose --env-file "${this.defaultEnvPath}" build --progress plain`, { timeout: 600000 });
+        this.log('Starting containers.', 'info');
         await this.execOrThrow(`docker compose --env-file "${this.defaultEnvPath}" up -d`, { timeout: 600000 });
         this.log('Containers started.', 'success');
     }
@@ -316,6 +318,21 @@ class InstallCommand extends install_interface_1.BaseCommand {
         console.log(`Runtime config: ${runtime.paths.stateFile}`);
         console.log(`Installer log: ${runtime.paths.installLogFile}`);
         this.log('Installation flow completed. Re-open the CLI to use the main menu.', 'success');
+    }
+    async promptForValidTelegramBotToken() {
+        while (true) {
+            const token = await this.promptRequired('Telegram bot token');
+            const result = await this.execCommand(`curl -fsS "https://api.telegram.org/bot${token}/getMe"`, {
+                allowFailure: true,
+                timeout: 20000,
+            });
+            const payload = `${result.stdout || ''}${result.stderr || ''}`.trim();
+            if (result.ok && /"ok"\s*:\s*true/.test(payload)) {
+                this.log('Telegram bot token validated.', 'success');
+                return token;
+            }
+            this.log('Telegram bot token is invalid or unreachable. Please enter a valid token.', 'warn');
+        }
     }
     assertEnvHasValues(content, keys) {
         const missing = keys.filter((key) => {
