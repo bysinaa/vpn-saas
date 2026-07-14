@@ -166,24 +166,36 @@ export class InstallCommand extends BaseCommand {
     const panelPort = await this.findAvailablePort(2053, 2054);
     const subscriptionPort = await this.findAvailablePort(2096, 2097);
     const subscriptionPath = this.normalizePathSegment('sub', 'sub');
-    const tlsEnabled = false;
-    const panelUrl = options.panelUrl || `http://${publicIp}:${panelPort}`;
+    const tlsEnabled = options.panelUrl
+      ? new URL(this.normalizePanelUrl(options.panelUrl, undefined, panelPort)).protocol === 'https:'
+      : (await this.confirm('TLS Enabled for panel URL?', true));
+    const defaultPanelUrl = this.buildPanelUrlFromParts({
+      host: publicIp,
+      port: panelPort,
+      tlsEnabled,
+      basePath: '',
+    });
+    const panelUrl = this.normalizePanelUrl(
+      options.panelUrl || (await this.prompt('Panel URL', defaultPanelUrl)),
+      tlsEnabled,
+      panelPort,
+    );
     const panelUser = options.panelUser || (await this.prompt('3X-UI admin username', 'admin'));
     const panelPass = options.panelPass || (await this.promptSecret('3X-UI admin password', this.generatePassword(16)));
+    const runtimePreview = this.buildPanelRuntimePreview({
+      panelUrl,
+      panelUser,
+      panelPass,
+      tlsEnabled,
+      subscriptionPort,
+      subscriptionPath,
+    });
 
     await this.saveRuntimeConfig((config) => ({
       ...config,
       panel: {
-        panelUrl,
-        panelUser,
-        panelPass,
-        apiUrl: `${panelUrl}/panel/api`,
-        subscriptionBaseUrl: `http://${publicIp}:${subscriptionPort}`,
-        subscriptionPath,
-        subscriptionPort,
-        tlsEnabled,
+        ...runtimePreview,
         installationDirectory: '/usr/local/x-ui',
-        updatedAt: new Date().toISOString(),
       },
     }));
 
@@ -249,11 +261,15 @@ export class InstallCommand extends BaseCommand {
     if (primarySuperAdminTelegramId) {
       envContent = this.upsertEnvValue(envContent, 'SUPER_ADMIN_TELEGRAM_ID', primarySuperAdminTelegramId);
     }
-    envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_BASE_URL', panel.panelUrl);
-    envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_USERNAME', panel.panelUser);
-    envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_PASSWORD', panel.panelPass);
-    envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_SUB_PORT', String(panel.subscriptionPort));
-    envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_SUB_PATH', panel.subscriptionPath);
+     envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_BASE_URL', panel.panelUrl);
+     envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_USERNAME', panel.panelUser);
+     envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_PASSWORD', panel.panelPass);
+     envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_SUB_PORT', String(panel.subscriptionPort));
+     envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_SUB_PATH', panel.subscriptionPath);
+     envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_TLS_ENABLED', String(panel.tlsEnabled));
+     envContent = this.upsertEnvValue(envContent, 'XUI_PANEL_URL', panel.panelUrl);
+     envContent = this.upsertEnvValue(envContent, 'XUI_USERNAME', panel.panelUser);
+     envContent = this.upsertEnvValue(envContent, 'XUI_PASSWORD', panel.panelPass);
     envContent = this.upsertEnvValue(envContent, 'ONLINE_GATEWAY_CALLBACK_URL', `${appUrl}/api/v1/payments/online/callback`);
 
     this.assertEnvHasValues(envContent, [

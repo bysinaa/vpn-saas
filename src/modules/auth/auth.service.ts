@@ -5,7 +5,7 @@ import { RedisService } from '@/common/redis/redis.service';
 import { AuditService } from '@/common/audit/audit.service';
 import { BusinessException } from '@/common/exceptions/business.exception';
 import { config } from '@/config';
-import type { UserRole, UserStatus } from '@prisma/client';
+import type { Prisma, UserRole, UserStatus } from '@prisma/client';
 import { PasswordService } from './password.service';
 import { JwtTokenService } from './jwt-token.service';
 import { LoginInput, LoginResult } from './auth.types';
@@ -211,25 +211,104 @@ export class AuthService {
     });
 
     if (!user) {
-      const referrer = input.referralCode
-        ? await this.prisma.user.findUnique({ where: { referralCode: input.referralCode } })
-        : null;
+      const referralCode = input.referralCode?.trim().toUpperCase();
+      const referrer =
+        referralCode && referralCode.length
+          ? await this.prisma.user.findFirst({
+              where: {
+                referralCode,
+                status: 'ACTIVE',
+                telegramId: { not: input.telegramId },
+              },
+            })
+          : null;
       const newReferralCode = await this.generateReferralCode();
-      user = await this.prisma.user.create({
-        data: {
-          telegramId: input.telegramId,
-          username: input.username,
-          firstName: input.firstName,
-          lastName: input.lastName,
-          language,
-          role: isAdmin ? 'SUPER_ADMIN' : 'USER',
-          status: 'ACTIVE',
-          referralCode: newReferralCode,
-          referredById: referrer?.id,
-          deviceFingerprint: input.deviceFingerprint,
-          wallet: { create: {} },
-        },
-        include: { wallet: true },
+      const referralReward = BigInt(
+        (await this.prisma.systemSetting.findUnique({
+          where: { key: 'referral.signup_bonus_minor' },
+          select: { value: true },
+        }))?.value ?? '0',
+      );
+
+      user = await this.prisma.withTransaction(async (tx) => {
+        const createdUser = await tx.user.create({
+          data: {
+            telegramId: input.telegramId,
+            username: input.username,
+            firstName: input.firstName,
+            lastName: input.lastName,
+            language,
+            role: isAdmin ? 'SUPER_ADMIN' : 'USER',
+            status: 'ACTIVE',
+            referralCode: newReferralCode,
+            referredById: referrer?.id,
+            deviceFingerprint: input.deviceFingerprint,
+            wallet: { create: {} },
+          },
+          include: { wallet: true },
+        });
+
+        if (referrer) {
+          const existingReferral = await tx.referralLog.findFirst({
+            where: {
+              OR: [
+                { referredId: createdUser.id },
+                { referred: { telegramId: input.telegramId } },
+              ],
+            },
+            select: { id: true },
+          });
+
+          if (!existingReferral) {
+            await tx.referralLog.create({
+              data: {
+                referrerId: referrer.id,
+                referredId: createdUser.id,
+                status: referralReward > 0n ? 'COMPLETED' : 'PENDING',
+                referrerReward: referralReward,
+                metadata: {
+                  source: 'telegram_start',
+                  telegramId: input.telegramId,
+                  rewardedAt: referralReward > 0n ? new Date().toISOString() : null,
+                } as Prisma.InputJsonValue,
+              },
+            });
+
+            if (referralReward > 0n) {
+              const referrerWallet = await tx.wallet.upsert({
+                where: { userId: referrer.id },
+                update: {},
+                create: { userId: referrer.id },
+              });
+
+              await tx.walletTransaction.create({
+                data: {
+                  publicId: randomUUID(),
+                  walletId: referrerWallet.id,
+                  type: 'REFERRAL_REWARD',
+                  status: 'CONFIRMED',
+                  amount: referralReward,
+                  fee: 0n,
+                  balanceBefore: referrerWallet.balance,
+                  balanceAfter: referrerWallet.balance + referralReward,
+                  description: `Referral reward for ${input.telegramId}`,
+                  reference: referralCode,
+                  metadata: {
+                    referredTelegramId: input.telegramId,
+                    referredUserId: createdUser.id.toString(),
+                  } as Prisma.InputJsonValue,
+                },
+              });
+
+              await tx.wallet.update({
+                where: { userId: referrer.id },
+                data: { balance: { increment: referralReward } },
+              });
+            }
+          }
+        }
+
+        return createdUser;
       });
     } else {
       // Update profile fields on each start; promote to SUPER_ADMIN if this

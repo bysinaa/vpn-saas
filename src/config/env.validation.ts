@@ -95,6 +95,13 @@ export const envSchema = z.object({
   SANITY_PANEL_SUB_PORT: z.coerce.number().default(2053),
   SANITY_PANEL_SUB_PATH: z.string().default('sub'),
 
+  XUI_PANEL_URL: z.string().url().optional().default('https://localhost:2053/'),
+  XUI_USERNAME: z.string().default('admin'),
+  XUI_PASSWORD: z.string().default(''),
+  XUI_TIMEOUT_MS: z.coerce.number().default(15000),
+  XUI_SESSION_TTL_MS: z.coerce.number().default(3600000),
+  XUI_DEFAULT_INBOUND_ID: z.coerce.number().optional(),
+
   ONLINE_GATEWAY_ENABLED: envBool(true),
   ONLINE_GATEWAY_BASE_URL: z.string().default(''),
   ONLINE_GATEWAY_MERCHANT_ID: z.string().default(''),

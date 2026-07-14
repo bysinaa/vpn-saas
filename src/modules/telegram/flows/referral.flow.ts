@@ -7,7 +7,6 @@ import { mainMenuKeyboard, referralKeyboard } from '../keyboards';
 import { formatDate } from '../format.util';
 import { fromMinor } from '@/common/utils/money.util';
 import { randomCode } from '@/common/utils/crypto.util';
-import { config } from '@/config';
 
 const HISTORY_PAGE_SIZE = 8;
 
@@ -92,7 +91,7 @@ export class ReferralFlow {
       const wallet = await this.prisma.wallet.findUnique({ where: { userId: session.userId } });
       const currency = wallet?.currency ?? 'IRR';
 
-      const link = `${config.app.url}?ref=${user.referralCode}`;
+      const link = this.runtime.buildReferralLink(user.referralCode);
       const shareText = t(locale, 'referral.share.text', { brand: await this.runtime.getBrandName(), link });
 
       const msg =
@@ -128,7 +127,8 @@ export class ReferralFlow {
     const wallet = await this.prisma.wallet.findUnique({ where: { userId: session.userId } });
     const currency = wallet?.currency ?? 'IRR';
 
-    const link = `${config.app.url}?ref=${(await this.prisma.user.findUnique({ where: { id: session.userId } }))?.referralCode ?? ''}`;
+    const referralCode = (await this.prisma.user.findUnique({ where: { id: session.userId } }))?.referralCode ?? '';
+    const link = referralCode ? this.runtime.buildReferralLink(referralCode) : '';
     const shareText = t(locale, 'referral.share.text', { brand: await this.runtime.getBrandName(), link });
 
     const body = t(locale, 'referral.rules.body', {

@@ -32,6 +32,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { ApiModule } from './modules/api/api.module';
 import { MiniAppModule } from './modules/miniapp/miniapp.module';
+import { XuiModule } from './integrations/xui/xui.module';
 
 /**
  * AppModule - root application module.
@@ -75,6 +76,7 @@ import { MiniAppModule } from './modules/miniapp/miniapp.module';
     ApiModule,
     TelegramModule,
     MiniAppModule,
+    XuiModule,
   ],
   providers: [
     // Global exception filter - uniform JSON error envelope

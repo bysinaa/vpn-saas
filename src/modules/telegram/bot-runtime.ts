@@ -31,6 +31,7 @@ export class BotRuntime {
 
   /** The shared Telegraf instance — set once during onApplicationBootstrap. */
   private _bot!: Telegraf;
+  private botUsername: string | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -40,6 +41,21 @@ export class BotRuntime {
   /** Called by TelegramBotService to inject the live Telegraf bot instance. */
   setBot(bot: Telegraf): void {
     this._bot = bot;
+  }
+
+  setBotUsername(username?: string | null): void {
+    this.botUsername = username?.replace(/^@/, '') ?? null;
+  }
+
+  getBotUsername(): string | null {
+    return this.botUsername;
+  }
+
+  buildReferralLink(referralCode: string): string {
+    if (!this.botUsername) {
+      throw new Error('Telegram bot username is not initialized');
+    }
+    return `https://t.me/${this.botUsername}?start=${encodeURIComponent(referralCode)}`;
   }
 
   // ---------- Session ----------

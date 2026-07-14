@@ -119,8 +119,11 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
     this.registerHandlers();
     this.attachErrorHandler();
 
+    const botInfo = await this._bot.telegram.getMe();
+
     // Share the live Telegraf instance with BotRuntime so notifyAdmins() works.
     this.runtime.setBot(this._bot);
+    this.runtime.setBotUsername(botInfo.username);
     // Also share with BroadcastService so broadcasts use the same connection.
     this.broadcast.setBot(this._bot);
   }
@@ -250,7 +253,9 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
       this._bot = directBot;
       this.registerHandlers();
       this.attachErrorHandler();
+      const botInfo = await this._bot.telegram.getMe();
       this.runtime.setBot(this._bot);
+      this.runtime.setBotUsername(botInfo.username);
       this.broadcast.setBot(this._bot);
       this.logger.log('Telegram API reachable via direct connection (no proxy) — using direct');
       return;
@@ -267,6 +272,8 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
     }
     const proxyOk = await probeWithTimeout(this._bot);
     if (proxyOk) {
+      const botInfo = await this._bot.telegram.getMe();
+      this.runtime.setBotUsername(botInfo.username);
       this.logger.log('Telegram API reachable via proxy agent — using proxy');
       return;
     }
@@ -517,12 +524,24 @@ if (ctx.callbackQuery) {
     if (!telegramId) return;
     const session = await this.runtime.getSession(telegramId);
     if (session.userId) return;
+    // Extract Telegram /start payload (deep-link). Telegraf exposes ctx.startPayload
+    // in many versions; fall back to parsing the message text if unavailable.
+    const messageText =
+      typeof (ctx.message as { text?: unknown } | undefined)?.text === 'string'
+        ? ((ctx.message as { text: string }).text)
+        : undefined;
+    const rawPayload =
+      (ctx as any).startPayload ??
+      (messageText ? messageText.split(' ')[1] : undefined);
+    const referralCode = rawPayload && rawPayload.length ? rawPayload : undefined;
+
     const result = await this.auth.mintForTelegramUser({
       telegramId,
       firstName: ctx.from?.first_name,
       lastName: ctx.from?.last_name,
       username: ctx.from?.username,
       languageCode: session.locale,
+      referralCode,
     });
     session.userId = BigInt(result.user.id);
     await this.runtime.setSession(session);

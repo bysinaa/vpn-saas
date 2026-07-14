@@ -76,6 +76,14 @@ export const config = {
     subPort: env.SANITY_PANEL_SUB_PORT,
     subPath: env.SANITY_PANEL_SUB_PATH,
   },
+  xui: {
+    panelUrl: env.XUI_PANEL_URL,
+    username: env.XUI_USERNAME,
+    password: env.XUI_PASSWORD,
+    timeoutMs: env.XUI_TIMEOUT_MS,
+    sessionTtlMs: env.XUI_SESSION_TTL_MS,
+    defaultInboundId: env.XUI_DEFAULT_INBOUND_ID,
+  },
   payments: {
     online: {
       enabled: env.ONLINE_GATEWAY_ENABLED,

@@ -516,6 +516,98 @@ export abstract class BaseCommand {
     return html ? `${url}?html=1` : url;
   }
 
+  protected normalizePanelUrl(input: string, tlsEnabled?: boolean, defaultPort?: number, basePath?: string): string {
+    const raw = (input || '').trim();
+    if (!raw) {
+      throw new Error('Panel URL is required');
+    }
+
+    const hasScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw);
+    const inferredProtocol = tlsEnabled === undefined ? (hasScheme ? undefined : 'http') : tlsEnabled ? 'https' : 'http';
+    const candidate = hasScheme ? raw : `${inferredProtocol}://${raw}`;
+    const parsed = new URL(candidate);
+
+    const resolvedTls = tlsEnabled ?? parsed.protocol === 'https:';
+    parsed.protocol = resolvedTls ? 'https:' : 'http:';
+
+    if (!parsed.port && defaultPort) {
+      parsed.port = String(defaultPort);
+    }
+
+    const normalizedPath = typeof basePath === 'string' && basePath.length > 0 ? basePath : parsed.pathname;
+    const trimmedPath = normalizedPath.trim().replace(/^\/+/, '').replace(/\/+$/, '');
+    parsed.pathname = trimmedPath ? `/${trimmedPath}/` : '/';
+    parsed.search = '';
+    parsed.hash = '';
+
+    return parsed.toString().replace(/\/+$/, trimmedPath ? '/' : '');
+  }
+
+  protected buildPanelUrlFromParts(input: {
+    host?: string;
+    domain?: string;
+    port?: number;
+    tlsEnabled?: boolean;
+    basePath?: string;
+  }): string {
+    const hostname = (input.domain || input.host || '').trim();
+    if (!hostname) {
+      throw new Error('Host or domain is required to build panel URL');
+    }
+
+    const protocol = input.tlsEnabled ? 'https' : 'http';
+    const port =
+      input.port ??
+      (input.tlsEnabled
+        ? 2053
+        : 2053);
+
+    const authority = `${protocol}://${hostname}${port ? `:${port}` : ''}`;
+    return this.normalizePanelUrl(authority, input.tlsEnabled, port, input.basePath);
+  }
+
+  protected buildPanelRuntimePreview(input: {
+    panelUrl?: string;
+    host?: string;
+    domain?: string;
+    port?: number;
+    tlsEnabled?: boolean;
+    panelPath?: string;
+    subscriptionPort?: number;
+    subscriptionPath?: string;
+    panelUser?: string;
+    panelPass?: string;
+  }): VpnSaasPanelRuntimeConfig {
+    const panelUrl = input.panelUrl
+      ? this.normalizePanelUrl(input.panelUrl, input.tlsEnabled, input.port, input.panelPath)
+      : this.buildPanelUrlFromParts({
+          host: input.host,
+          domain: input.domain,
+          port: input.port,
+          tlsEnabled: input.tlsEnabled,
+          basePath: input.panelPath,
+        });
+
+    const panelUrlObject = new URL(panelUrl);
+    const tlsEnabled = input.tlsEnabled ?? panelUrlObject.protocol === 'https:';
+    const subscriptionPort = input.subscriptionPort || Number(panelUrlObject.port || (tlsEnabled ? 443 : 80));
+    const subscriptionPath = this.normalizePathSegment(input.subscriptionPath || 'sub', 'sub');
+    const subscriptionBaseUrl = `${panelUrlObject.protocol}//${panelUrlObject.hostname}:${subscriptionPort}`;
+
+    return {
+      panelUrl,
+      panelUser: input.panelUser || 'admin',
+      panelPass: input.panelPass || '',
+      apiUrl: `${panelUrl.replace(/\/+$/, '')}/panel/api`,
+      subscriptionBaseUrl,
+      subscriptionPath,
+      subscriptionPort,
+      tlsEnabled,
+      updatedAt: new Date().toISOString(),
+      webRoot: panelUrlObject.pathname || '/',
+    };
+  }
+
   protected generateSecret(length = 32): string {
     return crypto.randomBytes(length).toString('hex').slice(0, length);
   }
