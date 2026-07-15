@@ -125,11 +125,32 @@ show_management_menu() {
 
 uninstall_everything() {
   log "Uninstalling VPN SaaS and cleaning up all files"
+
+  # Stop and remove vpn-saas containers
+  if docker compose -f "$INSTALL_DIR/docker-compose.yml" ps >/dev/null 2>&1; then
+    docker compose -f "$INSTALL_DIR/docker-compose.yml" down --remove-orphans
+    log "Stopped and removed vpn-saas containers"
+  fi
+
+  # Remove vpn-saas named volumes
+  if docker volume ls -q | grep -q "^vpn_saas_"; then
+    docker volume rm $(docker volume ls -q | grep "^vpn_saas_")
+    log "Removed vpn-saas named volumes"
+  fi
+
+  # Remove vpn-saas networks
+  if docker network ls -q | grep -q "^vpn_saas_"; then
+    docker network rm $(docker network ls -q | grep "^vpn_saas_")
+    log "Removed vpn-saas networks"
+  fi
+
+  # Remove installation directory
   if [ -d "$INSTALL_DIR" ]; then
     rm -rf "$INSTALL_DIR"
     log "Removed installation directory: $INSTALL_DIR"
   fi
 
+  # Remove launchers
   if [ -f /usr/local/bin/tazaxy ]; then
     rm -f /usr/local/bin/tazaxy
     log "Removed tazaxy launcher"
@@ -138,6 +159,14 @@ uninstall_everything() {
   if [ -f /usr/local/bin/vpn-cli ]; then
     rm -f /usr/local/bin/vpn-cli
     log "Removed vpn-cli launcher"
+  fi
+
+  # Optionally remove database and user
+  if [ "${REMOVE_DB:-false}" = "true" ]; then
+    log "Removing vpn_saas database and user"
+    psql -U postgres -c "DROP DATABASE IF EXISTS vpn_saas;"
+    psql -U postgres -c "DROP ROLE IF EXISTS vpn_user;"
+    log "Removed vpn_saas database and user"
   fi
 
   log "Uninstallation complete. System is clean."
