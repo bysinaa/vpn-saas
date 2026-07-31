@@ -39,9 +39,17 @@ export class TrialFlow {
     private readonly audit: AuditService,
   ) {}
 
+  // small helper: safely extract telegram id string or null (avoid non-null asserted optional chains)
+  private getTelegramId(ctx: Context): string | null {
+    return ctx?.from && typeof ctx.from.id !== 'undefined' && ctx.from.id !== null
+      ? String(ctx.from.id)
+      : null;
+  }
+
   /** Entry point: run eligibility checks and provision a trial. */
   async start(ctx: Context): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const result = await this.runtime.withLock(telegramId, () => this.provisionTrial(ctx));
     if (result === undefined) {
       await this.runtime.alert(ctx, t(await this.runtime.getLocale(telegramId), 'common.loading'));
@@ -49,7 +57,8 @@ export class TrialFlow {
   }
 
   private async provisionTrial(ctx: Context): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) {

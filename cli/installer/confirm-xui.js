@@ -27,24 +27,9 @@ function parseArgs() {
   return out;
 }
 
-function loadState() {
-  try {
-    const raw = fs.readFileSync(STATE_PATH, 'utf8');
-    return JSON.parse(raw);
-  } catch (e) {
-    console.error('Failed to read installer-state.json:', e.message);
-    process.exit(2);
-  }
-}
-
-function saveState(state) {
-  try {
-    fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2), 'utf8');
-  } catch (e) {
-    console.error('Failed to write installer-state.json:', e.message);
-    process.exit(2);
-  }
-}
+const _stateManager = require('./state-manager');
+const loadState = () => _stateManager.loadState(STATE_PATH);
+const saveState = (s) => _stateManager.saveState(STATE_PATH, s);
 
 (async function main() {
   const CLI = parseArgs();

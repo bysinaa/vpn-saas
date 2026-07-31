@@ -34,18 +34,9 @@ function parseArgs() {
   return out;
 }
 
-function loadState() {
-  try {
-    const raw = fs.readFileSync(STATE_PATH, 'utf8');
-    return JSON.parse(raw);
-  } catch (e) {
-    return {};
-  }
-}
-
-function saveState(state) {
-  fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2), 'utf8');
-}
+const _stateManager = require('./state-manager');
+const loadState = () => _stateManager.loadState(STATE_PATH);
+const saveState = (s) => _stateManager.saveState(STATE_PATH, s);
 
 function httpPostJson(urlString, body, insecure = false) {
   return new Promise((resolve, reject) => {

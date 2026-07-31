@@ -105,7 +105,6 @@ export class WalletService {
       const currentGift = locked[0]?.giftBalance ?? wallet.giftBalance;
 
       let balanceBefore: MinorUnits;
-      let balanceAfter: MinorUnits;
       let newMainBalance = currentBalance;
       let newGiftBalance = currentGift;
 
@@ -127,7 +126,7 @@ export class WalletService {
           newMainBalance = subMoney(currentBalance, amount);
         }
       }
-      balanceAfter = params.useGiftBalance ? newGiftBalance : newMainBalance;
+      const balanceAfter: MinorUnits = params.useGiftBalance ? newGiftBalance : newMainBalance;
 
       const txn = await tx.walletTransaction.create({
         data: {

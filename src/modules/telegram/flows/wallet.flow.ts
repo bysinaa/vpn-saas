@@ -33,8 +33,16 @@ export class WalletFlow {
     private readonly proxy: ProxyHttpService,
   ) {}
 
+  // small helper: safely extract telegram id string or null (avoid non-null asserted optional chains)
+  private getTelegramId(ctx: Context): string | null {
+    return ctx?.from && typeof ctx.from.id !== 'undefined' && ctx.from.id !== null
+      ? String(ctx.from.id)
+      : null;
+  }
+
   async show(ctx: Context): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) {
@@ -55,7 +63,8 @@ export class WalletFlow {
   }
 
   async showDepositMethods(ctx: Context): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     await this.runtime.setState(telegramId, 'wallet_awaiting_deposit_method' as any);
     await this.runtime.pushMenu(telegramId, 'wallet_deposit');
@@ -74,7 +83,8 @@ export class WalletFlow {
 
   /** Handle a pre-set deposit amount button (`wdepamt:<amount>`). */
   async onSelectPresetDepositAmount(ctx: Context, amount: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) {
@@ -130,7 +140,8 @@ export class WalletFlow {
 
   /** Handle a receipt photo upload (card-to-card for wallet deposit). */
   async onReceiptUpload(ctx: Context, photoFileId: string): Promise<boolean> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return false;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     const data = session.data ?? {};
@@ -217,7 +228,8 @@ export class WalletFlow {
   }
 
   async showHistory(ctx: Context, page = 0): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) {
@@ -254,7 +266,8 @@ export class WalletFlow {
   }
 
   async showGiftHistory(ctx: Context, _page = 0): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) {

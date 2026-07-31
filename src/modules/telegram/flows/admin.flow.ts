@@ -42,6 +42,13 @@ export class AdminFlow {
     private readonly vpn: VpnService,
   ) {}
 
+  // small helper: safely extract telegram id string or null (avoid non-null asserted optional chains)
+  private getTelegramId(ctx: Context): string | null {
+    return ctx?.from && typeof ctx.from.id !== 'undefined' && ctx.from.id !== null
+      ? String(ctx.from.id)
+      : null;
+  }
+
   // ===========================================================================
   // Entry points
   // ===========================================================================
@@ -215,11 +222,12 @@ export class AdminFlow {
     };
 
     const handleDnsError = async (ctx: Context, error: any): Promise<void> => {
-      const locale = await this.runtime.getLocale(ctx.from?.id?.toString()!);
+      const locale = await this.runtime.getLocale(this.getTelegramId(ctx) ?? '');
       const errorMessage = `❌ ${t(locale, 'admin.gateway.error')}: ${error.message}`;
       await this.runtime.editOrSend(ctx, errorMessage, this.backHomeKeyboard(locale));
     };
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const normalize = (s?: string) => (s ? s.trim().replace(/^\+/, '') : '');
     const isConfiguredSuperAdmin =
@@ -416,7 +424,8 @@ export class AdminFlow {
     ]);
 
     // Forward receipt photos to admin
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     for (const p of awaitingPayments) {
       const rcpt = (p as any).receipt;
       if (rcpt?.fileKey) {
@@ -526,10 +535,13 @@ export class AdminFlow {
     if (!payment || payment.status !== 'AWAITING_VERIFY') {
       // Use sendMessage since the callback may come from a photo message
       try {
-        await (ctx as any).telegram.sendMessage(
-          ctx.from?.id!,
-          '❌ پرداخت یافت نشد یا قبلاً تایید شده.',
-        );
+        const adminId = this.getTelegramId(ctx);
+        if (adminId) {
+          await (ctx as any).telegram.sendMessage(
+            adminId,
+            '❌ پرداخت یافت نشد یا قبلاً تایید شده.',
+          );
+        }
       } catch {
         /* ignore */
       }
@@ -564,14 +576,16 @@ export class AdminFlow {
       });
     }
 
-    const adminTelegramId = ctx.from?.id!;
-    try {
-      await (ctx as any).telegram.sendMessage(
-        adminTelegramId,
-        `✅ پرداخت #${paymentPublicId.slice(0, 8)} تایید شد.\n💰 مبلغ ${fromMinor(amount)} ${payment.currency ?? 'IRR'} به کیف پول کاربر اضافه شد.`,
-      );
-    } catch {
-      /* ignore */
+    const adminTelegramId = this.getTelegramId(ctx);
+    if (adminTelegramId) {
+      try {
+        await (ctx as any).telegram.sendMessage(
+          adminTelegramId,
+          `✅ پرداخت #${paymentPublicId.slice(0, 8)} تایید شد.\n💰 مبلغ ${fromMinor(amount)} ${payment.currency ?? 'IRR'} به کیف پول کاربر اضافه شد.`,
+        );
+      } catch {
+        /* ignore */
+      }
     }
 
     // If this payment is for an ORDER, complete the order and provision the subscription
@@ -683,10 +697,13 @@ export class AdminFlow {
     });
     if (!payment || payment.status !== 'AWAITING_VERIFY') {
       try {
-        await (ctx as any).telegram.sendMessage(
-          ctx.from?.id!,
-          '❌ پرداخت یافت نشد یا قبلاً تایید شده.',
-        );
+        const adminId = this.getTelegramId(ctx);
+        if (adminId) {
+          await (ctx as any).telegram.sendMessage(
+            adminId,
+            '❌ پرداخت یافت نشد یا قبلاً تایید شده.',
+          );
+        }
       } catch {
         /* ignore */
       }
@@ -699,14 +716,16 @@ export class AdminFlow {
       if (rcpt) await tx.receipt.update({ where: { id: rcpt.id }, data: { status: 'REJECTED' } });
     });
 
-    const adminTelegramId = ctx.from?.id!;
-    try {
-      await (ctx as any).telegram.sendMessage(
-        adminTelegramId,
-        `❌ رسید #${paymentPublicId.slice(0, 8)} رد شد.`,
-      );
-    } catch {
-      /* ignore */
+    const adminTelegramId = this.getTelegramId(ctx);
+    if (adminTelegramId) {
+      try {
+        await (ctx as any).telegram.sendMessage(
+          adminTelegramId,
+          `❌ رسید #${paymentPublicId.slice(0, 8)} رد شد.`,
+        );
+      } catch {
+        /* ignore */
+      }
     }
 
     const user = (payment as any).user;
@@ -856,7 +875,8 @@ export class AdminFlow {
   private async startPlanWizard(ctx: Context): Promise<void> {
     const locale = await this.guard(ctx);
     if (!locale) return;
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     await this.runtime.setState(telegramId, 'admin_plan_awaiting_field', {
       adminWizard: 'plan_create',
       adminField: 'name',
@@ -875,7 +895,8 @@ export class AdminFlow {
   private async startPlanEdit(ctx: Context, publicId: string): Promise<void> {
     const locale = await this.guard(ctx);
     if (!locale) return;
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     await this.runtime.setState(telegramId, 'admin_plan_awaiting_field', {
       adminWizard: 'plan_edit',
       adminTargetId: publicId,
@@ -903,7 +924,8 @@ export class AdminFlow {
   private async startPlanEditField(ctx: Context, publicId: string, field: string): Promise<void> {
     const locale = await this.guard(ctx);
     if (!locale) return;
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const plan = await this.plans.getRaw(publicId);
     const current =
       field === 'price'
@@ -1099,7 +1121,8 @@ export class AdminFlow {
   private async startPanelWizard(ctx: Context): Promise<void> {
     const locale = await this.guard(ctx);
     if (!locale) return;
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     await this.runtime.setState(telegramId, 'admin_panel_awaiting_field', {
       adminWizard: 'panel_create',
       adminField: 'name',
@@ -1167,7 +1190,8 @@ export class AdminFlow {
     const locale = await this.guard(ctx);
     if (!locale) return;
     const total = await this.prisma.user.count({ where: { status: 'ACTIVE' } });
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     await this.runtime.setState(telegramId, 'admin_broadcast_awaiting_message');
     const msg =
       `📣 پیام همگانی\n\n` +
@@ -1178,12 +1202,13 @@ export class AdminFlow {
   }
 
   /** Handle broadcast message text input — sent to admin confirmation. */
-  async onBroadcastText(ctx: Context, text: string): Promise<boolean> {
-    const locale = await this.guard(ctx);
-    if (!locale) return false;
-    const telegramId = ctx.from?.id?.toString()!;
-    const session = await this.runtime.getSession(telegramId);
-    if (session.state !== 'admin_broadcast_awaiting_message') return false;
+    async onBroadcastText(ctx: Context, text: string): Promise<boolean> {
+      const locale = await this.guard(ctx);
+      if (!locale) return false;
+      const telegramId = this.getTelegramId(ctx);
+      if (!telegramId) return false;
+      const session = await this.runtime.getSession(telegramId);
+      if (session.state !== 'admin_broadcast_awaiting_message') return false;
 
     if (text.trim() === '/cancel') {
       await this.runtime.clearState(telegramId);
@@ -1211,7 +1236,8 @@ export class AdminFlow {
   async onBroadcastConfirm(ctx: Context): Promise<void> {
     const locale = await this.guard(ctx);
     if (!locale) return;
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const session = await this.runtime.getSession(telegramId);
     if (session.state !== 'admin_broadcast_confirm') return;
     const message = session.data?.broadcastMessage;
@@ -1238,7 +1264,8 @@ export class AdminFlow {
   async onBroadcastCancel(ctx: Context): Promise<void> {
     const locale = await this.guard(ctx);
     if (!locale) return;
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     await this.runtime.clearState(telegramId);
     await this.runtime.editOrSend(ctx, '❌ ارسال همگانی لغو شد.', this.backHomeKeyboard(locale));
   }
@@ -1356,7 +1383,8 @@ export class AdminFlow {
     if (!locale) return;
     const decodedKey = decodeURIComponent(key);
     const setting = await this.settings.get(decodedKey);
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = ctx.from && ctx.from.id ? ctx.from.id.toString() : null;
+    if (!telegramId) return;
     await this.runtime.setState(telegramId, 'admin_setting_awaiting_value', {
       adminWizard: 'setting_edit',
       adminTargetId: decodedKey,
@@ -1382,7 +1410,8 @@ export class AdminFlow {
   private async startSettingCreate(ctx: Context): Promise<void> {
     const locale = await this.guard(ctx);
     if (!locale) return;
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = ctx.from && ctx.from.id ? ctx.from.id.toString() : null;
+    if (!telegramId) return;
     await this.runtime.setState(telegramId, 'admin_setting_awaiting_value', {
       adminWizard: 'setting_edit',
       adminField: 'key',
@@ -1491,7 +1520,8 @@ export class AdminFlow {
    * Handles /cancel to abort any active wizard.
    */
   async onWizardText(ctx: Context, text: string): Promise<boolean> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return false;
     const session = await this.runtime.getSession(telegramId);
     const state = session.state;
     const locale = await this.runtime.getLocale(telegramId);
@@ -1526,8 +1556,9 @@ export class AdminFlow {
   // ---- Plan wizard (create + edit-field) ----
 
   private async handlePlanWizardText(ctx: Context, text: string): Promise<void> {
-    const locale = await this.runtime.getLocale(ctx.from!.id.toString());
-    const telegramId = ctx.from!.id.toString();
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
+    const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     const data = session.data ?? {};
     const wizard = data.adminWizard as 'plan_create' | 'plan_edit';
@@ -1715,8 +1746,9 @@ export class AdminFlow {
   // ---- Setting wizard (edit value + create new key) ----
 
   private async handleSettingWizardText(ctx: Context, text: string): Promise<void> {
-    const locale = await this.runtime.getLocale(ctx.from!.id.toString());
-    const telegramId = ctx.from!.id.toString();
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
+    const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     const data = session.data ?? {};
     const field = (data.adminField as string) ?? 'value';
@@ -1765,8 +1797,9 @@ export class AdminFlow {
   // ---- Panel wizard (create: name -> baseUrl -> username -> password -> done) ----
 
   private async handlePanelWizardText(ctx: Context, text: string): Promise<void> {
-    const locale = await this.runtime.getLocale(ctx.from!.id.toString());
-    const telegramId = ctx.from!.id.toString();
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
+    const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     const data = session.data ?? {};
     const field = (data.adminField as string) ?? 'name';
@@ -1861,7 +1894,8 @@ export class AdminFlow {
 
   /** Verify admin role; return locale if OK (renders access-denied + null if not). */
   private async guard(ctx: Context): Promise<BotLocale | null> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return null;
     const locale = await this.runtime.getLocale(telegramId);
     if (!(await this.assertAdmin(ctx, locale))) return null;
     return locale;
@@ -1869,7 +1903,11 @@ export class AdminFlow {
 
   /** Verify the caller is an admin; show access-denied + return false if not. */
   private async assertAdmin(ctx: Context, locale: BotLocale): Promise<boolean> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) {
+      await this.runtime.alert(ctx, t(locale, 'auth.required'));
+      return false;
+    }
     const session = await this.runtime.getSession(telegramId);
     const normalize = (s?: string) => (s ? s.trim().replace(/^\+/, '') : '');
     const isConfiguredSuperAdmin =

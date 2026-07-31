@@ -24,18 +24,9 @@ const path = require('path');
 const REGISTER_SCRIPT = path.join('scripts', 'register-panel.cjs');
 const STATE_PATH = path.resolve(process.cwd(), 'installer-state.json');
 
-function loadState() {
-  try {
-    const raw = fs.readFileSync(STATE_PATH, 'utf8');
-    return JSON.parse(raw);
-  } catch (e) {
-    return { installerVersion: '0.0', date: new Date().toISOString() };
-  }
-}
-
-function saveState(state) {
-  fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2), 'utf8');
-}
+const _stateManager = require('./state-manager');
+const loadState = () => _stateManager.loadState(STATE_PATH);
+const saveState = (s) => _stateManager.saveState(STATE_PATH, s);
 
 function parseRegisterOutput(stdout) {
   // Find PANEL_REGISTERED: or PANEL_ALREADY_REGISTERED: lines and parse JSON after colon

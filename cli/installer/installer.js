@@ -65,17 +65,11 @@ async function main() {
     // We'll read installer-state.json to acquire the confirmed base URL and
     // forward it as an environment variable when invoking the script.
     try {
-      const fs = require('fs');
+      const _stateManager = require('./state-manager');
       const statePath = path.resolve(process.cwd(), 'installer-state.json');
       let baseUrl = null;
-      if (fs.existsSync(statePath)) {
-        try {
-          const s = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-          baseUrl = (s.xui && s.xui.confirmed && s.xui.confirmed.baseUrl) || (s.xui && s.xui.selected && s.xui.selected.url) || null;
-        } catch (e) {
-          console.error('Failed to parse installer-state.json:', e.message);
-        }
-      }
+      const s = _stateManager.loadState(statePath);
+      baseUrl = (s.xui && s.xui.confirmed && s.xui.confirmed.baseUrl) || (s.xui && s.xui.selected && s.xui.selected.url) || null;
 
       if (!baseUrl) {
         console.error('No confirmed base URL found in installer-state.json. Run detect and confirm first, or pass --base-url to confirm.');

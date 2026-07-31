@@ -483,7 +483,9 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
     );
     this.bot.action(/tkpage:(.+)/, async (ctx) => {
       const data = (ctx as any).callbackQuery?.data ?? '';
-      const sess = await this.runtime.getSession(ctx.from!.id.toString());
+      const telegramId = this.getTelegramId(ctx);
+      if (!telegramId) return;
+      const sess = await this.runtime.getSession(telegramId);
       const status = (sess.data?.ticketListStatus ?? 'OPEN') as 'OPEN' | 'CLOSED';
       const page = Number(data.split(':')[1]);
       return this.support.showList(ctx, status, page);
@@ -510,10 +512,18 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
     return m ? m[1] : null;
   }
 
+  // small helper: safely extract telegram id string or null (avoid non-null asserted optional chains)
+  private getTelegramId(ctx: Context): string | null {
+    return ctx?.from && typeof (ctx.from as any).id !== 'undefined' && (ctx.from as any).id !== null
+      ? String((ctx.from as any).id)
+      : null;
+  }
+
   /** Wrap a handler so a missing session userId triggers auth + retry. */
   private wrap(fn: (ctx: Context) => Promise<void>): (ctx: Context) => Promise<void> {
     return async (ctx: Context) => {
-      const telegramId = ctx.from?.id?.toString()!;
+      const telegramId = this.getTelegramId(ctx);
+      if (!telegramId) return;
       const session = await this.runtime.getSession(telegramId);
       if (!session.userId) {
         await this.ensureUser(ctx);
@@ -553,7 +563,8 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
     const match = (ctx.callbackQuery as any)?.data?.match(/lang:(fa|en)/);
     if (!match) return;
     const locale = match[1] as BotLocale;
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     // Apply the locale first so ensureUser persists the correct language.
     await this.language.onSelect(ctx, locale);
     // Onboarding: a brand-new user picks a language at /start but had no
@@ -599,7 +610,8 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
   }
 
   private async showMenu(ctx: Context): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     const role = session.data?.forceAdminMenu ? 'SUPER_ADMIN' : await this.getUserRole(telegramId);
@@ -629,7 +641,8 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
   }
 
   private async onHelp(ctx: Context): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const role = await this.getUserRole(telegramId);
     // Spec #7 UX: edit-in-place (no new message). Falls back to reply when no
@@ -642,7 +655,8 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
   }
 
   private async onCancel(ctx: Context): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     await this.runtime.clearState(telegramId);
     await this.runtime.resetMenu(telegramId, 'main');
@@ -656,7 +670,8 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
   }
 
   private async onBack(ctx: Context): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const prev = await this.runtime.popMenu(telegramId);
     await this.runtime.alert(ctx);
@@ -707,7 +722,8 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
   // ---------- Text + photo dispatch ----------
 
   private async onText(ctx: any): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const text: string | undefined = (ctx.message?.text as string)?.trim();
     const session = await this.runtime.getSession(telegramId);
     const locale = session.locale ?? 'fa';
@@ -820,7 +836,8 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
   }
 
   private async onPhoto(ctx: any): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const session = await this.runtime.getSession(telegramId);
     const locale = session.locale ?? 'fa';
 

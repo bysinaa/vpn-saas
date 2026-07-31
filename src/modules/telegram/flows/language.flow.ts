@@ -16,9 +16,17 @@ import { languageKeyboard, mainMenuKeyboard } from '../keyboards';
 export class LanguageFlow {
   constructor(private readonly runtime: BotRuntime) {}
 
+  // small helper: safely extract telegram id string or null (avoid non-null asserted optional chains)
+  private getTelegramId(ctx: Context): string | null {
+    return ctx?.from && typeof ctx.from.id !== 'undefined' && ctx.from.id !== null
+      ? String(ctx.from.id)
+      : null;
+  }
+
   /** Show the language picker (used on first start and from the menu). */
   async show(ctx: Context): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const brand = await this.runtime.getBrandName();
     const locale = await this.runtime.getLocale(telegramId);
     await this.runtime.send(ctx, t(locale, 'start.welcome', { brand }), languageKeyboard());
@@ -26,7 +34,8 @@ export class LanguageFlow {
 
   /** Handle a language selection callback. */
   async onSelect(ctx: Context, locale: BotLocale): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     await this.runtime.setLocale(telegramId, locale);
 
     // Persist onto the User row so the web app / mini app reads the same
@@ -43,7 +52,8 @@ export class LanguageFlow {
 
   /** Re-render the main menu in the current locale. */
   async home(ctx: Context): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     await this.runtime.alert(ctx);
     await this.runtime.resetMenu(telegramId, 'main');

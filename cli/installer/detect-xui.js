@@ -38,14 +38,9 @@ function runCmd(cmd, opts = {}) {
   });
 }
 
-async function loadState() {
-  try {
-    const raw = fs.readFileSync(STATE_PATH, 'utf8');
-    return JSON.parse(raw);
-  } catch (e) {
-    return { installerVersion: 'unknown', date: new Date().toISOString() };
-  }
-}
+const _stateManager = require('./state-manager');
+const loadState = () => _stateManager.loadState(STATE_PATH);
+const saveState = (s) => _stateManager.saveState(STATE_PATH, s);
 
 const CLI = (function parseArgs() {
   const out = { baseUrl: null, insecure: false, username: null, password: null };

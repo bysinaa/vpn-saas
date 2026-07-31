@@ -27,9 +27,17 @@ export class ReferralFlow {
     private readonly prisma: PrismaService,
   ) {}
 
+  // small helper: safely extract telegram id string or null (avoid non-null asserted optional chains)
+  private getTelegramId(ctx: Context): string | null {
+    return ctx?.from && typeof ctx.from.id !== 'undefined' && ctx.from.id !== null
+      ? String(ctx.from.id)
+      : null;
+  }
+
   /** Render the referral dashboard (`referral`). */
   async show(ctx: Context): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) {
@@ -125,7 +133,8 @@ export class ReferralFlow {
 
   /** Show the reward rules (`refrules`). */
   async showRules(ctx: Context): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) return;
@@ -162,7 +171,8 @@ export class ReferralFlow {
 
   /** Show the referral history (`refhistory`), paginated. */
   async showHistory(ctx: Context, page = 0): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) {

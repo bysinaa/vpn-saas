@@ -63,11 +63,19 @@ export class BuyFlow {
     private readonly vpn: VpnService,
   ) {}
 
+  // small helper: safely extract telegram id string or null (avoid non-null asserted optional chains)
+  private getTelegramId(ctx: Context): string | null {
+    return ctx?.from && typeof ctx.from.id !== 'undefined' && ctx.from.id !== null
+      ? String(ctx.from.id)
+      : null;
+  }
+
   // ---------- Step 1: show available plans ----------
 
   /** Entry point: render the visible (non-trial) plans list. */
   async showPlans(ctx: Context, page = 0): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) {
@@ -107,7 +115,8 @@ export class BuyFlow {
 
   /** Handle a plan selection callback (`plan:<publicId>`). */
   async onSelectPlan(ctx: Context, planPublicId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const result = await this.runtime.withLock(telegramId, async () => {
       const locale = await this.runtime.getLocale(telegramId);
       const session = await this.runtime.getSession(telegramId);
@@ -139,7 +148,8 @@ export class BuyFlow {
 
   /** Render the order summary + confirm keyboard for a chosen plan. */
   private async renderConfirm(ctx: Context, plan: PlanDto): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const traffic = plan.trafficLimitGb
       ? formatTraffic(BigInt(plan.trafficLimitGb) * 1024n * 1024n * 1024n)
@@ -163,7 +173,8 @@ export class BuyFlow {
 
   /** Handle "proceed to payment" — creates the order and shows payment methods. */
   async onProceed(ctx: Context): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const result = await this.runtime.withLock(telegramId, async () => {
       const locale = await this.runtime.getLocale(telegramId);
       const session = await this.runtime.getSession(telegramId);
@@ -213,7 +224,8 @@ export class BuyFlow {
 
   /** Handle a payment-method choice (`paymethod:<METHOD>`). */
   async onSelectPaymentMethod(ctx: Context, method: PaymentMethodChoice): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const result = await this.runtime.withLock(telegramId, () =>
       this.handlePaymentMethod(ctx, method),
     );
@@ -223,7 +235,8 @@ export class BuyFlow {
   }
 
   private async handlePaymentMethod(ctx: Context, method: PaymentMethodChoice): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     const orderPublicId = session.data?.orderId as string | undefined;
@@ -251,7 +264,8 @@ export class BuyFlow {
 
   /** Pay instantly from the wallet balance and provision the subscription. */
   private async payWithWallet(ctx: Context, orderPublicId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     try {
@@ -277,7 +291,8 @@ export class BuyFlow {
 
   /** Initiate an online gateway payment and show the redirect link. */
   private async initiateOnline(ctx: Context, orderPublicId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     try {
@@ -309,7 +324,8 @@ export class BuyFlow {
 
   /** Initiate a card-to-card payment: show merchant card + ask for receipt. */
   private async initiateCardToCard(ctx: Context, orderPublicId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     try {
@@ -364,7 +380,8 @@ export class BuyFlow {
 
   /** Initiate a crypto payment: show address + confirm button. */
   private async initiateCrypto(ctx: Context, orderPublicId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     try {
@@ -419,7 +436,8 @@ export class BuyFlow {
 
   /** Handle the "I have sent the crypto" confirm button. */
   async onCryptoConfirm(ctx: Context): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     await this.runtime.clearState(telegramId);
     await this.runtime.resetMenu(telegramId, 'main');
@@ -431,7 +449,8 @@ export class BuyFlow {
 
   /** Handle a receipt photo upload (card-to-card for an order). */
   async onReceiptUpload(ctx: Context, photoFileId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     const data = session.data ?? {};

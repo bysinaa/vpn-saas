@@ -5,6 +5,7 @@ import { BusinessException } from '@/common/exceptions/business.exception';
 import { config } from '@/config';
 import { XuiClient } from './xui.client';
 import { XuiAuthService } from './xui.auth';
+import { secretEncrypt } from '@/common/crypto/secret';
 import type {
   XuiAuthResponse,
   XuiClientRecord,
@@ -396,50 +397,55 @@ export class XuiService {
     trafficUsed: number;
     status: string;
   }): Promise<void> {
-    await this.prisma.$executeRawUnsafe(
-      `
-        INSERT INTO vpn_clients
-          ("userId", "telegramId", "uuid", "email", "xuiInboundId", "expireAt", "trafficLimit", "trafficUsed", "status", "createdAt", "updatedAt")
-        VALUES
-          ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
-        ON CONFLICT ("email")
-        DO UPDATE SET
-          "telegramId" = EXCLUDED."telegramId",
-          "uuid" = EXCLUDED."uuid",
-          "email" = EXCLUDED."email",
-          "xuiInboundId" = EXCLUDED."xuiInboundId",
-          "expireAt" = EXCLUDED."expireAt",
-          "trafficLimit" = EXCLUDED."trafficLimit",
-          "trafficUsed" = EXCLUDED."trafficUsed",
-          "status" = EXCLUDED."status",
-          "updatedAt" = NOW()
-      `,
-      BigInt(0),
-      input.telegramId,
-      input.uuid,
-      input.email,
-      BigInt(input.inboundId),
-      input.expireTimestamp ? new Date(input.expireTimestamp) : null,
-      BigInt(input.trafficLimit),
-      BigInt(input.trafficUsed),
-      input.status,
-    );
+    const expireAt = input.expireTimestamp ? new Date(input.expireTimestamp) : null;
+    const xuiInboundId = BigInt(input.inboundId);
+    const trafficLimit = BigInt(input.trafficLimit ?? 0);
+    const trafficUsed = BigInt(input.trafficUsed ?? 0);
 
+    // Upsert by email (create if missing, update if present)
+    await this.prisma.vpnClient.upsert({
+      where: { email: input.email },
+      create: {
+        userId: BigInt(0),
+        telegramId: input.telegramId ?? null,
+        uuid: input.uuid,
+        email: input.email,
+        xuiInboundId,
+        expireAt,
+        trafficLimit,
+        trafficUsed,
+        status: input.status,
+      },
+      update: {
+        telegramId: input.telegramId ?? null,
+        uuid: input.uuid,
+        email: input.email,
+        xuiInboundId,
+        expireAt,
+        trafficLimit,
+        trafficUsed,
+        status: input.status,
+      },
+    });
+
+    // If caller requested an email rename, attempt to update the existing row with previousEmail.
     if (input.previousEmail && input.previousEmail !== input.email) {
-      await this.prisma.$executeRawUnsafe(
-        `UPDATE vpn_clients SET "email" = $1, "updatedAt" = NOW() WHERE "email" = $2`,
-        input.email,
-        input.previousEmail,
-      );
+      try {
+        await this.prisma.vpnClient.update({
+          where: { email: input.previousEmail },
+          data: { email: input.email },
+        });
+      } catch (e) {
+        // If previousEmail record wasn't found, ignore the rename.
+      }
     }
   }
 
   private async markVpnClientStatus(email: string, status: string): Promise<void> {
-    await this.prisma.$executeRawUnsafe(
-      `UPDATE vpn_clients SET "status" = $1, "updatedAt" = NOW() WHERE "email" = $2`,
-      status,
-      email,
-    );
+    await this.prisma.vpnClient.updateMany({
+      where: { email },
+      data: { status },
+    });
   }
 
   private async upsertConnection(
@@ -447,29 +453,25 @@ export class XuiService {
     lastLogin: Date | null,
     cookie: string | null,
   ): Promise<void> {
-    const encryptedPassword = Buffer.from(config.xui.password, 'utf8').toString('base64');
+    const encryptedPassword = secretEncrypt(config.xui.password);
 
-    await this.prisma.$executeRawUnsafe(
-      `
-        INSERT INTO xui_connections
-          ("panelUrl", "username", "passwordEncrypted", "cookie", "lastLogin", "status", "createdAt", "updatedAt")
-        VALUES
-          ($1, $2, $3, $4, $5, $6, NOW(), NOW())
-        ON CONFLICT ("panelUrl")
-        DO UPDATE SET
-          "username" = EXCLUDED."username",
-          "passwordEncrypted" = EXCLUDED."passwordEncrypted",
-          "cookie" = EXCLUDED."cookie",
-          "lastLogin" = EXCLUDED."lastLogin",
-          "status" = EXCLUDED."status",
-          "updatedAt" = NOW()
-      `,
-      config.xui.panelUrl,
-      config.xui.username,
-      encryptedPassword,
-      cookie,
-      lastLogin,
-      status,
-    );
+    await this.prisma.xuiConnection.upsert({
+      where: { panelUrl: config.xui.panelUrl },
+      create: {
+        panelUrl: config.xui.panelUrl,
+        username: config.xui.username,
+        passwordEncrypted: encryptedPassword,
+        cookie: cookie ?? null,
+        lastLogin: lastLogin ?? null,
+        status,
+      },
+      update: {
+        username: config.xui.username,
+        passwordEncrypted: encryptedPassword,
+        cookie: cookie ?? null,
+        lastLogin: lastLogin ?? null,
+        status,
+      },
+    });
   }
 }

@@ -84,7 +84,7 @@ async function bootstrap(): Promise<void> {
     join(__dirname, '..', '..', 'public'), // when __dirname is dist/<something>/src, try one level up
     join(process.cwd(), 'public'), // fallback to project public dir
   ];
-  let publicRoot = candidates.find((p: string) => fs.existsSync(p)) ?? candidates[0];
+  const publicRoot = candidates.find((p: string) => fs.existsSync(p)) ?? candidates[0];
   // Debug: log resolved public root and file existence to help diagnose static file serving issues
   // eslint-disable-next-line no-console
   console.log('[STATIC] resolved publicRoot=', publicRoot);
@@ -97,7 +97,7 @@ async function bootstrap(): Promise<void> {
     prefix: '/',
     decorateReply: true,
   });
- 
+
   // SPA fallback: serve index.html for /dashboard routes (both /dashboard and /dashboard/*)
   const fastifyInstance = app.getHttpAdapter().getInstance();
   // exact /dashboard -> serve index (add a log so we can see if this handler is hit)
@@ -117,12 +117,17 @@ async function bootstrap(): Promise<void> {
   // Use a lightweight onRequest hook to serve the SPA index only for HTML-like requests
   // and when the path does not point to a static asset (has no file extension).
   fastifyInstance.addHook('onRequest', (request: any, reply: any, done: any) => {
-    const url = request && request.raw ? request.raw.url : (request && (request.url || ''));
-    const accept = request && request.headers ? (request.headers['accept'] || '') : '';
+    const url = request && request.raw ? request.raw.url : request && (request.url || '');
+    const accept = request && request.headers ? request.headers['accept'] || '' : '';
     const isFile = typeof url === 'string' && extname(url) !== '';
     // Only serve SPA index when URL is under /dashboard, does not look like a file,
     // and the client accepts HTML (prevents intercepting requests for app.js, style.css, etc.).
-    if (typeof url === 'string' && url.startsWith('/dashboard') && !isFile && accept.includes('text/html')) {
+    if (
+      typeof url === 'string' &&
+      url.startsWith('/dashboard') &&
+      !isFile &&
+      accept.includes('text/html')
+    ) {
       // eslint-disable-next-line no-console
       console.log('[STATIC] onRequest hook matched (serving SPA index)', url);
       reply.type('text/html').sendFile('dashboard/index.html', publicRoot);

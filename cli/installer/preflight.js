@@ -23,6 +23,7 @@ const os = require('os');
 const path = require('path');
 
 const STATE_PATH = path.resolve(process.cwd(), 'installer-state.json');
+const _stateManager = require('./state-manager');
 
 function runCmd(cmd, opts = {}) {
   const timeout = opts.timeout || 15_000;
@@ -268,7 +269,7 @@ async function main() {
 
     // Save state file
     try {
-      fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2), { encoding: 'utf8' });
+      _stateManager.saveState(STATE_PATH, state);
       console.log('Preflight state written to', STATE_PATH);
     } catch (e) {
       console.error('Failed to write state file:', e);
@@ -296,15 +297,15 @@ async function main() {
 
     console.log('Preflight checks completed successfully (with possible warnings).');
     process.exit(0);
-  } catch (err) {
-    console.error('Unexpected error during preflight:', err);
-    try {
-      fs.writeFileSync(STATE_PATH, JSON.stringify({ error: String(err), date: new Date().toISOString() }, null, 2));
-    } catch (e) {
-      // ignore
+    } catch (err) {
+      console.error('Unexpected error during preflight:', err);
+      try {
+        _stateManager.saveState(STATE_PATH, { error: String(err), date: new Date().toISOString() });
+      } catch (e) {
+        // ignore
+      }
+      process.exit(30);
     }
-    process.exit(30);
-  }
 }
 
 main();

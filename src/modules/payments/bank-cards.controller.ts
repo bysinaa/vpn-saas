@@ -48,7 +48,11 @@ export class BankCardsAdminController {
   @Patch('admin/bank-cards/:publicId')
   @RequirePermissions(['manage:bank_cards'])
   @UsePipes(new ZodValidationPipe(updateBankCardSchema))
-  update(@Param('publicId') publicId: string, @Body() body: any, @CurrentUser() user: AuthenticatedUser) {
+  update(
+    @Param('publicId') publicId: string,
+    @Body() body: any,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
     return this.svc.update(publicId, body, user.id);
   }
 

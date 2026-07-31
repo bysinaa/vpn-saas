@@ -30,9 +30,17 @@ export class VoucherFlow {
     private readonly vouchers: VouchersService,
   ) {}
 
+  // small helper: safely extract telegram id string or null (avoid non-null asserted optional chains)
+  private getTelegramId(ctx: Context): string | null {
+    return ctx?.from && typeof ctx.from.id !== 'undefined' && ctx.from.id !== null
+      ? String(ctx.from.id)
+      : null;
+  }
+
   /** Entry point: prompt the user to type a voucher code. */
   async start(ctx: Context): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) {
@@ -51,7 +59,8 @@ export class VoucherFlow {
    * text dispatcher can fall through to other handlers.
    */
   async onSubmitCode(ctx: Context, text: string): Promise<boolean> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return false;
     const session = await this.runtime.getSession(telegramId);
     if (session.state !== 'voucher_awaiting_code') {
       return false;

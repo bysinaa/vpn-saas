@@ -44,9 +44,17 @@ export class SupportFlow {
     private readonly tickets: TicketsService,
   ) {}
 
+  // small helper: safely extract telegram id string or null (avoid non-null asserted optional chains)
+  private getTelegramId(ctx: Context): string | null {
+    return ctx?.from && typeof ctx.from.id !== 'undefined' && ctx.from.id !== null
+      ? String(ctx.from.id)
+      : null;
+  }
+
   /** Show the support main menu (`support`). */
   async show(ctx: Context): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) {
@@ -67,7 +75,8 @@ export class SupportFlow {
     preselectCategory?: string,
     reportSubId?: string,
   ): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) {
@@ -101,7 +110,8 @@ export class SupportFlow {
 
   /** Category chosen (`tcat:<CAT>`): persist + ask for subject. */
   async onSelectCategory(ctx: Context, category: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) return;
@@ -114,7 +124,8 @@ export class SupportFlow {
 
   /** Subject entered: ask for the message body. Returns true if handled. */
   async onSubject(ctx: Context, text: string): Promise<boolean> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return false;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId || session.state !== 'support_awaiting_subject') return false;
@@ -136,7 +147,8 @@ export class SupportFlow {
 
   /** Message entered: create the ticket. Returns true if handled. */
   async onMessage(ctx: Context, text: string): Promise<boolean> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return false;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId || session.state !== 'support_awaiting_message') return false;
@@ -176,7 +188,8 @@ export class SupportFlow {
 
   /** List the user's tickets filtered by status (`tickets:<STATUS>`). */
   async showList(ctx: Context, status: 'OPEN' | 'CLOSED', page = 0): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) {
@@ -229,7 +242,8 @@ export class SupportFlow {
 
   /** Show ticket detail (`ticket:<id>`). */
   async showDetail(ctx: Context, ticketPublicId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) {
@@ -271,7 +285,8 @@ export class SupportFlow {
 
   /** View all messages in a ticket (`tkview:<id>`). */
   async viewMessages(ctx: Context, ticketPublicId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) {
@@ -306,7 +321,8 @@ export class SupportFlow {
 
   /** Enter reply mode for a ticket (`tkreply:<id>`). */
   async startReply(ctx: Context, ticketPublicId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) return;
@@ -344,7 +360,8 @@ export class SupportFlow {
 
   /** Handle the reply text. Returns true if handled. */
   async onReply(ctx: Context, text: string): Promise<boolean> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return false;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId || session.state !== 'ticket_awaiting_reply') return false;
@@ -380,7 +397,8 @@ export class SupportFlow {
 
   /** Close a ticket (`tkclose:<id>`). */
   async closeTicket(ctx: Context, ticketPublicId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) return;

@@ -44,9 +44,17 @@ export class SubscriptionsFlow {
     private readonly vpn: VpnService,
   ) {}
 
+  // small helper: safely extract telegram id string or null (avoid non-null asserted optional chains)
+  private getTelegramId(ctx: Context): string | null {
+    return ctx?.from && typeof ctx.from.id !== 'undefined' && ctx.from.id !== null
+      ? String(ctx.from.id)
+      : null;
+  }
+
   /** Show the paginated list of the user's subscriptions. */
   async showList(ctx: Context, page = 0): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) {
@@ -79,7 +87,8 @@ export class SubscriptionsFlow {
 
   /** Show the detail page for a single subscription (`sub:<publicId>`). */
   async showDetail(ctx: Context, subPublicId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) {
@@ -162,7 +171,8 @@ export class SubscriptionsFlow {
 
   /** Show the subscription link (re-renders detail with the link highlighted). */
   async showLink(ctx: Context, subPublicId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) return;
@@ -191,7 +201,8 @@ export class SubscriptionsFlow {
 
   /** Show the connection guide. */
   async showGuide(ctx: Context, _subPublicId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     await this.runtime.alert(ctx);
     await this.runtime.render(
@@ -204,7 +215,8 @@ export class SubscriptionsFlow {
 
   /** Confirm a renew action (`subrenew:<id>` -> yes/no). */
   async confirmRenew(ctx: Context, subPublicId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) return;
@@ -227,7 +239,8 @@ export class SubscriptionsFlow {
 
   /** Execute a confirmed renew. */
   async doRenew(ctx: Context, subPublicId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const result = await this.runtime.withLock(telegramId, async () => {
       const locale = await this.runtime.getLocale(telegramId);
       const session = await this.runtime.getSession(telegramId);
@@ -251,7 +264,8 @@ export class SubscriptionsFlow {
 
   /** Ask the user for the number of days to extend. */
   async promptExtend(ctx: Context, subPublicId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     await this.runtime.setState(telegramId, 'subs_viewing_detail', {
       subPublicId,
@@ -263,7 +277,8 @@ export class SubscriptionsFlow {
 
   /** Handle the extend-days text input. */
   async onExtendDays(ctx: Context, text: string): Promise<boolean> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return false;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     const subPublicId = session.data?.subPublicId as string | undefined;
@@ -294,7 +309,8 @@ export class SubscriptionsFlow {
 
   /** Show the upgrade plan picker. */
   async showUpgrade(ctx: Context, subPublicId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) return;
@@ -319,7 +335,8 @@ export class SubscriptionsFlow {
 
   /** Execute an upgrade (`upg:<planId>`). Creates an upgrade order. */
   async doUpgrade(ctx: Context, planPublicId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     const subPublicId = session.data?.upgradeSubPublicId as string | undefined;
@@ -332,7 +349,8 @@ export class SubscriptionsFlow {
 
   /** Confirm a traffic reset (`subreset:<id>` -> yes/no). */
   async confirmReset(ctx: Context, subPublicId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     await this.runtime.alert(ctx);
     await this.runtime.render(
@@ -344,7 +362,8 @@ export class SubscriptionsFlow {
 
   /** Execute a confirmed traffic reset. */
   async doReset(ctx: Context, subPublicId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const result = await this.runtime.withLock(telegramId, async () => {
       const locale = await this.runtime.getLocale(telegramId);
       const session = await this.runtime.getSession(telegramId);
@@ -368,7 +387,8 @@ export class SubscriptionsFlow {
 
   /** Open a support ticket pre-filled with the subscription context. */
   async reportProblem(ctx: Context, subPublicId: string): Promise<void> {
-    const telegramId = ctx.from?.id?.toString()!;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
     const locale = await this.runtime.getLocale(telegramId);
     await this.runtime.setState(telegramId, 'support_awaiting_subject', {
       ticketCategory: 'TECHNICAL',
