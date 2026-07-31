@@ -16,7 +16,9 @@ export const config = {
     apiPrefix: env.API_PREFIX,
     apiVersion: env.API_VERSION,
     globalPrefix: env.GLOBAL_PREFIX,
-    corsOrigins: env.CORS_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean),
+    corsOrigins: env.CORS_ORIGINS.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
     isProduction: env.NODE_ENV === 'production',
     isDev: env.NODE_ENV === 'development',
   },
@@ -54,7 +56,9 @@ export const config = {
   },
   proxy: {
     url: env.PROXY_URL,
-    bypass: env.PROXY_BYPASS.split(',').map((s) => s.trim()).filter(Boolean),
+    bypass: env.PROXY_BYPASS.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
     enabled: env.PROXY_URL.length > 0,
   },
   telegram: {
@@ -62,7 +66,9 @@ export const config = {
     webhookUrl: env.TELEGRAM_BOT_WEBHOOK_URL,
     webhookPath: env.TELEGRAM_BOT_WEBHOOK_PATH,
     useWebhook: env.TELEGRAM_BOT_USE_WEBHOOK,
-    adminIds: env.TELEGRAM_ADMIN_IDS.split(',').map((s) => s.trim()).filter(Boolean),
+    adminIds: env.TELEGRAM_ADMIN_IDS.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
     miniAppUrl: env.TELEGRAM_MINI_APP_URL,
   },
   sanity: {
@@ -110,7 +116,9 @@ export const config = {
     encryptionKey: env.ENCRYPTION_KEY,
     cookieSecure: env.COOKIE_SECURE,
     csrfEnabled: env.CSRF_ENABLED,
-    receiptAllowedMimes: env.RECEIPT_ALLOWED_MIMES.split(',').map((s) => s.trim()).filter(Boolean),
+    receiptAllowedMimes: env.RECEIPT_ALLOWED_MIMES.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
     maxUploadBytes: env.MAX_UPLOAD_SIZE_MB * 1024 * 1024,
   },
   queue: {

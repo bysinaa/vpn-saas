@@ -1,14 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  UsePipes,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UsePipes } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import {
   UpsertSettingInput,
@@ -71,10 +61,7 @@ export class SettingsController {
   @Patch('admin/flags/:key')
   @RequirePermissions(['manage:settings'])
   @UsePipes(new ZodValidationPipe(updateFeatureFlagSchema))
-  updateFlag(
-    @Param('key') key: string,
-    @Body() body: UpdateFeatureFlagInput,
-  ) {
+  updateFlag(@Param('key') key: string, @Body() body: UpdateFeatureFlagInput) {
     return this.settings.upsertFlag(key, body);
   }
 

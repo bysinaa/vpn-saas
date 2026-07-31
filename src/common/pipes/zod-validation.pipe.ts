@@ -16,7 +16,12 @@ export class ZodValidationPipe<T> implements PipeTransform {
         path: i.path.join('.'),
         message: i.message,
       }));
-      throw new BusinessException('VALIDATION_ERROR', 'Validation failed', HttpStatus.BAD_REQUEST, issues);
+      throw new BusinessException(
+        'VALIDATION_ERROR',
+        'Validation failed',
+        HttpStatus.BAD_REQUEST,
+        issues,
+      );
     }
     return result.data;
   }

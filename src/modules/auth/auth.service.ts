@@ -29,7 +29,11 @@ export class AuthService {
   ) {}
 
   // ---------- Registration (email/password) ----------
-  async registerEmail(input: { email: string; password: string; username?: string }): Promise<LoginResult> {
+  async registerEmail(input: {
+    email: string;
+    password: string;
+    username?: string;
+  }): Promise<LoginResult> {
     AuthSchemas.register.parse(input);
 
     const exists = await this.prisma.user.findUnique({ where: { email: input.email } });
@@ -140,9 +144,9 @@ export class AuthService {
       throw BusinessException.unauthorized('Invalid token type');
     }
 
-    // Find an active session matching this refresh token hash
+    // Find an active session matching this refresh token jti (hashed identifier)
     const session = await this.prisma.userSession.findFirst({
-      where: { refreshTokenHash: refreshToken, revokedAt: null },
+      where: { refreshTokenHash: payload.jti, revokedAt: null },
     });
     if (!session) {
       // Possible token reuse -> revoke all sessions for this user
@@ -224,10 +228,12 @@ export class AuthService {
           : null;
       const newReferralCode = await this.generateReferralCode();
       const referralReward = BigInt(
-        (await this.prisma.systemSetting.findUnique({
-          where: { key: 'referral.signup_bonus_minor' },
-          select: { value: true },
-        }))?.value ?? '0',
+        (
+          await this.prisma.systemSetting.findUnique({
+            where: { key: 'referral.signup_bonus_minor' },
+            select: { value: true },
+          })
+        )?.value ?? '0',
       );
 
       user = await this.prisma.withTransaction(async (tx) => {
@@ -251,10 +257,7 @@ export class AuthService {
         if (referrer) {
           const existingReferral = await tx.referralLog.findFirst({
             where: {
-              OR: [
-                { referredId: createdUser.id },
-                { referred: { telegramId: input.telegramId } },
-              ],
+              OR: [{ referredId: createdUser.id }, { referred: { telegramId: input.telegramId } }],
             },
             select: { id: true },
           });
@@ -368,7 +371,10 @@ export class AuthService {
   }
 
   hasPermission(perms: string[], required: string): boolean {
-    if (perms.includes(required) || perms.some((p) => p.endsWith(`:${required.split(':')[1]}`) && p.startsWith('*'))) {
+    if (
+      perms.includes(required) ||
+      perms.some((p) => p.endsWith(`:${required.split(':')[1]}`) && p.startsWith('*'))
+    ) {
       return true;
     }
     // Wildcard all
@@ -392,11 +398,16 @@ export class AuthService {
       telegramId,
     });
 
+    // Store the hashed refresh token identifier (jti) instead of the raw token.
+    // JwtTokenService.generatePair signs the refresh JWT with jti = hashToken(refreshTokenRaw),
+    // so persist the same hashed identifier here to allow exact lookups on refresh.
+    const refreshTokenHash = this.tokens.hashRefreshToken(refreshTokenRaw);
+
     const expiresAt = new Date(Date.now() + this.ttlToMs(config.jwt.refreshTtl));
     await this.prisma.userSession.create({
       data: {
         userId: id,
-        refreshTokenHash: refreshTokenRaw,
+        refreshTokenHash,
         deviceInfo: ctx.userAgent,
         ipAddress: ctx.ip,
         userAgent: ctx.userAgent,
@@ -456,7 +467,10 @@ export class AuthService {
   }
 
   async getStatus(userId: bigint): Promise<UserStatus | null> {
-    const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { status: true } });
+    const u = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { status: true },
+    });
     return u?.status ?? null;
   }
 }

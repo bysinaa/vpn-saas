@@ -6,6 +6,7 @@ export interface JwtPayload {
   role: UserRole;
   email?: string | null;
   telegramId?: string | null;
+  jti?: string;
   type: 'access' | 'refresh';
   iat?: number;
   exp?: number;

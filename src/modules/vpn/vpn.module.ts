@@ -5,10 +5,7 @@ import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { PanelsModule } from '../panels/panels.module';
 
 @Module({
-  imports: [
-    forwardRef(() => SubscriptionsModule),
-    PanelsModule,
-  ],
+  imports: [forwardRef(() => SubscriptionsModule), PanelsModule],
   controllers: [VpnController],
   providers: [VpnService],
   exports: [VpnService],

@@ -38,10 +38,7 @@ export interface IPaymentGateway {
   /**
    * Verify a payment after the user is redirected back / a webhook fires.
    */
-  verify(params: {
-    gatewayTransactionId: string;
-    paymentId: bigint;
-  }): Promise<VerifyResult>;
+  verify(params: { gatewayTransactionId: string; paymentId: bigint }): Promise<VerifyResult>;
 }
 
 export const PAYMENT_GATEWAYS = Symbol('PAYMENT_GATEWAYS');

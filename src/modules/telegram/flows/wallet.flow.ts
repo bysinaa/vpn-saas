@@ -4,7 +4,12 @@ import type { Context } from 'telegraf';
 import { BotRuntime } from '../bot-runtime';
 import { t } from '../i18n';
 import type { BotLocale } from '../telegram.types';
-import { walletDepositAmountsKeyboard, walletKeyboard, cryptoConfirmKeyboard, mainMenuKeyboard } from '../keyboards';
+import {
+  walletDepositAmountsKeyboard,
+  walletKeyboard,
+  cryptoConfirmKeyboard,
+  mainMenuKeyboard,
+} from '../keyboards';
 import { WalletService } from '../../wallet/wallet.service';
 import { PaymentsService } from '../../payments/payments.service';
 import { BankCardsService } from '../../payments/bank-cards.service';
@@ -106,12 +111,20 @@ export class WalletFlow {
           cardNumber,
           holder,
         }) + (bankName ? `\n🏦 ${bankName}` : ''),
-        { reply_markup: { inline_keyboard: [[{ text: t(locale, 'menu.cancel'), callback_data: 'wdeposit' }]] } },
+        {
+          reply_markup: {
+            inline_keyboard: [[{ text: t(locale, 'menu.cancel'), callback_data: 'wdeposit' }]],
+          },
+        },
         { parseMode: 'Markdown' },
       );
     } catch (err: any) {
       await this.runtime.alert(ctx);
-      await this.runtime.render(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+      await this.runtime.render(
+        ctx,
+        this.runtime.translateError(locale, err),
+        mainMenuKeyboard(locale),
+      );
     }
   }
 
@@ -131,7 +144,10 @@ export class WalletFlow {
     try {
       const fileLink = await (ctx as any).telegram.getFile(photoFileId);
       const buffer = await this.downloadTelegramFile(fileLink.file_path);
-      const payerName = [ctx.from?.first_name, ctx.from?.last_name].filter(Boolean).join(' ') || ctx.from?.username || 'Unknown';
+      const payerName =
+        [ctx.from?.first_name, ctx.from?.last_name].filter(Boolean).join(' ') ||
+        ctx.from?.username ||
+        'Unknown';
       const uploaded = await this.storage.upload({
         key: `receipts/${session.userId}/${Date.now()}-${photoFileId}.jpg`,
         body: buffer,
@@ -150,7 +166,11 @@ export class WalletFlow {
       });
       await this.runtime.clearState(telegramId);
       await this.runtime.resetMenu(telegramId, 'main');
-      await this.runtime.send(ctx, t(locale, 'wallet.deposit.card_to_card.received'), mainMenuKeyboard(locale));
+      await this.runtime.send(
+        ctx,
+        t(locale, 'wallet.deposit.card_to_card.received'),
+        mainMenuKeyboard(locale),
+      );
 
       // Send the actual receipt photo to all admins with user info + approve/reject buttons
       const receiptCaption =
@@ -187,7 +207,11 @@ export class WalletFlow {
         }
       }
     } catch (err: any) {
-      await this.runtime.send(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+      await this.runtime.send(
+        ctx,
+        this.runtime.translateError(locale, err),
+        mainMenuKeyboard(locale),
+      );
     }
     return true;
   }

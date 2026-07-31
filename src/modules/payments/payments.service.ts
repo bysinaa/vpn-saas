@@ -15,17 +15,9 @@ import {
   skipTake,
 } from '@/common/pagination/pagination.dto';
 import { randomUUID } from 'node:crypto';
-import type {
-  Payment,
-  PaymentMethod,
-  ReceiptStatus,
-  CryptoCurrency,
-} from '@prisma/client';
+import type { Payment, PaymentMethod, ReceiptStatus, CryptoCurrency } from '@prisma/client';
 import { QUEUES, JOB_NAMES } from '@/common/queue/queue-names';
-import {
-  PAYMENT_GATEWAYS,
-  type IPaymentGateway,
-} from './payment-gateway.interface';
+import { PAYMENT_GATEWAYS, type IPaymentGateway } from './payment-gateway.interface';
 
 export interface PaymentDto {
   id: string;
@@ -89,7 +81,11 @@ export class PaymentsService {
   ) {}
 
   /** Initiate a wallet deposit (not tied to an order). */
-  async initiateWalletDeposit(userId: bigint, amount: string, cryptoCurrency?: string): Promise<PaymentDto> {
+  async initiateWalletDeposit(
+    userId: bigint,
+    amount: string,
+    cryptoCurrency?: string,
+  ): Promise<PaymentDto> {
     const payment = await this.prisma.payment.create({
       data: {
         publicId: randomUUID(),
@@ -153,7 +149,11 @@ export class PaymentsService {
           metadata: { redirectUrl: result.redirectUrl } as any,
         },
       });
-      return this.toDto({ ...payment, gateway: gateway.code, gatewayRef: result.gatewayTransactionId });
+      return this.toDto({
+        ...payment,
+        gateway: gateway.code,
+        gatewayRef: result.gatewayTransactionId,
+      });
     }
 
     if (input.method === 'CARD_TO_CARD') {
@@ -186,7 +186,9 @@ export class PaymentsService {
         },
       });
       // Log for manual/external verification (BullMQ disabled)
-      this.logger.log(`Crypto payment created: ${cryptoPayment.id} for ${currency}, will need manual verification`);
+      this.logger.log(
+        `Crypto payment created: ${cryptoPayment.id} for ${currency}, will need manual verification`,
+      );
       return this.toDto(payment);
     }
 
@@ -323,7 +325,10 @@ export class PaymentsService {
   }
 
   /** Online gateway callback verification. */
-  async verifyOnlinePayment(gatewayTransactionId: string, gatewayCode: string): Promise<PaymentDto> {
+  async verifyOnlinePayment(
+    gatewayTransactionId: string,
+    gatewayCode: string,
+  ): Promise<PaymentDto> {
     const payment = await this.prisma.payment.findFirst({
       where: { gatewayRef: gatewayTransactionId, gateway: gatewayCode },
     });
@@ -448,7 +453,10 @@ export class PaymentsService {
     return this.toDto(payment);
   }
 
-  async listMine(userId: bigint, query: Record<string, unknown>): Promise<PaginatedDto<PaymentDto>> {
+  async listMine(
+    userId: bigint,
+    query: Record<string, unknown>,
+  ): Promise<PaginatedDto<PaymentDto>> {
     const params = parsePagination(query);
     const where: Record<string, unknown> = { userId };
     const [total, items] = await Promise.all([
@@ -464,11 +472,11 @@ export class PaymentsService {
     if (query.status) where.status = query.status;
     const [total, items] = await Promise.all([
       this.prisma.receipt.count({ where }),
-      this.prisma.receipt.findMany({ 
-        where, 
+      this.prisma.receipt.findMany({
+        where,
         include: { payment: true, user: true },
-        ...skipTake(params), 
-        orderBy: { createdAt: 'desc' } 
+        ...skipTake(params),
+        orderBy: { createdAt: 'desc' },
       }),
     ]);
     return { data: items.map((r) => this.toReceiptDto(r)), meta: buildMeta(total, params) };

@@ -63,6 +63,12 @@ export class BankCardsService {
     return cards[0] ?? null;
   }
 
+  async findOne(publicId: string): Promise<BankCardDto> {
+    const c = await this.prisma.bankCard.findUnique({ where: { publicId } });
+    if (!c) throw BusinessException.notFound('Bank card not found');
+    return this.toDto(c);
+  }
+
   async listAll(query: Record<string, unknown>): Promise<PaginatedDto<BankCardDto>> {
     const params = parsePagination(query);
     const where: Record<string, unknown> = {};

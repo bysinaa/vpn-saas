@@ -19,10 +19,7 @@ export class WalletController {
 
   @Get('transactions')
   @ApiOperation({ summary: 'List my wallet transactions' })
-  transactions(
-    @CurrentUser() user: AuthenticatedUser,
-    @Query() query: Record<string, unknown>,
-  ) {
+  transactions(@CurrentUser() user: AuthenticatedUser, @Query() query: Record<string, unknown>) {
     return this.wallet.listTransactions(user.id, query);
   }
 

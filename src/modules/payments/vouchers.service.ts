@@ -154,7 +154,7 @@ export class VouchersService {
         publicId: randomUUID(),
         code,
         type,
-        amount: type === 'BALANCE' ? input.amount ?? null : null,
+        amount: type === 'BALANCE' ? (input.amount ?? null) : null,
         planId: type === 'PLAN' ? plan!.id : null,
         trafficLimitGb: input.trafficLimitGb ?? null,
         durationDays: input.durationDays ?? null,
@@ -188,7 +188,9 @@ export class VouchersService {
         planName: plan?.name ?? null,
       },
     });
-    this.logger.log(`Admin ${adminId ?? '?'} generated ${created.count} voucher(s) batch=${batchId}`);
+    this.logger.log(
+      `Admin ${adminId ?? '?'} generated ${created.count} voucher(s) batch=${batchId}`,
+    );
 
     return vouchers.map((v) => this.toDto(v));
   }
@@ -328,7 +330,8 @@ export class VouchersService {
   async listAll(query: Record<string, unknown>): Promise<PaginatedDto<VoucherDto>> {
     const params = parsePagination(query);
     const where: Record<string, unknown> = {};
-    if (query.isActive !== undefined) where.isActive = query.isActive === 'true' || query.isActive === true;
+    if (query.isActive !== undefined)
+      where.isActive = query.isActive === 'true' || query.isActive === true;
     if (query.type) where.type = query.type;
     if (query.batchId) where.batchId = query.batchId;
     if (query.planId) where.planId = BigInt(query.planId as string);

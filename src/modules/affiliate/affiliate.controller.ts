@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  UsePipes,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UsePipes } from '@nestjs/common';
 import { AffiliateService } from './affiliate.service';
 import {
   UpdateAffiliateInput,
@@ -44,10 +35,7 @@ export class AffiliateController {
 
   @Post('me/payout')
   @UsePipes(new ZodValidationPipe(payoutCommissionSchema))
-  payout(
-    @Body() body: PayoutCommissionInput,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  payout(@Body() body: PayoutCommissionInput, @CurrentUser() user: AuthenticatedUser) {
     return this.affiliate.payout(
       user.id,
       body.commissionIds.map((id: string) => BigInt(id)),
@@ -70,10 +58,7 @@ export class AffiliateController {
   @Patch('admin/accounts/:id')
   @RequirePermissions(['manage:affiliates'])
   @UsePipes(new ZodValidationPipe(updateAffiliateSchema))
-  updateAccount(
-    @Param('id') id: string,
-    @Body() body: UpdateAffiliateInput,
-  ) {
+  updateAccount(@Param('id') id: string, @Body() body: UpdateAffiliateInput) {
     return this.affiliate.updateAccount(BigInt(id), body);
   }
 }

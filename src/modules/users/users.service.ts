@@ -68,7 +68,14 @@ export class UsersService {
 
   async updateProfile(
     id: bigint,
-    input: { username?: string; firstName?: string; lastName?: string; phone?: string; language?: Language; avatarUrl?: string },
+    input: {
+      username?: string;
+      firstName?: string;
+      lastName?: string;
+      phone?: string;
+      language?: Language;
+      avatarUrl?: string;
+    },
   ): Promise<UserDto> {
     const user = await this.prisma.user.update({
       where: { id },
@@ -99,7 +106,8 @@ export class UsersService {
   }
 
   async changeRole(id: bigint, role: UserRole): Promise<UserDto> {
-    if (role === 'SUPER_ADMIN') throw BusinessException.forbidden('Cannot assign SUPER_ADMIN via API');
+    if (role === 'SUPER_ADMIN')
+      throw BusinessException.forbidden('Cannot assign SUPER_ADMIN via API');
     const user = await this.prisma.user.update({ where: { id }, data: { role } });
     await this.invalidateUserCache(id);
     return this.toDto(user);

@@ -50,9 +50,12 @@ export class XuiService {
   }
 
   async getInbounds(): Promise<XuiInbound[]> {
-    const payload = await this.requestWithReconnect<XuiAuthResponse<XuiInbound[]>>('/panel/api/inbounds/list', {
-      method: 'GET',
-    });
+    const payload = await this.requestWithReconnect<XuiAuthResponse<XuiInbound[]>>(
+      '/panel/api/inbounds/list',
+      {
+        method: 'GET',
+      },
+    );
 
     return payload.obj ?? [];
   }
@@ -120,14 +123,17 @@ export class XuiService {
     if (!existing) throw BusinessException.notFound(`3X-UI client not found: ${email}`);
 
     const inboundId = input.inboundId ?? existing.inboundId;
-    if (!inboundId) throw BusinessException.conflict('Inbound ID is required to update a 3X-UI client');
+    if (!inboundId)
+      throw BusinessException.conflict('Inbound ID is required to update a 3X-UI client');
 
     const updated: XuiClientRequest = {
       ...existing,
       email: input.email ?? existing.email,
-      enable: input.status === 'disabled' ? false : existing.enable ?? true,
+      enable: input.status === 'disabled' ? false : (existing.enable ?? true),
       totalGB:
-        input.trafficLimit !== undefined ? this.toQuotaNumber(input.trafficLimit) : (existing.totalGB ?? existing.total ?? 0),
+        input.trafficLimit !== undefined
+          ? this.toQuotaNumber(input.trafficLimit)
+          : (existing.totalGB ?? existing.total ?? 0),
       expiryTime:
         input.expireDate !== undefined
           ? this.toExpireTimestamp(input.expireDate)
@@ -136,14 +142,17 @@ export class XuiService {
       reset: input.resetTraffic ? 0 : existing.reset,
     };
 
-    await this.requestWithReconnect<XuiAuthResponse<unknown>>(`/panel/api/inbounds/updateClient/${inboundId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: inboundId,
-        settings: JSON.stringify({ clients: [updated] }),
-      }),
-    });
+    await this.requestWithReconnect<XuiAuthResponse<unknown>>(
+      `/panel/api/inbounds/updateClient/${inboundId}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: inboundId,
+          settings: JSON.stringify({ clients: [updated] }),
+        }),
+      },
+    );
 
     const nextEmail = updated.email;
     if (nextEmail) {
@@ -170,9 +179,12 @@ export class XuiService {
       return;
     }
 
-    await this.requestWithReconnect<XuiAuthResponse<unknown>>(`/panel/api/inbounds/delClient/${existing.inboundId}/${encodeURIComponent(email)}`, {
-      method: 'POST',
-    });
+    await this.requestWithReconnect<XuiAuthResponse<unknown>>(
+      `/panel/api/inbounds/delClient/${existing.inboundId}/${encodeURIComponent(email)}`,
+      {
+        method: 'POST',
+      },
+    );
 
     await this.markVpnClientStatus(email, 'DELETED');
   }
@@ -270,7 +282,9 @@ export class XuiService {
 
       if (!response.ok) {
         const body = await response.text().catch(() => '');
-        throw BusinessException.conflict(`3X-UI request failed (${response.status}): ${body.slice(0, 200)}`);
+        throw BusinessException.conflict(
+          `3X-UI request failed (${response.status}): ${body.slice(0, 200)}`,
+        );
       }
 
       return (await response.json()) as T;
@@ -293,7 +307,9 @@ export class XuiService {
 
     for (const inbound of inbounds) {
       const settings = this.parseSettings(inbound.settings);
-      const clients = Array.isArray(settings.clients) ? (settings.clients as XuiClientRecord[]) : [];
+      const clients = Array.isArray(settings.clients)
+        ? (settings.clients as XuiClientRecord[])
+        : [];
       const client = clients.find((item) => item.email === email);
       if (client) {
         return { ...client, inboundId: inbound.id };
@@ -313,7 +329,9 @@ export class XuiService {
 
   private buildClientEmail(username: string, telegramId?: string | null): string {
     const base = username.replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 24) || 'vpn';
-    const suffix = telegramId ? telegramId.replace(/[^0-9]/g, '').slice(-8) : Date.now().toString(36);
+    const suffix = telegramId
+      ? telegramId.replace(/[^0-9]/g, '').slice(-8)
+      : Date.now().toString(36);
     return `${base}_${suffix}`;
   }
 
@@ -348,7 +366,11 @@ export class XuiService {
   private normalizeHeaders(headers?: RequestInit['headers']): Record<string, string> {
     if (!headers) return {};
     if (Array.isArray(headers)) return Object.fromEntries(headers);
-    if (typeof headers === 'object' && 'forEach' in headers && typeof headers.forEach === 'function') {
+    if (
+      typeof headers === 'object' &&
+      'forEach' in headers &&
+      typeof headers.forEach === 'function'
+    ) {
       const entries: Record<string, string> = {};
       headers.forEach((value: string, key: string) => {
         entries[key] = value;
@@ -420,7 +442,11 @@ export class XuiService {
     );
   }
 
-  private async upsertConnection(status: string, lastLogin: Date | null, cookie: string | null): Promise<void> {
+  private async upsertConnection(
+    status: string,
+    lastLogin: Date | null,
+    cookie: string | null,
+  ): Promise<void> {
     const encryptedPassword = Buffer.from(config.xui.password, 'utf8').toString('base64');
 
     await this.prisma.$executeRawUnsafe(

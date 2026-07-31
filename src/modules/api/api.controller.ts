@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-  UsePipes,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UsePipes } from '@nestjs/common';
 import { ApiKeyService } from './api.service';
 import {
   CreateApiKeyInput,
@@ -30,10 +21,7 @@ export class ApiController {
 
   @Post()
   @UsePipes(new ZodValidationPipe(createApiKeySchema))
-  create(
-    @Body() body: CreateApiKeyInput,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  create(@Body() body: CreateApiKeyInput, @CurrentUser() user: AuthenticatedUser) {
     return this.apiKeys.create(user, {
       name: body.name,
       scopes: body.scopes,
@@ -48,10 +36,7 @@ export class ApiController {
 
   @Patch(':publicId')
   @UsePipes(new ZodValidationPipe(updateApiKeySchema))
-  update(
-    @Param('publicId') publicId: string,
-    @Body() body: UpdateApiKeyInput,
-  ) {
+  update(@Param('publicId') publicId: string, @Body() body: UpdateApiKeyInput) {
     return this.apiKeys.update(publicId, {
       name: body.name,
       scopes: body.scopes,

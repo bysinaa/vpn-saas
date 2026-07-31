@@ -45,9 +45,7 @@ export interface TicketMessageDto {
 export class TicketsService {
   private readonly logger = new Logger(TicketsService.name);
 
-  constructor(
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(input: {
     userId: bigint;

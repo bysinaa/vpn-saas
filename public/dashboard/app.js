@@ -387,6 +387,114 @@
     };
   };
 
+  // ====== BANK CARDS ======
+  pages['bank-cards'] = async () => {
+    let data = { items: [], total: 0 };
+    try { data = await api('/payments/admin/bank-cards?limit=50'); } catch {}
+    const items = data.items || data.data || [];
+    $contentArea.innerHTML = `
+      <div class="btn-group" style="margin-bottom:16px">
+        <button class="btn btn-primary btn-sm" onclick="window.__newBankCard()"><i class="fas fa-plus"></i> New Bank Card</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>Bank Cards (${data.total || items.length})</h3></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Card Holder</th><th>Bank</th><th>Card Number</th><th>Sheba</th><th>Label</th><th>Default</th><th>Active</th><th>Sort</th><th>Created</th><th>Actions</th></tr></thead>
+            <tbody>${items.map((c) => `
+              <tr>
+                <td>${c.cardHolder || '—'}</td>
+                <td>${c.bankName || '—'}</td>
+                <td><code>${c.cardNumber || '—'}</code></td>
+                <td><code>${c.shebaNumber || '—'}</code></td>
+                <td>${c.label || '—'}</td>
+                <td>${c.isDefault ? '<span class="badge badge-active">Yes</span>' : ''}</td>
+                <td>${c.isActive ? '<span class="badge badge-active">Yes</span>' : ''}</td>
+                <td>${c.sortOrder != null ? c.sortOrder : 0}</td>
+                <td>${formatDateTime(c.createdAt)}</td>
+                <td>
+                  <button class="btn btn-sm btn-outline" onclick="window.__editBankCard('${c.publicId}')"><i class="fas fa-edit"></i></button>
+                  <button class="btn btn-sm btn-danger" onclick="window.__deleteBankCard('${c.publicId}')"><i class="fas fa-trash"></i></button>
+                </td>
+              </tr>`).join('')}
+              ${items.length === 0 ? '<tr><td colspan="10" style="text-align:center;color:var(--text-dim)">No bank cards</td></tr>' : ''}
+          </tbody>
+        </div>
+      </div>`;
+
+    window.__newBankCard = () => {
+      showModal('New Bank Card', `
+        <div class="form-group"><label>Card Number</label><input id="bc-cardNumber" placeholder="e.g. 603799******1234" /></div>
+        <div class="form-group"><label>Card Holder</label><input id="bc-cardHolder" placeholder="Name on card" /></div>
+        <div class="form-group"><label>Bank Name</label><input id="bc-bankName" placeholder="Bank" /></div>
+        <div class="form-group"><label>Sheba / IBAN</label><input id="bc-shebaNumber" placeholder="Optional" /></div>
+        <div class="form-group"><label>Label</label><input id="bc-label" placeholder="Optional label (e.g. Main Card)" /></div>
+        <div class="form-group"><label>Sort Order</label><input type="number" id="bc-sortOrder" value="0" /></div>
+        <div style="display:flex;gap:12px;align-items:center;margin-top:8px">
+          <label><input type="checkbox" id="bc-isDefault" /> Default</label>
+          <label><input type="checkbox" id="bc-isActive" checked /> Active</label>
+        </div>
+      `, `<button class="btn btn-primary" onclick="window.__saveBankCard()">Save</button>`);
+    };
+
+    window.__editBankCard = (id) => {
+      const card = items.find((c) => c.publicId === id);
+      if (!card) return;
+      showModal('Edit Bank Card', `
+        <div class="form-group"><label>Card Number</label><input id="bc-cardNumber" value="${card.cardNumber || ''}" /></div>
+        <div class="form-group"><label>Card Holder</label><input id="bc-cardHolder" value="${card.cardHolder || ''}" /></div>
+        <div class="form-group"><label>Bank Name</label><input id="bc-bankName" value="${card.bankName || ''}" /></div>
+        <div class="form-group"><label>Sheba / IBAN</label><input id="bc-shebaNumber" value="${card.shebaNumber || ''}" /></div>
+        <div class="form-group"><label>Label</label><input id="bc-label" value="${card.label || ''}" /></div>
+        <div class="form-group"><label>Sort Order</label><input type="number" id="bc-sortOrder" value="${card.sortOrder != null ? card.sortOrder : 0}" /></div>
+        <div style="display:flex;gap:12px;align-items:center;margin-top:8px">
+          <label><input type="checkbox" id="bc-isDefault" ${card.isDefault ? 'checked' : ''} /> Default</label>
+          <label><input type="checkbox" id="bc-isActive" ${card.isActive ? 'checked' : ''} /> Active</label>
+        </div>
+      `, `<button class="btn btn-primary" onclick="window.__saveBankCard('${card.publicId}')">Save</button>`);
+    };
+
+    window.__saveBankCard = async (id) => {
+      const payload = (function() {
+        const el = (id) => document.getElementById(id);
+        const val = (id) => {
+          const e = el(id);
+          return e ? (e.value || '').trim() : undefined;
+        };
+        return {
+          cardNumber: val('bc-cardNumber'),
+          cardHolder: val('bc-cardHolder'),
+          bankName: val('bc-bankName'),
+          shebaNumber: val('bc-shebaNumber') || undefined,
+          label: val('bc-label') || undefined,
+          isDefault: !!(el('bc-isDefault') && el('bc-isDefault').checked),
+          isActive: !!(el('bc-isActive') && el('bc-isActive').checked),
+          sortOrder: parseInt((val('bc-sortOrder') || '0'), 10) || 0,
+        };
+      })();
+      try {
+        if (id) {
+          await api(`/payments/admin/bank-cards/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+          toast('Bank card updated', 'success');
+        } else {
+          await api('/payments/admin/bank-cards', { method: 'POST', body: JSON.stringify(payload) });
+          toast('Bank card created', 'success');
+        }
+        hideModal();
+        pages['bank-cards']();
+      } catch (err) { toast(err.message || String(err), 'error'); }
+    };
+
+    window.__deleteBankCard = async (id) => {
+      if (!confirm('Delete this bank card?')) return;
+      try {
+        await api(`/payments/admin/bank-cards/${id}`, { method: 'DELETE' });
+        toast('Bank card deleted', 'success');
+        pages['bank-cards']();
+      } catch (err) { toast(err.message || String(err), 'error'); }
+    };
+  };
+
   // ====== WALLET ======
   pages.wallet = async () => {
     let data = { items: [], total: 0 };

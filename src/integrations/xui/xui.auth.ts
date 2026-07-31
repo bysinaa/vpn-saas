@@ -37,7 +37,9 @@ export class XuiAuthService {
     }
 
     const csrfResponse = await this.client.raw('/csrf-token', { method: 'GET' }, false);
-    const csrfPayload = (await csrfResponse.json().catch(() => null)) as XuiAuthResponse<string> | null;
+    const csrfPayload = (await csrfResponse
+      .json()
+      .catch(() => null)) as XuiAuthResponse<string> | null;
     const csrfToken = csrfPayload?.obj ?? null;
     const bootstrapCookie = this.extractCookie(csrfResponse) ?? '';
 
@@ -64,7 +66,9 @@ export class XuiAuthService {
       throw BusinessException.unauthorized(`3X-UI login failed with HTTP ${loginResponse.status}`);
     }
 
-    const loginPayload = (await loginResponse.json().catch(() => null)) as XuiAuthResponse<null> | null;
+    const loginPayload = (await loginResponse
+      .json()
+      .catch(() => null)) as XuiAuthResponse<null> | null;
     if (!loginPayload?.success) {
       throw BusinessException.unauthorized(loginPayload?.msg || '3X-UI login rejected');
     }

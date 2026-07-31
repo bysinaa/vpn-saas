@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  UsePipes,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UsePipes } from '@nestjs/common';
 import { TicketsService } from './tickets.service';
 import {
   CreateTicketInput,
@@ -56,18 +47,12 @@ export class TicketsController {
   }
 
   @Get(':publicId/messages')
-  getMessages(
-    @Param('publicId') publicId: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  getMessages(@Param('publicId') publicId: string, @CurrentUser() user: AuthenticatedUser) {
     return this.tickets.getMessages(publicId, user.id, 'USER');
   }
 
   @Get('mine')
-  listMine(
-    @CurrentUser() user: AuthenticatedUser,
-    @Query() query: Record<string, unknown>,
-  ) {
+  listMine(@CurrentUser() user: AuthenticatedUser, @Query() query: Record<string, unknown>) {
     return this.tickets.listMine(user.id, query);
   }
 
@@ -98,10 +83,7 @@ export class TicketsController {
   @Patch('admin/:publicId/status')
   @RequirePermissions(['manage:tickets'])
   @UsePipes(new ZodValidationPipe(updateTicketStatusSchema))
-  updateStatus(
-    @Param('publicId') publicId: string,
-    @Body() body: UpdateTicketStatusInput,
-  ) {
+  updateStatus(@Param('publicId') publicId: string, @Body() body: UpdateTicketStatusInput) {
     return this.tickets.updateStatus(publicId, {
       status: body.status,
       assigneeId: body.assigneeId ? BigInt(body.assigneeId) : undefined,

@@ -16,20 +16,19 @@ export function isAdminRole(role?: string | null): boolean {
  * Builds the main menu as an INLINE keyboard (spec #7 UX).
  *
  * Every button is a callback button attached to the menu message, so taps
- * edit the existing message in place instead of sending a new one. 
+ * edit the existing message in place instead of sending a new one.
  * Admin users (SUPER_ADMIN / ADMIN / OPERATOR) get ONLY the "Admin Panel" button;
  * normal users get only user-specific options.
  */
 export function mainMenuKeyboard(locale: BotLocale, role?: string | null) {
-  const B = (labelKey: string, action: string) => Markup.button.callback(t(locale, labelKey), action);
-  
+  const B = (labelKey: string, action: string) =>
+    Markup.button.callback(t(locale, labelKey), action);
+
   // Admins get ONLY the admin panel button, not user options
   if (isAdminRole(role)) {
-    return Markup.inlineKeyboard([
-      [B('menu.admin', BOT_ACTIONS.ADMIN)],
-    ]);
+    return Markup.inlineKeyboard([[B('menu.admin', BOT_ACTIONS.ADMIN)]]);
   }
-  
+
   // Regular users get only user options
   return Markup.inlineKeyboard([
     [B('menu.buy', BOT_ACTIONS.BUY), B('menu.trial', BOT_ACTIONS.TRIAL)],
@@ -55,12 +54,17 @@ export function languageKeyboard() {
 // =============================================================================
 
 /** Standard nav row: Back / Home (+ optional Refresh / Cancel). */
-export function navKeyboard(locale: BotLocale, opts: { home?: boolean; refresh?: boolean; cancel?: boolean } = {}) {
+export function navKeyboard(
+  locale: BotLocale,
+  opts: { home?: boolean; refresh?: boolean; cancel?: boolean } = {},
+) {
   const row: any[] = [Markup.button.callback(t(locale, 'menu.back'), BOT_ACTIONS.BACK)];
-  if (opts.refresh) row.push(Markup.button.callback(t(locale, 'menu.refresh'), BOT_ACTIONS.REFRESH));
+  if (opts.refresh)
+    row.push(Markup.button.callback(t(locale, 'menu.refresh'), BOT_ACTIONS.REFRESH));
   if (opts.cancel) row.push(Markup.button.callback(t(locale, 'menu.cancel'), BOT_ACTIONS.CANCEL));
   const rows: any[][] = [row];
-  if (opts.home !== false) rows.push([Markup.button.callback(t(locale, 'menu.home'), BOT_ACTIONS.HOME)]);
+  if (opts.home !== false)
+    rows.push([Markup.button.callback(t(locale, 'menu.home'), BOT_ACTIONS.HOME)]);
   return Markup.inlineKeyboard(rows);
 }
 
@@ -74,7 +78,10 @@ export function cancelKeyboard(locale: BotLocale) {
 /** Back + Home only (post-action confirmation screens). */
 export function homeBackKeyboard(locale: BotLocale) {
   return Markup.inlineKeyboard([
-    [Markup.button.callback(t(locale, 'menu.back'), BOT_ACTIONS.BACK), Markup.button.callback(t(locale, 'menu.home'), BOT_ACTIONS.HOME)],
+    [
+      Markup.button.callback(t(locale, 'menu.back'), BOT_ACTIONS.BACK),
+      Markup.button.callback(t(locale, 'menu.home'), BOT_ACTIONS.HOME),
+    ],
   ]);
 }
 
@@ -179,14 +186,20 @@ export function walletKeyboard(locale: BotLocale) {
       Markup.button.callback(t(locale, 'wallet.history'), 'whistory'),
       Markup.button.callback(t(locale, 'wallet.giftHistory'), 'wgift'),
     ],
-    [Markup.button.callback(t(locale, 'menu.back'), BOT_ACTIONS.BACK), Markup.button.callback(t(locale, 'menu.home'), BOT_ACTIONS.HOME)],
+    [
+      Markup.button.callback(t(locale, 'menu.back'), BOT_ACTIONS.BACK),
+      Markup.button.callback(t(locale, 'menu.home'), BOT_ACTIONS.HOME),
+    ],
   ]);
 }
 
 export function depositMethodKeyboard(locale: BotLocale) {
   return Markup.inlineKeyboard([
     [Markup.button.callback(t(locale, 'wallet.deposit.card'), 'depmethod:CARD_TO_CARD')],
-    [Markup.button.callback(t(locale, 'menu.back'), BOT_ACTIONS.BACK), Markup.button.callback(t(locale, 'menu.cancel'), BOT_ACTIONS.CANCEL)],
+    [
+      Markup.button.callback(t(locale, 'menu.back'), BOT_ACTIONS.BACK),
+      Markup.button.callback(t(locale, 'menu.cancel'), BOT_ACTIONS.CANCEL),
+    ],
   ]);
 }
 
@@ -266,7 +279,11 @@ export function subscriptionsListKeyboard(
 }
 
 /** Subscription detail action keyboard. */
-export function subscriptionDetailKeyboard(locale: BotLocale, subPublicId: string, opts: { canReset?: boolean } = {}) {
+export function subscriptionDetailKeyboard(
+  locale: BotLocale,
+  subPublicId: string,
+  opts: { canReset?: boolean } = {},
+) {
   const rows: any[][] = [
     [Markup.button.callback(t(locale, 'sub.link'), `sublink:${subPublicId}`)],
     [
@@ -325,7 +342,10 @@ export function profileKeyboard(locale: BotLocale) {
       Markup.button.callback(t(locale, 'profile.wallet'), BOT_ACTIONS.WALLET),
       Markup.button.callback(t(locale, 'profile.orders'), 'profileorders'),
     ],
-    [Markup.button.callback(t(locale, 'menu.back'), BOT_ACTIONS.BACK), Markup.button.callback(t(locale, 'menu.home'), BOT_ACTIONS.HOME)],
+    [
+      Markup.button.callback(t(locale, 'menu.back'), BOT_ACTIONS.BACK),
+      Markup.button.callback(t(locale, 'menu.home'), BOT_ACTIONS.HOME),
+    ],
   ]);
 }
 
@@ -338,7 +358,10 @@ export function referralKeyboard(locale: BotLocale, link: string, shareText: str
     [Markup.button.switchToChat(t(locale, 'referral.share'), shareText)],
     [Markup.button.callback(t(locale, 'referral.rules'), 'refrules')],
     [Markup.button.callback(t(locale, 'referral.history'), 'refhistory')],
-    [Markup.button.callback(t(locale, 'menu.back'), BOT_ACTIONS.BACK), Markup.button.callback(t(locale, 'menu.home'), BOT_ACTIONS.HOME)],
+    [
+      Markup.button.callback(t(locale, 'menu.back'), BOT_ACTIONS.BACK),
+      Markup.button.callback(t(locale, 'menu.home'), BOT_ACTIONS.HOME),
+    ],
   ]);
 }
 
@@ -353,7 +376,10 @@ export function supportMenuKeyboard(locale: BotLocale) {
       Markup.button.callback(t(locale, 'support.openTickets'), 'tickets:OPEN'),
       Markup.button.callback(t(locale, 'support.closedTickets'), 'tickets:CLOSED'),
     ],
-    [Markup.button.callback(t(locale, 'menu.back'), BOT_ACTIONS.BACK), Markup.button.callback(t(locale, 'menu.home'), BOT_ACTIONS.HOME)],
+    [
+      Markup.button.callback(t(locale, 'menu.back'), BOT_ACTIONS.BACK),
+      Markup.button.callback(t(locale, 'menu.home'), BOT_ACTIONS.HOME),
+    ],
   ]);
 }
 
@@ -453,7 +479,8 @@ export function ticketDetailKeyboard(locale: BotLocale, ticketPublicId: string, 
     [Markup.button.callback(t(locale, 'ticket.reply'), `tkreply:${ticketPublicId}`)],
     [Markup.button.callback(t(locale, 'ticket.viewReplies'), `tkview:${ticketPublicId}`)],
   ];
-  if (open) rows.push([Markup.button.callback(t(locale, 'ticket.close'), `tkclose:${ticketPublicId}`)]);
+  if (open)
+    rows.push([Markup.button.callback(t(locale, 'ticket.close'), `tkclose:${ticketPublicId}`)]);
   rows.push([
     Markup.button.callback(t(locale, 'menu.back'), BOT_ACTIONS.BACK),
     Markup.button.callback(t(locale, 'menu.home'), BOT_ACTIONS.HOME),

@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Query,
-  UsePipes,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UsePipes } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import {
   InitiatePaymentInput,
@@ -28,10 +20,7 @@ export class PaymentsController {
 
   @Post('initiate')
   @UsePipes(new ZodValidationPipe(initiatePaymentSchema))
-  initiate(
-    @Body() body: InitiatePaymentInput,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  initiate(@Body() body: InitiatePaymentInput, @CurrentUser() user: AuthenticatedUser) {
     return this.payments.initiate({
       userId: user.id,
       orderPublicId: body.orderPublicId,
@@ -43,10 +32,7 @@ export class PaymentsController {
 
   @Post('receipts')
   @UsePipes(new ZodValidationPipe(submitReceiptSchema))
-  submitReceipt(
-    @Body() body: SubmitReceiptInput,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  submitReceipt(@Body() body: SubmitReceiptInput, @CurrentUser() user: AuthenticatedUser) {
     return this.payments.submitReceipt({
       userId: user.id,
       paymentPublicId: body.paymentPublicId,
@@ -61,18 +47,12 @@ export class PaymentsController {
   }
 
   @Get('mine')
-  listMine(
-    @CurrentUser() user: AuthenticatedUser,
-    @Query() query: Record<string, unknown>,
-  ) {
+  listMine(@CurrentUser() user: AuthenticatedUser, @Query() query: Record<string, unknown>) {
     return this.payments.listMine(user.id, query);
   }
 
   @Get(':publicId')
-  findOne(
-    @Param('publicId') publicId: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  findOne(@Param('publicId') publicId: string, @CurrentUser() user: AuthenticatedUser) {
     return this.payments.findOne(publicId, user.id);
   }
 
@@ -101,10 +81,7 @@ export class PaymentsController {
   // ---- Public gateway callback (no auth; verified via signature) ----
   @Public()
   @Get('online/callback')
-  onlineCallback(
-    @Query('Authority') authority: string,
-    @Query('Status') status: string,
-  ) {
+  onlineCallback(@Query('Authority') authority: string, @Query('Status') status: string) {
     if (status !== 'OK') {
       return { success: false, message: 'Payment cancelled' };
     }

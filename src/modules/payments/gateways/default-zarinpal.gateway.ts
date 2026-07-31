@@ -1,11 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { config } from '@/config';
 import { ProxyHttpService } from '@/common/proxy/proxy-http.service';
-import type {
-  IPaymentGateway,
-  InitiateResult,
-  VerifyResult,
-} from '../payment-gateway.interface';
+import type { IPaymentGateway, InitiateResult, VerifyResult } from '../payment-gateway.interface';
 import { BusinessException } from '@/common/exceptions/business.exception';
 
 /**
@@ -35,17 +31,23 @@ export class DefaultZarinpalGateway implements IPaymentGateway {
       throw BusinessException.conflict('Online gateway merchantId not configured');
     }
 
-    const res = await this.proxy.proxyFetch(`${config.payments.online.baseUrl}/pg/v4/payment/request.json`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        merchant_id: merchantId,
-        amount: Number(params.amountMinor),
-        description: params.description,
-        callback_url: params.callbackUrl,
-      }),
-    });
-    const json = (await res.json()) as { data?: { authority?: string; code?: number }; errors?: any };
+    const res = await this.proxy.proxyFetch(
+      `${config.payments.online.baseUrl}/pg/v4/payment/request.json`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          merchant_id: merchantId,
+          amount: Number(params.amountMinor),
+          description: params.description,
+          callback_url: params.callbackUrl,
+        }),
+      },
+    );
+    const json = (await res.json()) as {
+      data?: { authority?: string; code?: number };
+      errors?: any;
+    };
 
     const authority = json.data?.authority;
     if (!authority) {
@@ -59,19 +61,19 @@ export class DefaultZarinpalGateway implements IPaymentGateway {
     };
   }
 
-  async verify(params: {
-    gatewayTransactionId: string;
-    paymentId: bigint;
-  }): Promise<VerifyResult> {
+  async verify(params: { gatewayTransactionId: string; paymentId: bigint }): Promise<VerifyResult> {
     const merchantId = config.payments.online.merchantId;
-    const res = await this.proxy.proxyFetch(`${config.payments.online.baseUrl}/pg/v4/payment/verify.json`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        merchant_id: merchantId,
-        authority: params.gatewayTransactionId,
-      }),
-    });
+    const res = await this.proxy.proxyFetch(
+      `${config.payments.online.baseUrl}/pg/v4/payment/verify.json`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          merchant_id: merchantId,
+          authority: params.gatewayTransactionId,
+        }),
+      },
+    );
     const json = (await res.json()) as { data?: { code?: number; ref_id?: string }; errors?: any };
 
     if (json.data?.code === 100 || json.data?.code === 101) {

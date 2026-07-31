@@ -87,7 +87,9 @@ export class VoucherFlow {
         const traffic = sub?.trafficLimitBytes
           ? formatTraffic(BigInt(sub.trafficLimitBytes))
           : t(locale, 'plan.unlimited');
-        const expires = sub?.expiresAt ? formatDate(sub.expiresAt, locale) : t(locale, 'plan.unlimited');
+        const expires = sub?.expiresAt
+          ? formatDate(sub.expiresAt, locale)
+          : t(locale, 'plan.unlimited');
         const days = sub?.durationDays ?? 0;
 
         const linkLine = link ? `\n\n🔗 \`${link}\`` : '';

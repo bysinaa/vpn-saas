@@ -73,7 +73,36 @@ export class AllExceptionsFilter implements ExceptionFilter {
     };
 
     if (typeof res.status === 'function') {
-      res.status(status).send(response);
+      try {
+        // Fastify reply exposes `sent` and raw.writableEnded to indicate a response already in-flight.
+        // If the response was already started (for example sendFile/streaming), skip sending JSON to avoid
+        // "Attempted to send payload of invalid type 'object'" errors.
+        const alreadySent =
+          (typeof (res as any).sent === 'boolean' && (res as any).sent) ||
+          (res && res.raw && typeof res.raw.writableEnded === 'boolean' && res.raw.writableEnded);
+
+        if (alreadySent) {
+          this.logger.warn('Response already sent - skipping exception filter response');
+          return;
+        }
+
+        res.status(status).send(response);
+      } catch (sendErr) {
+        // Fallback: if Fastify reply send throws (e.g. stream state), attempt to end the raw response
+        // with a JSON string. This ensures we don't crash the process when handling unexpected states.
+        try {
+          if (res && res.raw && typeof res.raw.end === 'function') {
+            if (res.raw.setHeader) {
+              res.raw.setHeader('content-type', 'application/json; charset=utf-8');
+            }
+            res.raw.end(JSON.stringify(response));
+            return;
+          }
+        } catch (rawErr) {
+          // Last resort: log warning and do nothing — we cannot reliably send a response here.
+          this.logger.warn('Failed to send error response via raw reply', rawErr as any);
+        }
+      }
     }
   }
 }

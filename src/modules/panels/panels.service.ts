@@ -66,7 +66,8 @@ export class PanelsService {
     const params = parsePagination(query);
     const where: Record<string, unknown> = {};
     if (query.type) where.type = query.type;
-    if (query.isActive !== undefined) where.status = query.isActive === 'true' ? 'ACTIVE' : 'INACTIVE';
+    if (query.isActive !== undefined)
+      where.status = query.isActive === 'true' ? 'ACTIVE' : 'INACTIVE';
     const [total, items] = await Promise.all([
       this.prisma.vpnPanel.count({ where }),
       this.prisma.vpnPanel.findMany({ where, ...skipTake(params), orderBy: { createdAt: 'desc' } }),
@@ -112,7 +113,8 @@ export class PanelsService {
 
   async delete(id: bigint): Promise<void> {
     const servers = await this.prisma.server.count({ where: { panelId: id } });
-    if (servers > 0) throw BusinessException.conflict('Panel is in use by servers; reassign them first');
+    if (servers > 0)
+      throw BusinessException.conflict('Panel is in use by servers; reassign them first');
     await this.prisma.vpnPanel.delete({ where: { id } });
   }
 
@@ -147,7 +149,8 @@ export class PanelsService {
       type: p.type,
       baseUrl: p.baseUrl,
       isActive: p.status === 'ACTIVE',
-      isHealthy: p.healthStatus === 'HEALTHY' ? true : p.healthStatus === 'UNHEALTHY' ? false : null,
+      isHealthy:
+        p.healthStatus === 'HEALTHY' ? true : p.healthStatus === 'UNHEALTHY' ? false : null,
       lastHealthCheckAt: p.lastSyncAt,
       extraConfig: (p.metadata as Record<string, unknown>) ?? null,
       createdAt: p.createdAt,

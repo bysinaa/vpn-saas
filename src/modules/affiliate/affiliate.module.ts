@@ -4,9 +4,7 @@ import { AffiliateController } from './affiliate.controller';
 import { WalletModule } from '../wallet/wallet.module';
 
 @Module({
-  imports: [
-    WalletModule,
-  ],
+  imports: [WalletModule],
   controllers: [AffiliateController],
   providers: [AffiliateService],
   exports: [AffiliateService],

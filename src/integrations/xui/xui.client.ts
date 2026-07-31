@@ -22,7 +22,9 @@ export class XuiClient {
 
     if (!response.ok) {
       const body = await response.text().catch(() => '');
-      throw BusinessException.conflict(`3X-UI request failed (${response.status}): ${body.slice(0, 200)}`);
+      throw BusinessException.conflict(
+        `3X-UI request failed (${response.status}): ${body.slice(0, 200)}`,
+      );
     }
 
     return (await response.json()) as T;

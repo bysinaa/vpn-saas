@@ -59,7 +59,9 @@ export class ConfigService implements OnModuleInit {
   getRequired(key: string): string {
     const value = this.get(key);
     if (value === undefined || value === '') {
-      throw new Error(`Required configuration key "${key}" is not set in any configuration source.`);
+      throw new Error(
+        `Required configuration key "${key}" is not set in any configuration source.`,
+      );
     }
     return value;
   }

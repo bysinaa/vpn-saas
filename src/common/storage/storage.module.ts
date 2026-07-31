@@ -7,7 +7,9 @@ import { config } from '@/config';
 function storageFactory(): IStorage {
   // If S3 endpoint is configured and not a placeholder, use S3
   if (config.s3.endpoint && !config.s3.endpoint.includes('localhost:9000') && config.s3.accessKey) {
-    return new S3StorageService({ proxyFetch: async (url: string | URL | Request, init?: RequestInit) => fetch(url, init) } as any);
+    return new S3StorageService({
+      proxyFetch: async (url: string | URL | Request, init?: RequestInit) => fetch(url, init),
+    } as any);
   }
   return new LocalStorageService();
 }

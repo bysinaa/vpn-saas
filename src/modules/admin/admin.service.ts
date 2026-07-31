@@ -173,7 +173,9 @@ export class AdminService {
   /** Daily revenue for the last N days (for charts). */
   async getRevenueSeries(days = 30): Promise<RevenuePoint[]> {
     const since = new Date(Date.now() - days * 86400000);
-    const rows = await this.prisma.$queryRaw<Array<{ date: string; amount: bigint; count: bigint }>>`
+    const rows = await this.prisma.$queryRaw<
+      Array<{ date: string; amount: bigint; count: bigint }>
+    >`
       SELECT DATE("confirmedAt") AS date,
              SUM(amount) AS amount,
              COUNT(*) AS count

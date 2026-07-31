@@ -1,8 +1,17 @@
 import { z } from 'zod';
 
 const planType = z.enum([
-  'TRAFFIC', 'TIME', 'UNLIMITED', 'COMBINATION', 'MANUAL',
-  'AUTOMATIC', 'TRIAL', 'GIFT', 'FAMILY', 'BUSINESS', 'MULTI_DEVICE',
+  'TRAFFIC',
+  'TIME',
+  'UNLIMITED',
+  'COMBINATION',
+  'MANUAL',
+  'AUTOMATIC',
+  'TRIAL',
+  'GIFT',
+  'FAMILY',
+  'BUSINESS',
+  'MULTI_DEVICE',
 ]);
 
 export const PlansSchemas = {
@@ -32,7 +41,10 @@ export const PlansSchemas = {
   update: z.object({
     name: z.string().min(2).max(80).optional(),
     description: z.string().optional(),
-    price: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
+    price: z
+      .string()
+      .regex(/^\d+(\.\d{1,2})?$/)
+      .optional(),
     originalPrice: z.string().optional(),
     discountPercent: z.number().min(0).max(100).optional(),
     priority: z.number().int().optional(),

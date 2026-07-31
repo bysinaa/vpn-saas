@@ -95,20 +95,29 @@ export class ThreeXuiPanelClient implements IPanelClient {
   // ---------------------------------------------------------------- IPanelClient
 
   async createUser(panel: PanelConnection, input: CreatePanelUserInput): Promise<PanelUser> {
-    this.logger.log(`createUser called for username=${input.username}, panel=${panel.name} (${panel.baseUrl})`);
+    this.logger.log(
+      `createUser called for username=${input.username}, panel=${panel.name} (${panel.baseUrl})`,
+    );
 
     // Resolve ALL inbound IDs (attach all inbounds by default)
     let inboundIds: number[];
     try {
       inboundIds = await this.resolveAllInboundIds(panel, input.protocols);
-      this.logger.log(`resolveAllInboundIds returned ${inboundIds.length} IDs: ${inboundIds.join(', ')}`);
+      this.logger.log(
+        `resolveAllInboundIds returned ${inboundIds.length} IDs: ${inboundIds.join(', ')}`,
+      );
     } catch (err: any) {
-      this.logger.error(`resolveAllInboundIds failed for username=${input.username}: ${err?.message ?? err}`, err?.stack);
+      this.logger.error(
+        `resolveAllInboundIds failed for username=${input.username}: ${err?.message ?? err}`,
+        err?.stack,
+      );
       throw err;
     }
 
     if (inboundIds.length === 0) {
-      this.logger.warn(`No inbounds found for panel ${panel.name}. Available inbounds may be empty.`);
+      this.logger.warn(
+        `No inbounds found for panel ${panel.name}. Available inbounds may be empty.`,
+      );
       throw BusinessException.conflict(
         '3x-ui has no inbounds configured. Create an inbound in the panel web UI before adding VPN clients.',
       );
@@ -128,7 +137,9 @@ export class ThreeXuiPanelClient implements IPanelClient {
       enable: true,
     };
 
-    this.logger.log(`Sending client payload to /panel/api/clients/add: ${JSON.stringify({ client: clientPayload, inboundIds })}`);
+    this.logger.log(
+      `Sending client payload to /panel/api/clients/add: ${JSON.stringify({ client: clientPayload, inboundIds })}`,
+    );
 
     let res;
     try {
@@ -139,9 +150,14 @@ export class ThreeXuiPanelClient implements IPanelClient {
           inboundIds,
         },
       });
-      this.logger.log(`3x-ui /panel/api/clients/add response: success=${res.success}, msg=${res.msg}`);
+      this.logger.log(
+        `3x-ui /panel/api/clients/add response: success=${res.success}, msg=${res.msg}`,
+      );
     } catch (err: any) {
-      this.logger.error(`3x-ui /panel/api/clients/add request failed: ${err?.message ?? err}`, err?.stack);
+      this.logger.error(
+        `3x-ui /panel/api/clients/add request failed: ${err?.message ?? err}`,
+        err?.stack,
+      );
       throw err;
     }
 
@@ -163,7 +179,7 @@ export class ThreeXuiPanelClient implements IPanelClient {
     }
 
     if (created) return created;
-    
+
     // Fallback: build a PanelUser from our payload (will lack UUID/subId until getUser returns them).
     const fallbackUser: PanelUser = {
       uuid: '',
@@ -182,7 +198,10 @@ export class ThreeXuiPanelClient implements IPanelClient {
    * Fetch traffic counters via the dedicated /panel/api/clients/traffic/{email} endpoint.
    * Returns more accurate real-time data than getUser().
    */
-  async getClientTraffic(panel: PanelConnection, email: string): Promise<{
+  async getClientTraffic(
+    panel: PanelConnection,
+    email: string,
+  ): Promise<{
     usedBytes: string;
     totalBytes: string;
     up: number;
@@ -193,20 +212,22 @@ export class ThreeXuiPanelClient implements IPanelClient {
     enable: boolean;
   } | null> {
     const emailEncoded = encodeURIComponent(email);
-    const res = await this.request<ThreeXuiEnvelope<{
-      down: number;
-      email: string;
-      enable: boolean;
-      expiryTime: number;
-      id: number;
-      inboundId: number;
-      lastOnline: number;
-      reset: number;
-      subId: string;
-      total: number;
-      up: number;
-      uuid: string;
-    }>>(panel, `/panel/api/clients/traffic/${emailEncoded}`, { method: 'GET' });
+    const res = await this.request<
+      ThreeXuiEnvelope<{
+        down: number;
+        email: string;
+        enable: boolean;
+        expiryTime: number;
+        id: number;
+        inboundId: number;
+        lastOnline: number;
+        reset: number;
+        subId: string;
+        total: number;
+        up: number;
+        uuid: string;
+      }>
+    >(panel, `/panel/api/clients/traffic/${emailEncoded}`, { method: 'GET' });
 
     if (!res.success || !res.obj) return null;
 
@@ -225,11 +246,9 @@ export class ThreeXuiPanelClient implements IPanelClient {
 
   async getUser(panel: PanelConnection, username: string): Promise<PanelUser | null> {
     const email = encodeURIComponent(username);
-    const res = await this.request<ThreeXuiEnvelope<ThreeXuiClient | ThreeXuiClientGetObject | null>>(
-      panel,
-      `/panel/api/clients/get/${email}`,
-      { method: 'GET' },
-    );
+    const res = await this.request<
+      ThreeXuiEnvelope<ThreeXuiClient | ThreeXuiClientGetObject | null>
+    >(panel, `/panel/api/clients/get/${email}`, { method: 'GET' });
     if (!res.success || !res.obj) return null;
 
     // 3x-ui v3.4.x returns { obj: { client, inbound } }, while some older
@@ -241,7 +260,11 @@ export class ThreeXuiPanelClient implements IPanelClient {
     return this.mapUser(client, obj.inbound?.id ?? client.inboundId, panel);
   }
 
-  async updateUser(panel: PanelConnection, username: string, input: UpdatePanelUserInput): Promise<PanelUser> {
+  async updateUser(
+    panel: PanelConnection,
+    username: string,
+    input: UpdatePanelUserInput,
+  ): Promise<PanelUser> {
     const existing = await this.getUser(panel, username);
     if (!existing) {
       throw BusinessException.notFound(`3x-ui client not found: ${username}`);
@@ -257,14 +280,20 @@ export class ThreeXuiPanelClient implements IPanelClient {
     if (input.expireMs !== undefined) patch.expiryTime = input.expireMs ?? 0;
     if (input.resetUsage) patch.reset = 0;
 
-    const res = await this.request<ThreeXuiEnvelope<null>>(panel, `/panel/api/clients/update/${email}`, {
-      method: 'POST',
-      body: patch,
-    });
+    const res = await this.request<ThreeXuiEnvelope<null>>(
+      panel,
+      `/panel/api/clients/update/${email}`,
+      {
+        method: 'POST',
+        body: patch,
+      },
+    );
     if (!res.success && res.msg) {
       // Fall back to the inbound-scoped updateClient endpoint if the email-based
       // one is unavailable on this 3x-ui build.
-      this.logger.warn(`clients/update/${username} failed (${res.msg}); retrying via inbound endpoint`);
+      this.logger.warn(
+        `clients/update/${username} failed (${res.msg}); retrying via inbound endpoint`,
+      );
     }
 
     const updated = await this.getUser(panel, username);
@@ -273,9 +302,13 @@ export class ThreeXuiPanelClient implements IPanelClient {
 
   async deleteUser(panel: PanelConnection, username: string): Promise<void> {
     const email = encodeURIComponent(username);
-    const res = await this.request<ThreeXuiEnvelope<null>>(panel, `/panel/api/clients/del/${email}`, {
-      method: 'POST',
-    });
+    const res = await this.request<ThreeXuiEnvelope<null>>(
+      panel,
+      `/panel/api/clients/del/${email}`,
+      {
+        method: 'POST',
+      },
+    );
     if (!res.success) {
       throw BusinessException.conflict(`3x-ui delete client failed: ${res.msg}`);
     }
@@ -283,9 +316,13 @@ export class ThreeXuiPanelClient implements IPanelClient {
 
   async resetTraffic(panel: PanelConnection, username: string): Promise<void> {
     const email = encodeURIComponent(username);
-    const res = await this.request<ThreeXuiEnvelope<null>>(panel, `/panel/api/clients/resetTraffic/${email}`, {
-      method: 'POST',
-    });
+    const res = await this.request<ThreeXuiEnvelope<null>>(
+      panel,
+      `/panel/api/clients/resetTraffic/${email}`,
+      {
+        method: 'POST',
+      },
+    );
     if (!res.success) {
       throw BusinessException.conflict(`3x-ui reset traffic failed: ${res.msg}`);
     }
@@ -296,9 +333,13 @@ export class ThreeXuiPanelClient implements IPanelClient {
     try {
       // Attempt the full server-status endpoint first. Current 3x-ui exposes
       // this as GET and returns detailed metrics.
-      const res = await this.request<ThreeXuiEnvelope<Record<string, unknown>>>(panel, '/panel/api/server/status', {
-        method: 'GET',
-      });
+      const res = await this.request<ThreeXuiEnvelope<Record<string, unknown>>>(
+        panel,
+        '/panel/api/server/status',
+        {
+          method: 'GET',
+        },
+      );
       if (res.success) {
         const o = res.obj ?? {};
         return {
@@ -313,7 +354,9 @@ export class ThreeXuiPanelClient implements IPanelClient {
       }
       // Envelope returned success:false — fall through to liveness probe.
     } catch (err) {
-      this.logger.debug(`server/status probe failed for panel ${panel.id}: ${(err as Error).message}`);
+      this.logger.debug(
+        `server/status probe failed for panel ${panel.id}: ${(err as Error).message}`,
+      );
     }
 
     // Fallback liveness probe: an authenticated request that every 3x-ui build
@@ -328,7 +371,9 @@ export class ThreeXuiPanelClient implements IPanelClient {
         return { reachable: true, latencyMs: Date.now() - start };
       }
     } catch (err) {
-      this.logger.debug(`csrf-token liveness probe failed for panel ${panel.id}: ${(err as Error).message}`);
+      this.logger.debug(
+        `csrf-token liveness probe failed for panel ${panel.id}: ${(err as Error).message}`,
+      );
     }
 
     return { reachable: false, latencyMs: Date.now() - start };
@@ -389,10 +434,14 @@ export class ThreeXuiPanelClient implements IPanelClient {
 
       if (!res.ok) {
         const text = await res.text().catch(() => '');
-        throw BusinessException.conflict(`3x-ui ${path} → HTTP ${res.status}: ${text.slice(0, 200)}`);
+        throw BusinessException.conflict(
+          `3x-ui ${path} → HTTP ${res.status}: ${text.slice(0, 200)}`,
+        );
       }
 
-      const parsed = (await res.json().catch(() => ({ success: false, msg: 'invalid json', obj: null }))) as T;
+      const parsed = (await res
+        .json()
+        .catch(() => ({ success: false, msg: 'invalid json', obj: null }))) as T;
       // Persist any refreshed Set-Cookie the panel may have returned.
       this.captureCookies(panel.id, res, session);
       return parsed;
@@ -418,8 +467,8 @@ export class ThreeXuiPanelClient implements IPanelClient {
    */
   private async login(panel: PanelConnection): Promise<PanelSession> {
     const base = panel.baseUrl;
-    const username = panel.extraConfig?.username as string | undefined ?? config.sanity.username;
-    const password = panel.extraConfig?.password as string | undefined ?? config.sanity.password;
+    const username = (panel.extraConfig?.username as string | undefined) ?? config.sanity.username;
+    const password = (panel.extraConfig?.password as string | undefined) ?? config.sanity.password;
 
     if (!username || !password) {
       throw BusinessException.unauthorized('3x-ui panel credentials not configured');
@@ -427,7 +476,10 @@ export class ThreeXuiPanelClient implements IPanelClient {
 
     // 1) CSRF token
     const csrfUrl = this.joinUrl(base, '/csrf-token');
-    const csrfRes = await this.proxy.proxyFetch(csrfUrl, { method: 'GET', headers: { Accept: 'application/json' } });
+    const csrfRes = await this.proxy.proxyFetch(csrfUrl, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
     if (!csrfRes.ok) {
       throw BusinessException.conflict(`3x-ui /csrf-token → HTTP ${csrfRes.status}`);
     }
@@ -488,7 +540,10 @@ export class ThreeXuiPanelClient implements IPanelClient {
     try {
       const raw = res.headers.raw()['set-cookie'] as string[] | undefined;
       if (!raw || raw.length === 0) return '';
-      return raw.map((c) => c.split(';')[0]).filter(Boolean).join('; ');
+      return raw
+        .map((c) => c.split(';')[0])
+        .filter(Boolean)
+        .join('; ');
     } catch {
       return '';
     }
@@ -502,9 +557,13 @@ export class ThreeXuiPanelClient implements IPanelClient {
     const explicit = panel.extraConfig?.inboundId;
     if (typeof explicit === 'number' && explicit > 0) return explicit;
 
-    const res = await this.request<ThreeXuiEnvelope<ThreeXuiInbound[]>>(panel, '/panel/api/inbounds/list', {
-      method: 'GET',
-    });
+    const res = await this.request<ThreeXuiEnvelope<ThreeXuiInbound[]>>(
+      panel,
+      '/panel/api/inbounds/list',
+      {
+        method: 'GET',
+      },
+    );
     const inbounds = res.obj ?? [];
     if (inbounds.length === 0) {
       throw BusinessException.conflict(
@@ -522,13 +581,20 @@ export class ThreeXuiPanelClient implements IPanelClient {
    * Returns ALL enabled inbound IDs from the panel.
    * Used to attach a new client to every available inbound.
    */
-  private async resolveAllInboundIds(panel: PanelConnection, protocols?: string[]): Promise<number[]> {
+  private async resolveAllInboundIds(
+    panel: PanelConnection,
+    protocols?: string[],
+  ): Promise<number[]> {
     const explicit = panel.extraConfig?.inboundId;
     if (typeof explicit === 'number' && explicit > 0) return [explicit];
 
-    const res = await this.request<ThreeXuiEnvelope<ThreeXuiInbound[]>>(panel, '/panel/api/inbounds/list', {
-      method: 'GET',
-    });
+    const res = await this.request<ThreeXuiEnvelope<ThreeXuiInbound[]>>(
+      panel,
+      '/panel/api/inbounds/list',
+      {
+        method: 'GET',
+      },
+    );
     const inbounds = (res.obj ?? []).filter((i) => i.enable);
     if (inbounds.length === 0) return [];
 

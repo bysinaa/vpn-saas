@@ -48,18 +48,37 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
    * and forward via `any` to satisfy the overload.
    */
   async withTransaction<T>(fn: (tx: PrismaClient) => Promise<T>, timeoutMs = 15000): Promise<T> {
-    return (this.$transaction as unknown as (
-      arg: (tx: PrismaClient) => Promise<T>,
-      options: { timeout: number },
-    ) => Promise<T>)(fn, { timeout: timeoutMs });
+    return (
+      this.$transaction as unknown as (
+        arg: (tx: PrismaClient) => Promise<T>,
+        options: { timeout: number },
+      ) => Promise<T>
+    )(fn, { timeout: timeoutMs });
   }
-
 
   private async bootstrapSystemSettings(): Promise<void> {
     const defaults = [
-      { key: 'APP_NAME', value: 'VPN SaaS', category: 'GENERAL', type: 'STRING', description: 'Application name' },
-      { key: 'DEFAULT_LANGUAGE', value: 'EN', category: 'GENERAL', type: 'STRING', description: 'Default language for new users' },
-      { key: 'MAX_LOGIN_ATTEMPTS', value: '5', category: 'SECURITY', type: 'NUMBER', description: 'Maximum login attempts before lockout' },
+      {
+        key: 'APP_NAME',
+        value: 'VPN SaaS',
+        category: 'GENERAL',
+        type: 'STRING',
+        description: 'Application name',
+      },
+      {
+        key: 'DEFAULT_LANGUAGE',
+        value: 'EN',
+        category: 'GENERAL',
+        type: 'STRING',
+        description: 'Default language for new users',
+      },
+      {
+        key: 'MAX_LOGIN_ATTEMPTS',
+        value: '5',
+        category: 'SECURITY',
+        type: 'NUMBER',
+        description: 'Maximum login attempts before lockout',
+      },
     ];
 
     for (const setting of defaults) {
@@ -69,9 +88,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           update: {},
           create: setting,
         });
-} catch (error: any) {
-  this.logger.error(`Failed to bootstrap system setting ${setting.key}: ${error.message}`);
-}
+      } catch (error: any) {
+        this.logger.error(`Failed to bootstrap system setting ${setting.key}: ${error.message}`);
+      }
     }
   }
 }

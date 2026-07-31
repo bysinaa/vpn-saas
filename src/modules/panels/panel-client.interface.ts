@@ -69,7 +69,11 @@ export interface IPanelClient {
   createUser(panel: PanelConnection, input: CreatePanelUserInput): Promise<PanelUser>;
   getUser(panel: PanelConnection, username: string): Promise<PanelUser | null>;
   getClientTraffic(panel: PanelConnection, email: string): Promise<ClientTraffic | null>;
-  updateUser(panel: PanelConnection, username: string, input: UpdatePanelUserInput): Promise<PanelUser>;
+  updateUser(
+    panel: PanelConnection,
+    username: string,
+    input: UpdatePanelUserInput,
+  ): Promise<PanelUser>;
   deleteUser(panel: PanelConnection, username: string): Promise<void>;
   resetTraffic(panel: PanelConnection, username: string): Promise<void>;
   health(panel: PanelConnection): Promise<PanelHealth>;

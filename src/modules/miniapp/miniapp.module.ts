@@ -8,13 +8,7 @@ import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { OrdersModule } from '../orders/orders.module';
 
 @Module({
-  imports: [
-    AuthModule,
-    WalletModule,
-    PlansModule,
-    SubscriptionsModule,
-    OrdersModule,
-  ],
+  imports: [AuthModule, WalletModule, PlansModule, SubscriptionsModule, OrdersModule],
   controllers: [MiniAppController],
   providers: [MiniAppService],
   exports: [MiniAppService],

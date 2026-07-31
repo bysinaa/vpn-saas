@@ -7,7 +7,7 @@ import { Logger as PinoLogger } from 'nestjs-pino';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { config } from '@/config';
-import { join } from 'path';
+import { join, extname } from 'path';
 
 /**
  * Application entry point.
@@ -28,14 +28,10 @@ async function bootstrap(): Promise<void> {
     logger: false,
     bodyLimit: config.security.maxUploadBytes,
   });
-  const app = await NestFactory.create<NestFastifyApplication>(
-    AppModule,
-    adapter,
-    {
-      bufferLogs: true,
-      logger: ['log', 'error', 'warn', 'debug', 'verbose'],
-    },
-  );
+  const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter, {
+    bufferLogs: true,
+    logger: ['log', 'error', 'warn', 'debug', 'verbose'],
+  });
   log.log('NestFactory.create done');
 
   // Multipart support for file uploads (payment receipts, avatars, etc.)
@@ -74,16 +70,65 @@ async function bootstrap(): Promise<void> {
   });
 
   // ---- Static files (dashboard + CMS) ----
+  // Resolve a public root that's valid both when running compiled (dist) and uncompiled (src).
+  // Candidate locations:
+  //  - dist/public  (when running built code)
+  //  - ../public    (when running via ts-node from project root)
+  //  - public       (fallback)
+  // Use the first existing path.
+  // require fs at runtime so this compiles both in ts-node and compiled builds
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const fs = require('fs');
+  const candidates = [
+    join(__dirname, '..', 'public'), // compiled: dist/public or src/public depending on __dirname
+    join(__dirname, '..', '..', 'public'), // when __dirname is dist/<something>/src, try one level up
+    join(process.cwd(), 'public'), // fallback to project public dir
+  ];
+  let publicRoot = candidates.find((p: string) => fs.existsSync(p)) ?? candidates[0];
+  // Debug: log resolved public root and file existence to help diagnose static file serving issues
+  // eslint-disable-next-line no-console
+  console.log('[STATIC] resolved publicRoot=', publicRoot);
+  // eslint-disable-next-line no-console
+  console.log('[STATIC] index exists=', fs.existsSync(join(publicRoot, 'dashboard', 'index.html')));
+  // eslint-disable-next-line no-console
+  console.log('[STATIC] app.js exists=', fs.existsSync(join(publicRoot, 'dashboard', 'app.js')));
   await app.register(fastifyStatic, {
-    root: join(__dirname, '..', 'public'),
+    root: publicRoot,
     prefix: '/',
-    decorateReply: false,
+    decorateReply: true,
   });
-
-  // SPA fallback: serve index.html for /dashboard/* routes
+ 
+  // SPA fallback: serve index.html for /dashboard routes (both /dashboard and /dashboard/*)
   const fastifyInstance = app.getHttpAdapter().getInstance();
+  // exact /dashboard -> serve index (add a log so we can see if this handler is hit)
+  fastifyInstance.get('/dashboard', (_req: any, reply: any) => {
+    // lightweight log for debugging
+    // eslint-disable-next-line no-console
+    console.log('[STATIC] GET /dashboard -> serving dashboard/index.html');
+    reply.type('text/html').sendFile('dashboard/index.html', publicRoot);
+  });
+  // /dashboard/* -> serve index (for client-side routing)
   fastifyInstance.get('/dashboard/*', (_req: any, reply: any) => {
-    reply.sendFile('dashboard/index.html', join(__dirname, '..', 'public'));
+    // eslint-disable-next-line no-console
+    console.log('[STATIC] GET /dashboard/* -> serving dashboard/index.html');
+    reply.type('text/html').sendFile('dashboard/index.html', publicRoot);
+  });
+  // Ensure unmatched dashboard paths are served the SPA index as a fallback.
+  // Use a lightweight onRequest hook to serve the SPA index only for HTML-like requests
+  // and when the path does not point to a static asset (has no file extension).
+  fastifyInstance.addHook('onRequest', (request: any, reply: any, done: any) => {
+    const url = request && request.raw ? request.raw.url : (request && (request.url || ''));
+    const accept = request && request.headers ? (request.headers['accept'] || '') : '';
+    const isFile = typeof url === 'string' && extname(url) !== '';
+    // Only serve SPA index when URL is under /dashboard, does not look like a file,
+    // and the client accepts HTML (prevents intercepting requests for app.js, style.css, etc.).
+    if (typeof url === 'string' && url.startsWith('/dashboard') && !isFile && accept.includes('text/html')) {
+      // eslint-disable-next-line no-console
+      console.log('[STATIC] onRequest hook matched (serving SPA index)', url);
+      reply.type('text/html').sendFile('dashboard/index.html', publicRoot);
+      return; // do not call done() after sending
+    }
+    done();
   });
 
   // ---- Graceful shutdown ----
@@ -95,14 +140,8 @@ async function bootstrap(): Promise<void> {
       .setTitle(config.app.name)
       .setDescription('Production-ready Telegram VPN Selling Platform API')
       .setVersion(config.app.apiVersion)
-      .addBearerAuth(
-        { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-        'access-token',
-      )
-      .addApiKey(
-        { type: 'apiKey', name: 'X-API-Key', in: 'header' },
-        'api-key',
-      )
+      .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'access-token')
+      .addApiKey({ type: 'apiKey', name: 'X-API-Key', in: 'header' }, 'api-key')
       .addTag('auth')
       .addTag('users')
       .addTag('wallet')

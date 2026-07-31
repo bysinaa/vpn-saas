@@ -1433,3 +1433,4 @@ model FeatureFlag {
 
   @@map("feature_flags")
 }
+

@@ -23,11 +23,7 @@ export class ReportsController {
   @RequirePermissions(['read:reports'])
   @UsePipes(new ZodValidationPipe(revenueReportSchema))
   revenue(@Body() body: RevenueReportInput) {
-    return this.reports.revenueReport(
-      new Date(body.from),
-      new Date(body.to),
-      body.groupBy,
-    );
+    return this.reports.revenueReport(new Date(body.from), new Date(body.to), body.groupBy);
   }
 
   @Post('subscriptions')

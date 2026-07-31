@@ -130,7 +130,11 @@ export class AdminFlow {
           await this.viewPlans(ctx);
       }
     } catch (err: any) {
-      await this.runtime.editOrSend(ctx, this.runtime.translateError(locale, err), this.backHomeKeyboard(locale));
+      await this.runtime.editOrSend(
+        ctx,
+        this.runtime.translateError(locale, err),
+        this.backHomeKeyboard(locale),
+      );
     }
   }
 
@@ -157,7 +161,11 @@ export class AdminFlow {
           await this.viewSettings(ctx);
       }
     } catch (err: any) {
-      await this.runtime.editOrSend(ctx, this.runtime.translateError(locale, err), this.backHomeKeyboard(locale));
+      await this.runtime.editOrSend(
+        ctx,
+        this.runtime.translateError(locale, err),
+        this.backHomeKeyboard(locale),
+      );
     }
   }
 
@@ -184,7 +192,11 @@ export class AdminFlow {
           await this.viewPanels(ctx);
       }
     } catch (err: any) {
-      await this.runtime.editOrSend(ctx, this.runtime.translateError(locale, err), this.backHomeKeyboard(locale));
+      await this.runtime.editOrSend(
+        ctx,
+        this.runtime.translateError(locale, err),
+        this.backHomeKeyboard(locale),
+      );
     }
   }
 
@@ -210,7 +222,8 @@ export class AdminFlow {
     const telegramId = ctx.from?.id?.toString()!;
     const locale = await this.runtime.getLocale(telegramId);
     const normalize = (s?: string) => (s ? s.trim().replace(/^\+/, '') : '');
-    const isConfiguredSuperAdmin = normalize(config.superAdmin.telegramId) === normalize(telegramId);
+    const isConfiguredSuperAdmin =
+      normalize(config.superAdmin.telegramId) === normalize(telegramId);
 
     if (!isConfiguredSuperAdmin && !(await this.assertAdmin(ctx, locale))) return;
     await this.runtime.pushMenu(telegramId, 'admin');
@@ -235,7 +248,11 @@ export class AdminFlow {
         parseMode: 'Markdown',
       });
     } catch (err: any) {
-      await this.runtime.editOrSend(ctx, this.runtime.translateError(locale, err), this.backHomeKeyboard(locale));
+      await this.runtime.editOrSend(
+        ctx,
+        this.runtime.translateError(locale, err),
+        this.backHomeKeyboard(locale),
+      );
     }
   }
 
@@ -260,7 +277,10 @@ export class AdminFlow {
 
   private backHomeKeyboard(locale: BotLocale) {
     return Markup.inlineKeyboard([
-      [Markup.button.callback(`◀️ ${t(locale, 'menu.back')}`, 'adm:dash'), Markup.button.callback(`🏠 ${t(locale, 'menu.home')}`, 'home')],
+      [
+        Markup.button.callback(`◀️ ${t(locale, 'menu.back')}`, 'adm:dash'),
+        Markup.button.callback(`🏠 ${t(locale, 'menu.home')}`, 'home'),
+      ],
     ]);
   }
 
@@ -275,12 +295,22 @@ export class AdminFlow {
     const users = await this.prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
       take: 10,
-      select: { publicId: true, telegramId: true, firstName: true, username: true, role: true, status: true, createdAt: true },
+      select: {
+        publicId: true,
+        telegramId: true,
+        firstName: true,
+        username: true,
+        role: true,
+        status: true,
+        createdAt: true,
+      },
     });
 
     const lines: string[] = [];
     for (const u of users) {
-      const name = u.username ? `@${u.username}` : [u.firstName, u.telegramId].filter(Boolean).join(' ');
+      const name = u.username
+        ? `@${u.username}`
+        : [u.firstName, u.telegramId].filter(Boolean).join(' ');
       const r = u.role === 'SUPER_ADMIN' ? '👑' : u.role === 'ADMIN' ? '🛡️' : '👤';
 
       // Get active subscriptions with VPN usage
@@ -310,7 +340,9 @@ export class AdminFlow {
               const panelUsage = await this.vpn.getUsageFromPanel(sub.id);
               if (panelUsage) {
                 usedGB = (Number(panelUsage.usedBytes) / (1024 * 1024 * 1024)).toFixed(1);
-                totalGB = panelUsage.totalBytes ? (Number(panelUsage.totalBytes) / (1024 * 1024 * 1024)).toFixed(0) : '∞';
+                totalGB = panelUsage.totalBytes
+                  ? (Number(panelUsage.totalBytes) / (1024 * 1024 * 1024)).toFixed(0)
+                  : '∞';
                 if (panelUsage.expiresAt) {
                   const diff = panelUsage.expiresAt.getTime() - Date.now();
                   daysLeft = diff > 0 ? `${Math.floor(diff / 86400000)}d` : 'expired';
@@ -319,7 +351,11 @@ export class AdminFlow {
                 // Fall back to DB
                 const used = BigInt(sub.usedTrafficBytes.toString());
                 usedGB = (Number(used) / (1024 * 1024 * 1024)).toFixed(1);
-                if (sub.trafficLimitBytes) totalGB = (Number(BigInt(sub.trafficLimitBytes.toString())) / (1024 * 1024 * 1024)).toFixed(0);
+                if (sub.trafficLimitBytes)
+                  totalGB = (
+                    Number(BigInt(sub.trafficLimitBytes.toString())) /
+                    (1024 * 1024 * 1024)
+                  ).toFixed(0);
                 if (sub.expiresAt) {
                   const diff = sub.expiresAt.getTime() - Date.now();
                   daysLeft = diff > 0 ? `${Math.floor(diff / 86400000)}d` : 'expired';
@@ -329,7 +365,11 @@ export class AdminFlow {
               // Use DB fallback
               const used = BigInt(sub.usedTrafficBytes.toString());
               usedGB = (Number(used) / (1024 * 1024 * 1024)).toFixed(1);
-              if (sub.trafficLimitBytes) totalGB = (Number(BigInt(sub.trafficLimitBytes.toString())) / (1024 * 1024 * 1024)).toFixed(0);
+              if (sub.trafficLimitBytes)
+                totalGB = (
+                  Number(BigInt(sub.trafficLimitBytes.toString())) /
+                  (1024 * 1024 * 1024)
+                ).toFixed(0);
               if (sub.expiresAt) {
                 const diff = sub.expiresAt.getTime() - Date.now();
                 daysLeft = diff > 0 ? `${Math.floor(diff / 86400000)}d` : 'expired';
@@ -339,7 +379,11 @@ export class AdminFlow {
             // No VPN user yet
             const used = BigInt(sub.usedTrafficBytes.toString());
             usedGB = (Number(used) / (1024 * 1024 * 1024)).toFixed(1);
-            if (sub.trafficLimitBytes) totalGB = (Number(BigInt(sub.trafficLimitBytes.toString())) / (1024 * 1024 * 1024)).toFixed(0);
+            if (sub.trafficLimitBytes)
+              totalGB = (
+                Number(BigInt(sub.trafficLimitBytes.toString())) /
+                (1024 * 1024 * 1024)
+              ).toFixed(0);
             if (sub.expiresAt) {
               const diff = sub.expiresAt.getTime() - Date.now();
               daysLeft = diff > 0 ? `${Math.floor(diff / 86400000)}d` : 'expired';
@@ -403,13 +447,18 @@ export class AdminFlow {
         const hasReceipt = !!(p as any).receipt;
         msg += `\n• #${p.publicId.slice(0, 8)} · ${p.amount ? String(p.amount) : '—'} ${p.currency ?? 'IRR'}`;
         msg += `\n  👤 ${who} · ${hasReceipt ? '📎 رسید دارد' : '❌ بدون رسید'}`;
-        rows.push([Markup.button.callback(`🔍 مدیریت #${p.publicId.slice(0, 8)}`, `paymanage:${p.publicId}`)]);
+        rows.push([
+          Markup.button.callback(`🔍 مدیریت #${p.publicId.slice(0, 8)}`, `paymanage:${p.publicId}`),
+        ]);
       }
     } else {
       msg += `\n✅ رسید در انتظاری نیست.`;
     }
 
-    rows.push([Markup.button.callback(`◀️ ${t(locale, 'menu.back')}`, 'adm:dash'), Markup.button.callback(`🏠 ${t(locale, 'menu.home')}`, 'home')]);
+    rows.push([
+      Markup.button.callback(`◀️ ${t(locale, 'menu.back')}`, 'adm:dash'),
+      Markup.button.callback(`🏠 ${t(locale, 'menu.home')}`, 'home'),
+    ]);
     await this.runtime.editOrSend(ctx, msg, Markup.inlineKeyboard(rows));
   }
 
@@ -437,7 +486,9 @@ export class AdminFlow {
             caption: `🧾 رسید پرداخت #${paymentPublicId.slice(0, 8)}`,
           });
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
 
     const msg =
@@ -456,7 +507,10 @@ export class AdminFlow {
         Markup.button.callback('❌ رد رسید', `payreject:${paymentPublicId}`),
       ]);
     }
-    rows.push([Markup.button.callback(`◀️ بازگشت`, 'adm:pay'), Markup.button.callback(`🏠 ${t(locale, 'menu.home')}`, 'home')]);
+    rows.push([
+      Markup.button.callback(`◀️ بازگشت`, 'adm:pay'),
+      Markup.button.callback(`🏠 ${t(locale, 'menu.home')}`, 'home'),
+    ]);
     await this.runtime.editOrSend(ctx, msg, Markup.inlineKeyboard(rows));
   }
 
@@ -472,8 +526,13 @@ export class AdminFlow {
     if (!payment || payment.status !== 'AWAITING_VERIFY') {
       // Use sendMessage since the callback may come from a photo message
       try {
-        await (ctx as any).telegram.sendMessage(ctx.from?.id!, '❌ پرداخت یافت نشد یا قبلاً تایید شده.');
-      } catch { /* ignore */ }
+        await (ctx as any).telegram.sendMessage(
+          ctx.from?.id!,
+          '❌ پرداخت یافت نشد یا قبلاً تایید شده.',
+        );
+      } catch {
+        /* ignore */
+      }
       return;
     }
 
@@ -490,21 +549,30 @@ export class AdminFlow {
         if (user?.id) {
           const wallet = await tx.wallet.findFirst({ where: { userId: user.id } });
           if (wallet) {
-            await tx.wallet.update({ where: { id: wallet.id }, data: { balance: { increment: amount } } });
+            await tx.wallet.update({
+              where: { id: wallet.id },
+              data: { balance: { increment: amount } },
+            });
           }
         }
       });
     } catch {
       // Fallback: just mark confirmed
-      await this.prisma.payment.update({ where: { id: payment.id }, data: { status: 'CONFIRMED' } });
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: 'CONFIRMED' },
+      });
     }
 
     const adminTelegramId = ctx.from?.id!;
     try {
-      await (ctx as any).telegram.sendMessage(adminTelegramId,
+      await (ctx as any).telegram.sendMessage(
+        adminTelegramId,
         `✅ پرداخت #${paymentPublicId.slice(0, 8)} تایید شد.\n💰 مبلغ ${fromMinor(amount)} ${payment.currency ?? 'IRR'} به کیف پول کاربر اضافه شد.`,
       );
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     // If this payment is for an ORDER, complete the order and provision the subscription
     let orderCompleted = false;
@@ -524,7 +592,9 @@ export class AdminFlow {
           // Create subscription
           const plan = order.plan;
           if (plan) {
-            const trafficLimitBytes = plan.trafficLimitGb ? BigInt(plan.trafficLimitGb) * 1024n * 1024n * 1024n : null;
+            const trafficLimitBytes = plan.trafficLimitGb
+              ? BigInt(plan.trafficLimitGb) * 1024n * 1024n * 1024n
+              : null;
             const expiresAt = plan.durationDays
               ? new Date(Date.now() + plan.durationDays * 24 * 3600 * 1000)
               : null;
@@ -560,7 +630,9 @@ export class AdminFlow {
               });
               subLink = vpnUser?.subLink ?? null;
             } catch (vpnErr: any) {
-              console.error(`VPN provisioning failed for sub ${sub.id}: ${vpnErr?.message ?? vpnErr}`);
+              console.error(
+                `VPN provisioning failed for sub ${sub.id}: ${vpnErr?.message ?? vpnErr}`,
+              );
               // Don't fail the whole flow — subscription is created, VPN will be retried by sync worker
             }
 
@@ -573,12 +645,12 @@ export class AdminFlow {
             // Notify user with subscription info and link
             if (user.telegramId) {
               try {
-                await (ctx as any).telegram.sendMessage(
-                  user.telegramId,
-                  userMessage,
-                  { parseMode: subLink ? 'Markdown' : undefined },
-                );
-              } catch { /* ignore */ }
+                await (ctx as any).telegram.sendMessage(user.telegramId, userMessage, {
+                  parseMode: subLink ? 'Markdown' : undefined,
+                });
+              } catch {
+                /* ignore */
+              }
             }
           }
         }
@@ -590,8 +662,13 @@ export class AdminFlow {
     // If no order was completed, send generic notification to user
     if (!orderCompleted && user?.telegramId) {
       try {
-        await (ctx as any).telegram.sendMessage(user.telegramId, `✅ رسید شما تایید شد.\n💰 ${fromMinor(amount)} ${payment.currency ?? 'IRR'} به کیف پول شما اضافه شد.`);
-      } catch { /* ignore */ }
+        await (ctx as any).telegram.sendMessage(
+          user.telegramId,
+          `✅ رسید شما تایید شد.\n💰 ${fromMinor(amount)} ${payment.currency ?? 'IRR'} به کیف پول شما اضافه شد.`,
+        );
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -606,8 +683,13 @@ export class AdminFlow {
     });
     if (!payment || payment.status !== 'AWAITING_VERIFY') {
       try {
-        await (ctx as any).telegram.sendMessage(ctx.from?.id!, '❌ پرداخت یافت نشد یا قبلاً تایید شده.');
-      } catch { /* ignore */ }
+        await (ctx as any).telegram.sendMessage(
+          ctx.from?.id!,
+          '❌ پرداخت یافت نشد یا قبلاً تایید شده.',
+        );
+      } catch {
+        /* ignore */
+      }
       return;
     }
 
@@ -619,14 +701,24 @@ export class AdminFlow {
 
     const adminTelegramId = ctx.from?.id!;
     try {
-      await (ctx as any).telegram.sendMessage(adminTelegramId, `❌ رسید #${paymentPublicId.slice(0, 8)} رد شد.`);
-    } catch { /* ignore */ }
+      await (ctx as any).telegram.sendMessage(
+        adminTelegramId,
+        `❌ رسید #${paymentPublicId.slice(0, 8)} رد شد.`,
+      );
+    } catch {
+      /* ignore */
+    }
 
     const user = (payment as any).user;
     if (user?.telegramId) {
       try {
-        await (ctx as any).telegram.sendMessage(user.telegramId, `❌ رسید شما رد شد. لطفاً با پشتیبانی تماس بگیرید.`);
-      } catch { /* ignore */ }
+        await (ctx as any).telegram.sendMessage(
+          user.telegramId,
+          `❌ رسید شما رد شد. لطفاً با پشتیبانی تماس بگیرید.`,
+        );
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -656,7 +748,15 @@ export class AdminFlow {
       this.prisma.walletTransaction.findMany({ orderBy: { createdAt: 'desc' }, take: 10 }),
     ]);
     const total = fromMinor(totalBalance._sum.balance ?? 0n);
-    const creditTypes = new Set(['DEPOSIT', 'BONUS', 'CASHBACK', 'REFERRAL_REWARD', 'GIFT', 'REFUND', 'VOUCHER_REDEEM']);
+    const creditTypes = new Set([
+      'DEPOSIT',
+      'BONUS',
+      'CASHBACK',
+      'REFERRAL_REWARD',
+      'GIFT',
+      'REFUND',
+      'VOUCHER_REDEEM',
+    ]);
     const lines = recent.map((tx) => {
       const sign = creditTypes.has(tx.type as string) ? '➕' : '➖';
       return `${sign} ${fromMinor(tx.amount)} · ${tx.type}\n   ${tx.description ?? ''}`;
@@ -809,8 +909,8 @@ export class AdminFlow {
       field === 'price'
         ? fromMinor(plan.price)
         : field === 'trafficLimitGb'
-          ? plan.trafficLimitGb?.toString() ?? 'نامحدود'
-          : (plan as any)[field] ?? '—';
+          ? (plan.trafficLimitGb?.toString() ?? 'نامحدود')
+          : ((plan as any)[field] ?? '—');
     await this.runtime.setState(telegramId, 'admin_plan_awaiting_field', {
       adminWizard: 'plan_edit',
       adminTargetId: publicId,
@@ -851,7 +951,11 @@ export class AdminFlow {
     const locale = await this.guard(ctx);
     if (!locale) return;
     const [accounts, commissions] = await Promise.all([
-      this.prisma.affiliateAccount.findMany({ orderBy: { totalEarnings: 'desc' }, take: 8, include: { user: true } }),
+      this.prisma.affiliateAccount.findMany({
+        orderBy: { totalEarnings: 'desc' },
+        take: 8,
+        include: { user: true },
+      }),
       this.prisma.affiliateCommission.count({ where: { status: 'PENDING' } }),
     ]);
     const lines = accounts.map((a) => {
@@ -884,13 +988,17 @@ export class AdminFlow {
   private async viewPanels(ctx: Context): Promise<void> {
     const locale = await this.guard(ctx);
     if (!locale) return;
-    const panels = await this.prisma.vpnPanel.findMany({ orderBy: { createdAt: 'desc' }, take: 20 });
+    const panels = await this.prisma.vpnPanel.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
     const msg =
       `🧩 پنل‌های مدیریت (${panels.length}):\n\n` +
       (panels
         .map((p) => {
           const st = p.status === 'ACTIVE' ? '🟢' : '🔴';
-          const hp = p.healthStatus === 'HEALTHY' ? '✅' : p.healthStatus === 'UNHEALTHY' ? '⚠️' : '❔';
+          const hp =
+            p.healthStatus === 'HEALTHY' ? '✅' : p.healthStatus === 'UNHEALTHY' ? '⚠️' : '❔';
           return `${st}${hp} ${p.name}\n   ${p.type} · ${p.baseUrl}`;
         })
         .join('\n\n') || '—');
@@ -920,7 +1028,12 @@ export class AdminFlow {
       return;
     }
     const meta = (panel.metadata as Record<string, unknown>) ?? {};
-    const hp = panel.healthStatus === 'HEALTHY' ? '✅ سالم' : panel.healthStatus === 'UNHEALTHY' ? '⚠️ ناسالم' : '❔ نامشخص';
+    const hp =
+      panel.healthStatus === 'HEALTHY'
+        ? '✅ سالم'
+        : panel.healthStatus === 'UNHEALTHY'
+          ? '⚠️ ناسالم'
+          : '❔ نامشخص';
     const msg =
       `🧩 ${panel.name}\n\n` +
       `🆔 ${panel.publicId.slice(0, 8)}\n` +
@@ -933,7 +1046,10 @@ export class AdminFlow {
     const kb = Markup.inlineKeyboard([
       [
         Markup.button.callback('🩺 بررسی سلامت', `apnl:health:${publicId}`),
-        Markup.button.callback(panel.status === 'ACTIVE' ? '⛔ غیرفعال' : '✅ فعال', `apnl:toggle:${publicId}`),
+        Markup.button.callback(
+          panel.status === 'ACTIVE' ? '⛔ غیرفعال' : '✅ فعال',
+          `apnl:toggle:${publicId}`,
+        ),
       ],
       [
         Markup.button.callback(`◀️ ${t(locale, 'menu.back')}`, 'adm:panels'),
@@ -955,7 +1071,10 @@ export class AdminFlow {
     await this.runtime.alert(ctx, '🔍 در حال بررسی...');
     try {
       const health = await this.panels.checkHealth(panel.id);
-      await this.runtime.alert(ctx, health.reachable ? '✅ پنل در دسترس است' : '⚠️ پنل در دسترس نیست');
+      await this.runtime.alert(
+        ctx,
+        health.reachable ? '✅ پنل در دسترس است' : '⚠️ پنل در دسترس نیست',
+      );
     } catch (err: any) {
       await this.runtime.alert(ctx, `❌ ${err.message ?? 'خطا'}`);
     }
@@ -1033,7 +1152,9 @@ export class AdminFlow {
   private async viewGateway(ctx: Context): Promise<void> {
     const locale = await this.guard(ctx);
     if (!locale) return;
-    const enabled = await this.prisma.systemSetting.findUnique({ where: { key: 'online_gateway.enabled' } });
+    const enabled = await this.prisma.systemSetting.findUnique({
+      where: { key: 'online_gateway.enabled' },
+    });
     const msg =
       `🔌 درگاه پرداخت آنلاین\n\n` +
       `وضعیت: ${enabled?.value === 'true' ? '✅ فعال' : '⛔ غیرفعال'}\n\n` +
@@ -1078,7 +1199,11 @@ export class AdminFlow {
         Markup.button.callback('❌ لغو', 'bcast:cancel'),
       ],
     ]);
-    await this.runtime.editOrSend(ctx, `📣 پیام شما:\n\n${text}\n\n👥 ارسال به ${total} کاربر فعال؟`, kb);
+    await this.runtime.editOrSend(
+      ctx,
+      `📣 پیام شما:\n\n${text}\n\n👥 ارسال به ${total} کاربر فعال؟`,
+      kb,
+    );
     return true;
   }
 
@@ -1136,7 +1261,11 @@ export class AdminFlow {
       await this.runtime.alert(ctx, '✅ پرداخت تایید شد');
       await this.viewPayments(ctx);
     } catch (err: any) {
-      await this.runtime.editOrSend(ctx, this.runtime.translateError(locale, err), this.backHomeKeyboard(locale));
+      await this.runtime.editOrSend(
+        ctx,
+        this.runtime.translateError(locale, err),
+        this.backHomeKeyboard(locale),
+      );
     }
   }
 
@@ -1159,7 +1288,11 @@ export class AdminFlow {
       await this.runtime.alert(ctx, '❌ پرداخت رد شد');
       await this.viewPayments(ctx);
     } catch (err: any) {
-      await this.runtime.editOrSend(ctx, this.runtime.translateError(locale, err), this.backHomeKeyboard(locale));
+      await this.runtime.editOrSend(
+        ctx,
+        this.runtime.translateError(locale, err),
+        this.backHomeKeyboard(locale),
+      );
     }
   }
 
@@ -1204,9 +1337,11 @@ export class AdminFlow {
     const msg =
       `⚙️ مدیریت تنظیمات (${editable.length}):\n\n` +
       (editable.map((s) => `• ${s.key}: ${s.value}${s.isPublic ? ' 👁️' : ''}`).join('\n') || '—');
-    const rows = editable.slice(0, 12).map((s) => [
-      Markup.button.callback(`✏️ ${s.key}`, `aset:edit:${encodeURIComponent(s.key)}`),
-    ]);
+    const rows = editable
+      .slice(0, 12)
+      .map((s) => [
+        Markup.button.callback(`✏️ ${s.key}`, `aset:edit:${encodeURIComponent(s.key)}`),
+      ]);
     rows.push([Markup.button.callback(`➕ ${t(locale, 'admin.setting.new')}`, 'aset:new:0')]);
     rows.push([
       Markup.button.callback(`◀️ ${t(locale, 'menu.back')}`, 'adm:dash'),
@@ -1403,11 +1538,22 @@ export class AdminFlow {
       if (wizard === 'plan_create') {
         await this.handlePlanCreateStep(ctx, locale, telegramId, field, draft, text);
       } else {
-        await this.handlePlanEditStep(ctx, locale, telegramId, data.adminTargetId as string, field, text);
+        await this.handlePlanEditStep(
+          ctx,
+          locale,
+          telegramId,
+          data.adminTargetId as string,
+          field,
+          text,
+        );
       }
     } catch (err: any) {
       await this.runtime.clearState(telegramId);
-      await this.runtime.editOrSend(ctx, this.runtime.translateError(locale, err), this.backHomeKeyboard(locale));
+      await this.runtime.editOrSend(
+        ctx,
+        this.runtime.translateError(locale, err),
+        this.backHomeKeyboard(locale),
+      );
     }
   }
 
@@ -1438,7 +1584,11 @@ export class AdminFlow {
     if (field === 'price') {
       const n = Number(value);
       if (!Number.isFinite(n) || n < 0) {
-        await this.runtime.editOrSend(ctx, '❌ قیمت نامعتبر است. عدد وارد کنید:', this.backHomeKeyboard(locale));
+        await this.runtime.editOrSend(
+          ctx,
+          '❌ قیمت نامعتبر است. عدد وارد کنید:',
+          this.backHomeKeyboard(locale),
+        );
         return;
       }
       draft.price = value;
@@ -1457,7 +1607,11 @@ export class AdminFlow {
     if (field === 'durationDays') {
       const n = parseInt(value, 10);
       if (!Number.isFinite(n) || n <= 0) {
-        await this.runtime.editOrSend(ctx, '❌ مدت نامعتبر است. عدد روز وارد کنید:', this.backHomeKeyboard(locale));
+        await this.runtime.editOrSend(
+          ctx,
+          '❌ مدت نامعتبر است. عدد روز وارد کنید:',
+          this.backHomeKeyboard(locale),
+        );
         return;
       }
       draft.durationDays = n;
@@ -1519,7 +1673,11 @@ export class AdminFlow {
     if (field === 'price') {
       const n = Number(value);
       if (!Number.isFinite(n) || n < 0) {
-        await this.runtime.editOrSend(ctx, '❌ قیمت نامعتبر. عدد وارد کنید:', this.backHomeKeyboard(locale));
+        await this.runtime.editOrSend(
+          ctx,
+          '❌ قیمت نامعتبر. عدد وارد کنید:',
+          this.backHomeKeyboard(locale),
+        );
         return;
       }
       update.price = value;
@@ -1528,7 +1686,11 @@ export class AdminFlow {
     } else if (field === 'durationDays' || field === 'deviceLimit' || field === 'priority') {
       const n = parseInt(value, 10);
       if (!Number.isFinite(n) || n < 0) {
-        await this.runtime.editOrSend(ctx, '❌ عدد نامعتبر. عدد صحیح وارد کنید:', this.backHomeKeyboard(locale));
+        await this.runtime.editOrSend(
+          ctx,
+          '❌ عدد نامعتبر. عدد صحیح وارد کنید:',
+          this.backHomeKeyboard(locale),
+        );
         return;
       }
       update[field] = n;
@@ -1685,7 +1847,11 @@ export class AdminFlow {
       }
     } catch (err: any) {
       await this.runtime.clearState(telegramId);
-      await this.runtime.editOrSend(ctx, this.runtime.translateError(locale, err), this.backHomeKeyboard(locale));
+      await this.runtime.editOrSend(
+        ctx,
+        this.runtime.translateError(locale, err),
+        this.backHomeKeyboard(locale),
+      );
     }
   }
 
@@ -1706,7 +1872,8 @@ export class AdminFlow {
     const telegramId = ctx.from?.id?.toString()!;
     const session = await this.runtime.getSession(telegramId);
     const normalize = (s?: string) => (s ? s.trim().replace(/^\+/, '') : '');
-    const isConfiguredSuperAdmin = normalize(config.superAdmin.telegramId) === normalize(telegramId);
+    const isConfiguredSuperAdmin =
+      normalize(config.superAdmin.telegramId) === normalize(telegramId);
 
     if (isConfiguredSuperAdmin) {
       return true;
@@ -1722,11 +1889,16 @@ export class AdminFlow {
       select: { role: true, telegramId: true },
     });
 
-    const isDbConfiguredSuperAdmin = normalize(user?.telegramId ?? undefined) === normalize(config.superAdmin.telegramId);
+    const isDbConfiguredSuperAdmin =
+      normalize(user?.telegramId ?? undefined) === normalize(config.superAdmin.telegramId);
     const role = isDbConfiguredSuperAdmin ? 'SUPER_ADMIN' : user?.role;
 
     if (role !== 'SUPER_ADMIN' && role !== 'ADMIN' && role !== 'OPERATOR') {
-      await this.runtime.editOrSend(ctx, t(locale, 'admin.access.denied'), this.backHomeKeyboard(locale));
+      await this.runtime.editOrSend(
+        ctx,
+        t(locale, 'admin.access.denied'),
+        this.backHomeKeyboard(locale),
+      );
       return false;
     }
     return true;

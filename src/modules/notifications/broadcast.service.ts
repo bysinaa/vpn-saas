@@ -49,7 +49,9 @@ export class BroadcastService {
       await this.bot.launch();
       this.logger.log('Broadcast bot launched (lazy init)');
     } catch (err: any) {
-      this.logger.warn(`Broadcast bot launch failed: ${err?.message ?? err} — will use setBot instance`);
+      this.logger.warn(
+        `Broadcast bot launch failed: ${err?.message ?? err} — will use setBot instance`,
+      );
       // Reset to null so next call retries with setBot.
       this.bot = null;
     }
@@ -218,7 +220,10 @@ export class BroadcastService {
   }
 
   /** Send a message to all active users directly (from admin bot command). */
-  async sendToAllActiveUsers(message: string, createdBy: string): Promise<{ sent: number; failed: number; total: number }> {
+  async sendToAllActiveUsers(
+    message: string,
+    createdBy: string,
+  ): Promise<{ sent: number; failed: number; total: number }> {
     const where: any = { status: 'ACTIVE', telegramId: { not: null } };
     const users = await this.prisma.user.findMany({
       where,

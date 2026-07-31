@@ -76,7 +76,7 @@ const en: Pack = {
   // ---- loading / common ----
   'common.loading': '⏳ Please wait…',
   'common.processing': '⏳ Processing your request…',
-  'cancel': '❌ Operation cancelled.',
+  cancel: '❌ Operation cancelled.',
   'error.generic': '⚠️ Something went wrong. Please try again.',
   'error.sanity': '⚠️ VPN panel is temporarily unavailable. We will retry automatically.',
   'error.server.offline': '🔴 Selected server is offline. Please choose another.',
@@ -128,18 +128,24 @@ const en: Pack = {
   'pay.voucher': '🎟 Voucher Code',
   'pay.wallet.success': '✅ Payment successful! Your subscription is now active.',
   'pay.wallet.insufficient': '❌ Insufficient wallet balance. Please top up first.',
-  'pay.online.redirect': '🌐 Tap the button below to open the payment gateway. You will be redirected back after payment.',
+  'pay.online.redirect':
+    '🌐 Tap the button below to open the payment gateway. You will be redirected back after payment.',
   'pay.online.open': '🌐 Open Gateway',
-  'pay.online.waiting': '⏳ Waiting for payment confirmation… Once paid, your subscription will activate automatically.',
+  'pay.online.waiting':
+    '⏳ Waiting for payment confirmation… Once paid, your subscription will activate automatically.',
   'pay.card.title': '💳 Card to Card',
-  'pay.card.instructions': 'Please transfer {amount} {currency} to the following card:\n\n`{cardNumber}`\nHolder: {holder}\n\nThen upload a photo of the receipt.',
-  'pay.card.uploaded': '✅ Receipt uploaded. Your payment is pending verification by our team. You will be notified once approved.',
+  'pay.card.instructions':
+    'Please transfer {amount} {currency} to the following card:\n\n`{cardNumber}`\nHolder: {holder}\n\nThen upload a photo of the receipt.',
+  'pay.card.uploaded':
+    '✅ Receipt uploaded. Your payment is pending verification by our team. You will be notified once approved.',
   'pay.card.no.card': '❌ Card-to-card payment is not configured. Please contact support.',
   'pay.crypto.title': '₿ Crypto Payment',
-  'pay.crypto.instructions': 'Send {amount} {currency} to the address below within 24h:\n\n`{address}`\n\nTap confirm after sending the transaction.',
+  'pay.crypto.instructions':
+    'Send {amount} {currency} to the address below within 24h:\n\n`{address}`\n\nTap confirm after sending the transaction.',
   'pay.crypto.no.address': '❌ Crypto address not configured. Please contact support.',
   'pay.crypto.confirm': '✅ I have sent the payment',
-  'pay.crypto.waiting': '⏳ Waiting for on-chain confirmation… You will be notified once confirmed.',
+  'pay.crypto.waiting':
+    '⏳ Waiting for on-chain confirmation… You will be notified once confirmed.',
   'pay.voucher.prompt': '🎟 Please send your voucher code:',
   'pay.voucher.invalid': '❌ Invalid or expired voucher code.',
   'pay.voucher.success': '✅ Voucher redeemed! Your subscription is now active.',
@@ -151,8 +157,10 @@ const en: Pack = {
   'trial.disabled': '❌ Trial is currently disabled. Please check back later.',
   'trial.limit': '❌ Daily trial limit reached. Please try again tomorrow.',
   'trial.no.server': '❌ No server available for trial. Please try again later.',
-  'trial.info': '🎁 Trial activated!\n\nTraffic: {traffic}\nDuration: {days} days\nExpires: {expires}',
-  'trial.guide': '📖 Connection guide:\n1. Install v2rayNG / Hiddify\n2. Add subscription link\n3. Connect!',
+  'trial.info':
+    '🎁 Trial activated!\n\nTraffic: {traffic}\nDuration: {days} days\nExpires: {expires}',
+  'trial.guide':
+    '📖 Connection guide:\n1. Install v2rayNG / Hiddify\n2. Add subscription link\n3. Connect!',
 
   // ---- wallet ----
   'wallet.title': '💰 My Wallet',
@@ -184,12 +192,15 @@ const en: Pack = {
   'wallet.deposit.pending': '⏳ Your deposit of {amount} {currency} is pending verification.',
   'wallet.deposit.methods': 'Choose a deposit method:',
   'wallet.deposit.card_to_card.prompt': '💳 Enter the amount you want to deposit (Toman):',
-  'wallet.deposit.card_to_card.instructions': '💸 Transfer *{amount} {currency}* to:\n\n`{cardNumber}`\nHolder: {holder}\n\nThen send your receipt photo here.',
+  'wallet.deposit.card_to_card.instructions':
+    '💸 Transfer *{amount} {currency}* to:\n\n`{cardNumber}`\nHolder: {holder}\n\nThen send your receipt photo here.',
   'wallet.deposit.crypto.select_currency': 'Select a cryptocurrency:',
   'wallet.deposit.amount_min': '⚠️ Minimum deposit amount is 1,000 Toman.',
-  'wallet.deposit.card_to_card.received': '✅ Receipt received. Your deposit is pending admin verification.',
+  'wallet.deposit.card_to_card.received':
+    '✅ Receipt received. Your deposit is pending admin verification.',
   'wallet.deposit.crypto.no_address': '❌ Crypto address not configured. Please contact support.',
-  'wallet.deposit.crypto.instructions': '💸 Send *{amount} {currency}* to:\n\n`{address}`\n\nTap confirm after sending.',
+  'wallet.deposit.crypto.instructions':
+    '💸 Send *{amount} {currency}* to:\n\n`{address}`\n\nTap confirm after sending.',
   'wallet.deposit.crypto.waiting': '⏳ Waiting for on-chain confirmation…',
   'wallet.deposit.crypto.info': '💰 Send any amount to:\n\n`{walletPublicId}`',
   'wallet.gift.empty': '🎁 No gift history yet.',
@@ -205,7 +216,8 @@ const en: Pack = {
   // ---- subscriptions ----
   'subs.title': '📡 My Subscriptions',
   'subs.empty': 'You have no subscriptions yet. Tap 🛒 Buy Subscription to get started.',
-  'subs.item': '{emoji} {plan}\nStatus: {status}\nServer: {server}\nTraffic: {usage} ({pct}%)\nExpires: {expires} ({days}d left)',
+  'subs.item':
+    '{emoji} {plan}\nStatus: {status}\nServer: {server}\nTraffic: {usage} ({pct}%)\nExpires: {expires} ({days}d left)',
   'subs.select': '👇 Tap a subscription for details:',
   'subs.page': 'Page {page} / {total}',
   'sub.detail.title': '📡 Subscription Details',
@@ -236,7 +248,8 @@ const en: Pack = {
   'sub.link.title': '🔗 Your Subscription Link',
   'sub.link.copied': '✅ Link copied to clipboard.',
   'sub.guide.title': '📖 Connection Guide',
-  'sub.guide.body': 'To connect:\n\n1️⃣ Install a client:\n• Android: v2rayNG / Hiddify\n• iOS: Streisand / Shadowrocket\n• Windows: v2rayN / Hiddify\n• macOS: Hiddify / Streisand\n\n2️⃣ Tap "Subscription Link" above and copy it.\n\n3️⃣ In your client, add a new subscription using the link.\n\n4️⃣ Update the subscription and select a server, then connect.',
+  'sub.guide.body':
+    'To connect:\n\n1️⃣ Install a client:\n• Android: v2rayNG / Hiddify\n• iOS: Streisand / Shadowrocket\n• Windows: v2rayN / Hiddify\n• macOS: Hiddify / Streisand\n\n2️⃣ Tap "Subscription Link" above and copy it.\n\n3️⃣ In your client, add a new subscription using the link.\n\n4️⃣ Update the subscription and select a server, then connect.',
   'sub.renew.confirm': 'Renew this subscription for {amount} {currency}?',
   'sub.renew.success': '✅ Subscription renewed!',
   'sub.extend.prompt': '⏳ How many days to extend? Send a number (e.g. 30):',
@@ -280,11 +293,13 @@ const en: Pack = {
   'referral.rules': '📜 Reward Rules',
   'referral.history': '📜 Referral History',
   'referral.withdraw': '🏧 Withdraw Reward',
-  'referral.rules.body': '📜 Referral Reward Rules:\n\n• You earn {commission}% commission on every purchase by your referrals.\n• Your friend gets {bonus} {currency} bonus on signup.\n• Rewards are credited to your wallet instantly.\n• No limit on the number of referrals.',
+  'referral.rules.body':
+    '📜 Referral Reward Rules:\n\n• You earn {commission}% commission on every purchase by your referrals.\n• Your friend gets {bonus} {currency} bonus on signup.\n• Rewards are credited to your wallet instantly.\n• No limit on the number of referrals.',
   'referral.history.empty': 'No referrals yet. Share your link to start earning!',
   'referral.history.item': '#{idx} {name} — {status} ({date})',
   'referral.share.text': '🚀 Join {brand} VPN — fast, secure, and reliable!\n\n{link}',
-  'referral.joined': '🎉 Welcome! You joined via a referral. A bonus has been added to your wallet.',
+  'referral.joined':
+    '🎉 Welcome! You joined via a referral. A bonus has been added to your wallet.',
 
   // ---- support ----
   'support.title': '🎧 Support',
@@ -301,7 +316,8 @@ const en: Pack = {
   'support.category.ACCOUNT': '👤 Account',
   'support.category.OTHER': '❓ Other',
   'support.subject.prompt': '✏️ Please send a short subject for your ticket:',
-  'support.message.prompt': '✉️ Now send the full message. You can attach a photo. Send /cancel to abort.',
+  'support.message.prompt':
+    '✉️ Now send the full message. You can attach a photo. Send /cancel to abort.',
   'support.attachment.prompt': '📎 You can attach a photo now, or send the message to submit:',
   'support.created': '✅ Ticket #{id} created. Our team will reply shortly.',
   'support.reply.prompt': '✉️ Send your reply:',
@@ -322,13 +338,16 @@ const en: Pack = {
   'ticket.unread': '🔴 You have {count} unread message(s) in your tickets.',
 
   // ---- profile block (composed) ----
-  'profile.info': '👤 ID: {id}\n👤 Status: {status}\n💰 Wallet: {balance} {currency}\n📡 Active subs: {subs}',
+  'profile.info':
+    '👤 ID: {id}\n👤 Status: {status}\n💰 Wallet: {balance} {currency}\n📡 Active subs: {subs}',
   'support.prompt': '✉️ Please send your support message. Send /cancel to abort.',
   'support.sent': '✅ Your message has been sent to our support team.',
-  'referral.info': '🔗 Referral link:\n{link}\n\n👥 Invited: {count}\n💰 Earnings: {earnings} {currency}',
+  'referral.info':
+    '🔗 Referral link:\n{link}\n\n👥 Invited: {count}\n💰 Earnings: {earnings} {currency}',
 
   // ---- notifications ----
-  'notify.payment.approved': '✅ Your payment of {amount} {currency} was approved. {amount} {currency} added to your wallet.',
+  'notify.payment.approved':
+    '✅ Your payment of {amount} {currency} was approved. {amount} {currency} added to your wallet.',
   'notify.payment.rejected': '❌ Your receipt was rejected. Reason: {reason}',
   'notify.subscription.active': '🎉 Your subscription "{plan}" is now active!',
   'notify.subscription.expired': '⏰ Your subscription "{plan}" has expired.',
@@ -405,7 +424,7 @@ const fa: Pack = {
   // ---- loading / common ----
   'common.loading': '⏳ لطفاً صبر کنید…',
   'common.processing': '⏳ در حال پردازش درخواست شما…',
-  'cancel': '❌ عملیات لغو شد.',
+  cancel: '❌ عملیات لغو شد.',
   'error.generic': '⚠️ خطایی رخ داد. لطفاً دوباره تلاش کنید.',
   'error.sanity': '⚠️ پنل VPN موقتاً در دسترس نیست. به‌طور خودکار تلاش می‌شود.',
   'error.server.offline': '🔴 سرور انتخاب‌شده آفلین است. لطفاً سرور دیگری انتخاب کنید.',
@@ -457,15 +476,20 @@ const fa: Pack = {
   'pay.voucher': '🎟 کد ووچر',
   'pay.wallet.success': '✅ پرداخت موفق! اشتراک شما فعال شد.',
   'pay.wallet.insufficient': '❌ موجودی کیف پول کافی نیست. لطفاً ابتدا شارژ کنید.',
-  'pay.online.redirect': '🌐 برای باز کردن درگاه پرداخت دکمه زیر را بزنید. پس از پرداخت بازگردانده می‌شوید.',
+  'pay.online.redirect':
+    '🌐 برای باز کردن درگاه پرداخت دکمه زیر را بزنید. پس از پرداخت بازگردانده می‌شوید.',
   'pay.online.open': '🌐 باز کردن درگاه',
-  'pay.online.waiting': '⏳ در انتظار تأیید پرداخت… پس از پرداخت، اشتراک شما به‌طور خودکار فعال می‌شود.',
+  'pay.online.waiting':
+    '⏳ در انتظار تأیید پرداخت… پس از پرداخت، اشتراک شما به‌طور خودکار فعال می‌شود.',
   'pay.card.title': '💳 کارت به کارت',
-  'pay.card.instructions': 'لطفاً مبلغ {amount} {currency} را به کارت زیر واریز کنید:\n\n`{cardNumber}`\nنام دارنده: {holder}\n\nسپس عکس رسید را ارسال کنید.',
-  'pay.card.uploaded': '✅ رسید آپلود شد. پرداخت شما در انتظار تأیید تیم ماست. پس از تأیید مطلع می‌شوید.',
+  'pay.card.instructions':
+    'لطفاً مبلغ {amount} {currency} را به کارت زیر واریز کنید:\n\n`{cardNumber}`\nنام دارنده: {holder}\n\nسپس عکس رسید را ارسال کنید.',
+  'pay.card.uploaded':
+    '✅ رسید آپلود شد. پرداخت شما در انتظار تأیید تیم ماست. پس از تأیید مطلع می‌شوید.',
   'pay.card.no.card': '❌ پرداخت کارت‌به‌کارت پیکربندی نشده است. لطفاً با پشتیبانی تماس بگیرید.',
   'pay.crypto.title': '₿ پرداخت کریپتو',
-  'pay.crypto.instructions': 'مبلغ {amount} {currency} را طی ۲۴ ساعت به آدرس زیر بفرستید:\n\n`{address}`\n\nپس از ارسال تراکنش، دکمه تأیید را بزنید.',
+  'pay.crypto.instructions':
+    'مبلغ {amount} {currency} را طی ۲۴ ساعت به آدرس زیر بفرستید:\n\n`{address}`\n\nپس از ارسال تراکنش، دکمه تأیید را بزنید.',
   'pay.crypto.no.address': '❌ آدرس کریپتو پیکربندی نشده است. لطفاً با پشتیبانی تماس بگیرید.',
   'pay.crypto.confirm': '✅ پرداخت را ارسال کرده‌ام',
   'pay.crypto.waiting': '⏳ در انتظار تأیید بلاکچین… پس از تأیید مطلع می‌شوید.',
@@ -481,7 +505,8 @@ const fa: Pack = {
   'trial.limit': '❌ سقف آزمایشی روزانه پر شده. لطفاً فرداً دوباره تلاش کنید.',
   'trial.no.server': '❌ سروری برای آزمایشی موجود نیست. لطفاً بعداً دوباره تلاش کنید.',
   'trial.info': '🎁 آزمایشی فعال شد!\n\nترافیک: {traffic}\nمدت: {days} روز\nانقضا: {expires}',
-  'trial.guide': '📖 راهنمای اتصال:\n۱. v2rayNG / Hiddify را نصب کنید\n۲. لینک اشتراک را اضافه کنید\n۳. متصل شوید!',
+  'trial.guide':
+    '📖 راهنمای اتصال:\n۱. v2rayNG / Hiddify را نصب کنید\n۲. لینک اشتراک را اضافه کنید\n۳. متصل شوید!',
 
   // ---- wallet ----
   'wallet.title': '💰 کیف پول من',
@@ -513,12 +538,15 @@ const fa: Pack = {
   'wallet.deposit.pending': '⏳ شارژ به مبلغ {amount} {currency} در انتظار تأیید است.',
   'wallet.deposit.methods': 'روش شارژ را انتخاب کنید:',
   'wallet.deposit.card_to_card.prompt': '💳 مبلغ مورد نظر برای شارژ را وارد کنید (تومان):',
-  'wallet.deposit.card_to_card.instructions': '💸 *{amount} {currency}* به شماره زیر واریز کنید:\n\n`{cardNumber}`\nبه نام: {holder}\n\nسپس عکس رسید را اینجا ارسال کنید.',
+  'wallet.deposit.card_to_card.instructions':
+    '💸 *{amount} {currency}* به شماره زیر واریز کنید:\n\n`{cardNumber}`\nبه نام: {holder}\n\nسپس عکس رسید را اینجا ارسال کنید.',
   'wallet.deposit.crypto.select_currency': 'ارز دیجیتال مورد نظر را انتخاب کنید:',
   'wallet.deposit.amount_min': '⚠️ حداقل مبلغ شارژ ۱,۰۰۰ تومان است.',
   'wallet.deposit.card_to_card.received': '✅ رسید دریافت شد. شارژ شما در انتظار تأیید مدیر است.',
-  'wallet.deposit.crypto.no_address': '❌ آدرس کریپتو پیکربندی نشده است. لطفاً با پشتیبانی تماس بگیرید.',
-  'wallet.deposit.crypto.instructions': '💸 *{amount} {currency}* به آدرس زیر بفرستید:\n\n`{address}`\n\nپس از ارسال، دکمه تأیید را بزنید.',
+  'wallet.deposit.crypto.no_address':
+    '❌ آدرس کریپتو پیکربندی نشده است. لطفاً با پشتیبانی تماس بگیرید.',
+  'wallet.deposit.crypto.instructions':
+    '💸 *{amount} {currency}* به آدرس زیر بفرستید:\n\n`{address}`\n\nپس از ارسال، دکمه تأیید را بزنید.',
   'wallet.deposit.crypto.waiting': '⏳ در انتظار تأیید بلاکچین…',
   'wallet.deposit.crypto.info': '💰 هر مبلغی به آدرس زیر بفرستید:\n\n`{walletPublicId}`',
   'wallet.gift.empty': '🎁 هنوز تاریخچه هدیه‌ای وجود ندارد.',
@@ -534,7 +562,8 @@ const fa: Pack = {
   // ---- subscriptions ----
   'subs.title': '📡 اشتراک‌های شما',
   'subs.empty': 'هنوز اشتراکی ندارید. برای شروع 🛒 خرید اشتراک را بزنید.',
-  'subs.item': '{emoji} {plan}\nوضعیت: {status}\nسرور: {server}\nترافیک: {usage} ({pct}%)\nانقضا: {expires} ({days} روز مانده)',
+  'subs.item':
+    '{emoji} {plan}\nوضعیت: {status}\nسرور: {server}\nترافیک: {usage} ({pct}%)\nانقضا: {expires} ({days} روز مانده)',
   'subs.select': '👇 برای جزئیات روی یک اشتراک بزنید:',
   'subs.page': 'صفحه {page} / {total}',
   'sub.detail.title': '📡 جزئیات اشتراک',
@@ -565,7 +594,8 @@ const fa: Pack = {
   'sub.link.title': '🔗 لینک اشتراک شما',
   'sub.link.copied': '✅ لینک کپی شد.',
   'sub.guide.title': '📖 راهنمای اتصال',
-  'sub.guide.body': 'برای اتصال:\n\n۱️⃣ نصب کلاینت:\n• اندروید: v2rayNG / Hiddify\n• آی‌او‌اس: Streisand / Shadowrocket\n• ویندوز: v2rayN / Hiddify\n• مک: Hiddify / Streisand\n\n۲️⃣ روی «لینک اشتراک» بزنید و آن را کپی کنید.\n\n۳️⃣ در کلاینت، یک اشتراک جدید با آن لینک اضافه کنید.\n\n۴️⃣ اشتراک را بروزرسانی و سرور را انتخاب کنید، سپس متصل شوید.',
+  'sub.guide.body':
+    'برای اتصال:\n\n۱️⃣ نصب کلاینت:\n• اندروید: v2rayNG / Hiddify\n• آی‌او‌اس: Streisand / Shadowrocket\n• ویندوز: v2rayN / Hiddify\n• مک: Hiddify / Streisand\n\n۲️⃣ روی «لینک اشتراک» بزنید و آن را کپی کنید.\n\n۳️⃣ در کلاینت، یک اشتراک جدید با آن لینک اضافه کنید.\n\n۴️⃣ اشتراک را بروزرسانی و سرور را انتخاب کنید، سپس متصل شوید.',
   'sub.renew.confirm': 'تمدید این اشتراک به مبلغ {amount} {currency}؟',
   'sub.renew.success': '✅ اشتراک تمدید شد!',
   'sub.extend.prompt': '⏳ چند روز تمدید شود؟ یک عدد بفرستید (مثلاً ۳۰):',
@@ -609,7 +639,8 @@ const fa: Pack = {
   'referral.rules': '📜 قوانین پاداش',
   'referral.history': '📜 تاریخچه معرفی',
   'referral.withdraw': '🏧 برداشت پاداش',
-  'referral.rules.body': '📜 قوانین پاداش معرفی:\n\n• شما {commission}% کمیسیون هر خرید دوستان دعوت‌شده دریافت می‌کنید.\n• دوست شما {bonus} {currency} پاداش ثبت‌نام می‌گیرد.\n• پاداش‌ها بلافاصله به کیف پول شما واریز می‌شوند.\n• بدون محدودیت تعداد دعوت.',
+  'referral.rules.body':
+    '📜 قوانین پاداش معرفی:\n\n• شما {commission}% کمیسیون هر خرید دوستان دعوت‌شده دریافت می‌کنید.\n• دوست شما {bonus} {currency} پاداش ثبت‌نام می‌گیرد.\n• پاداش‌ها بلافاصله به کیف پول شما واریز می‌شوند.\n• بدون محدودیت تعداد دعوت.',
   'referral.history.empty': 'هنوز معرفی‌ای ندارید. لینک خود را به اشتراک بگذارید!',
   'referral.history.item': '#{idx} {name} — {status} ({date})',
   'referral.share.text': '🚀 به {brand} VPN بپیوندید — سریع، امن و قابل‌اعتماد!\n\n{link}',
@@ -630,7 +661,8 @@ const fa: Pack = {
   'support.category.ACCOUNT': '👤 حساب',
   'support.category.OTHER': '❓ سایر',
   'support.subject.prompt': '✏️ لطفاً موضوع کوتاهی برای تیکت بفرستید:',
-  'support.message.prompt': '✉️ حالا پیام کامل را بفرستید. می‌توانید عکس هم ضمیمه کنید. برای لغو /cancel را بفرستید.',
+  'support.message.prompt':
+    '✉️ حالا پیام کامل را بفرستید. می‌توانید عکس هم ضمیمه کنید. برای لغو /cancel را بفرستید.',
   'support.attachment.prompt': '📎 حالا می‌توانید عکس ضمیمه کنید، یا پیام را بفرستید تا ثبت شود:',
   'support.created': '✅ تیکت #{id} ایجاد شد. تیم ما به‌زودی پاسخ می‌دهد.',
   'support.reply.prompt': '✉️ پاسخ خود را بفرستید:',
@@ -651,13 +683,16 @@ const fa: Pack = {
   'ticket.unread': '🔴 {count} پیام خوانده‌نشده در تیکت‌های شما دارید.',
 
   // ---- profile block (composed) ----
-  'profile.info': '👤 شناسه: {id}\n👤 وضعیت: {status}\n💰 کیف پول: {balance} {currency}\n📡 اشتراک فعال: {subs}',
+  'profile.info':
+    '👤 شناسه: {id}\n👤 وضعیت: {status}\n💰 کیف پول: {balance} {currency}\n📡 اشتراک فعال: {subs}',
   'support.prompt': '✉️ لطفاً پیام پشتیبانی خود را بفرستید. برای لغو /cancel را بفرستید.',
   'support.sent': '✅ پیام شما برای تیم پشتیبانی ارسال شد.',
-  'referral.info': '🔗 لینک معرفی:\n{link}\n\n👥 دعوت‌شده: {count}\n💰 درآمد: {earnings} {currency}',
+  'referral.info':
+    '🔗 لینک معرفی:\n{link}\n\n👥 دعوت‌شده: {count}\n💰 درآمد: {earnings} {currency}',
 
   // ---- notifications ----
-  'notify.payment.approved': '✅ پرداخت شما به مبلغ {amount} {currency} تأیید شد. {amount} {currency} به کیف پول شما افزوده شد.',
+  'notify.payment.approved':
+    '✅ پرداخت شما به مبلغ {amount} {currency} تأیید شد. {amount} {currency} به کیف پول شما افزوده شد.',
   'notify.payment.rejected': '❌ رسید شما رد شد. دلیل: {reason}',
   'notify.subscription.active': '🎉 اشتراک «{plan}» شما فعال شد!',
   'notify.subscription.expired': '⏰ اشتراک «{plan}» شما منقضی شد.',

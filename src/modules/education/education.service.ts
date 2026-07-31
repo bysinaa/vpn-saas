@@ -119,7 +119,17 @@ export class EducationService {
 
   async update(id: bigint, input: Record<string, unknown>): Promise<ArticleDto> {
     const data: Record<string, unknown> = {};
-    for (const k of ['topic', 'title', 'content', 'summary', 'videoUrl', 'coverImageKey', 'sortOrder', 'isPublished', 'tags']) {
+    for (const k of [
+      'topic',
+      'title',
+      'content',
+      'summary',
+      'videoUrl',
+      'coverImageKey',
+      'sortOrder',
+      'isPublished',
+      'tags',
+    ]) {
       if (input[k] !== undefined) data[k] = input[k];
     }
     if (input.slug) data.slug = input.slug;

@@ -56,7 +56,9 @@ export class UsersController {
     @Param('publicId') publicId: string,
     @Body(new ZodValidationPipe(UsersSchemas.changeStatus)) body: { status: any },
   ) {
-    return this.users.findByPublicId(publicId).then((u) => this.users.changeStatus(BigInt(u.id), body.status));
+    return this.users
+      .findByPublicId(publicId)
+      .then((u) => this.users.changeStatus(BigInt(u.id), body.status));
   }
 
   @Patch(':publicId/role')
@@ -66,7 +68,9 @@ export class UsersController {
     @Param('publicId') publicId: string,
     @Body(new ZodValidationPipe(UsersSchemas.changeRole)) body: { role: any },
   ) {
-    return this.users.findByPublicId(publicId).then((u) => this.users.changeRole(BigInt(u.id), body.role));
+    return this.users
+      .findByPublicId(publicId)
+      .then((u) => this.users.changeRole(BigInt(u.id), body.role));
   }
 
   @Delete(':publicId')

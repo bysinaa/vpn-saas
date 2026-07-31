@@ -56,7 +56,10 @@ export class WalletService {
     return this.toDto(wallet);
   }
 
-  async listTransactions(userId: bigint, query: Record<string, unknown>): Promise<PaginatedDto<WalletTxnDto>> {
+  async listTransactions(
+    userId: bigint,
+    query: Record<string, unknown>,
+  ): Promise<PaginatedDto<WalletTxnDto>> {
     const params = parsePagination(query);
     const wallet = await this.getOrCreateWallet(userId);
     const where: Record<string, unknown> = { walletId: wallet.id };
@@ -150,7 +153,9 @@ export class WalletService {
           balance: newMainBalance,
           giftBalance: newGiftBalance,
           totalDeposited:
-            direction === 'credit' && !params.useGiftBalance && (type === 'DEPOSIT' || type === 'BONUS' || type === 'CASHBACK')
+            direction === 'credit' &&
+            !params.useGiftBalance &&
+            (type === 'DEPOSIT' || type === 'BONUS' || type === 'CASHBACK')
               ? addMoney(wallet.totalDeposited, amount)
               : wallet.totalDeposited,
           totalSpent:
@@ -165,12 +170,32 @@ export class WalletService {
   }
 
   /** Convenience: credit funds into wallet. */
-  credit(userId: bigint, amount: MinorUnits, type: WalletTxnType, opts: { description?: string; reference?: string; useGiftBalance?: boolean; paymentId?: bigint } = {}) {
+  credit(
+    userId: bigint,
+    amount: MinorUnits,
+    type: WalletTxnType,
+    opts: {
+      description?: string;
+      reference?: string;
+      useGiftBalance?: boolean;
+      paymentId?: bigint;
+    } = {},
+  ) {
     return this.mutateBalance({ userId, type, amount, direction: 'credit', ...opts });
   }
 
   /** Convenience: debit funds from wallet (throws if insufficient). */
-  debit(userId: bigint, amount: MinorUnits, type: WalletTxnType, opts: { description?: string; reference?: string; useGiftBalance?: boolean; orderId?: bigint } = {}) {
+  debit(
+    userId: bigint,
+    amount: MinorUnits,
+    type: WalletTxnType,
+    opts: {
+      description?: string;
+      reference?: string;
+      useGiftBalance?: boolean;
+      orderId?: bigint;
+    } = {},
+  ) {
     return this.mutateBalance({ userId, type, amount, direction: 'debit', ...opts });
   }
 
@@ -201,7 +226,11 @@ export class WalletService {
   }
 
   private insufficient() {
-    return new BusinessException('WALLET_INSUFFICIENT_FUNDS', 'Insufficient wallet balance', undefined as never);
+    return new BusinessException(
+      'WALLET_INSUFFICIENT_FUNDS',
+      'Insufficient wallet balance',
+      undefined as never,
+    );
   }
 
   private toDto(w: any): WalletDto {

@@ -66,7 +66,9 @@ export class AnalyticsService {
    */
   async snapshotDaily(date?: Date): Promise<void> {
     const targetDate = date ?? this.daysAgo(1);
-    this.logger.log(`Running daily analytics snapshot for ${targetDate.toISOString().slice(0, 10)}`);
+    this.logger.log(
+      `Running daily analytics snapshot for ${targetDate.toISOString().slice(0, 10)}`,
+    );
 
     const [
       revenue,
@@ -116,11 +118,7 @@ export class AnalyticsService {
    * Query a historical time-series for a metric.
    * Returns one point per day in the range.
    */
-  async getSeries(
-    metric: string,
-    fromDate: Date,
-    toDate: Date,
-  ): Promise<AnalyticsSeriesDto> {
+  async getSeries(metric: string, fromDate: Date, toDate: Date): Promise<AnalyticsSeriesDto> {
     this.assertValidMetric(metric);
     const rows = await this.prisma.analyticsSnapshot.findMany({
       where: {
@@ -168,9 +166,7 @@ export class AnalyticsService {
       latestValue,
       latestDate: latest.date.toISOString().slice(0, 10),
       previousValue,
-      changePercent: changePercent !== null
-        ? Math.round(changePercent * 100) / 100
-        : null,
+      changePercent: changePercent !== null ? Math.round(changePercent * 100) / 100 : null,
     };
   }
 

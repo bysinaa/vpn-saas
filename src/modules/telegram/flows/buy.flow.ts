@@ -71,7 +71,11 @@ export class BuyFlow {
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) {
-      await this.runtime.send(ctx, t(locale, 'auth.required'), await this.runtime.getMainMenuKeyboard(telegramId));
+      await this.runtime.send(
+        ctx,
+        t(locale, 'auth.required'),
+        await this.runtime.getMainMenuKeyboard(telegramId),
+      );
       return;
     }
     await this.runtime.alert(ctx);
@@ -141,7 +145,9 @@ export class BuyFlow {
       ? formatTraffic(BigInt(plan.trafficLimitGb) * 1024n * 1024n * 1024n)
       : t(locale, 'plan.unlimited');
     const duration = plan.durationDays ? `${plan.durationDays}d` : t(locale, 'plan.unlimited');
-    const original = plan.originalPrice ? `\n${t(locale, 'plan.originalPrice', { price: plan.originalPrice })}` : '';
+    const original = plan.originalPrice
+      ? `\n${t(locale, 'plan.originalPrice', { price: plan.originalPrice })}`
+      : '';
 
     const msg =
       `${t(locale, 'confirm.title')}\n\n` +
@@ -178,7 +184,9 @@ export class BuyFlow {
           planPublicId,
           type: 'NEW',
         });
-        await this.runtime.setState(telegramId, 'buy_awaiting_payment', { orderId: order.publicId });
+        await this.runtime.setState(telegramId, 'buy_awaiting_payment', {
+          orderId: order.publicId,
+        });
         await this.runtime.pushMenu(telegramId, 'buy_payment');
         await this.runtime.alert(ctx);
         await this.runtime.render(
@@ -189,7 +197,11 @@ export class BuyFlow {
         );
       } catch (err: any) {
         await this.runtime.alert(ctx);
-        await this.runtime.render(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+        await this.runtime.render(
+          ctx,
+          this.runtime.translateError(locale, err),
+          mainMenuKeyboard(locale),
+        );
       }
     });
     if (result === undefined) {
@@ -202,7 +214,9 @@ export class BuyFlow {
   /** Handle a payment-method choice (`paymethod:<METHOD>`). */
   async onSelectPaymentMethod(ctx: Context, method: PaymentMethodChoice): Promise<void> {
     const telegramId = ctx.from?.id?.toString()!;
-    const result = await this.runtime.withLock(telegramId, () => this.handlePaymentMethod(ctx, method));
+    const result = await this.runtime.withLock(telegramId, () =>
+      this.handlePaymentMethod(ctx, method),
+    );
     if (result === undefined) {
       await this.runtime.alert(ctx, t(await this.runtime.getLocale(telegramId), 'common.loading'));
     }
@@ -253,7 +267,11 @@ export class BuyFlow {
       });
     } catch (err: any) {
       await this.runtime.alert(ctx);
-      await this.runtime.render(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+      await this.runtime.render(
+        ctx,
+        this.runtime.translateError(locale, err),
+        mainMenuKeyboard(locale),
+      );
     }
   }
 
@@ -281,7 +299,11 @@ export class BuyFlow {
       );
     } catch (err: any) {
       await this.runtime.alert(ctx);
-      await this.runtime.render(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+      await this.runtime.render(
+        ctx,
+        this.runtime.translateError(locale, err),
+        mainMenuKeyboard(locale),
+      );
     }
   }
 
@@ -325,13 +347,18 @@ export class BuyFlow {
             currency: order.currency,
             cardNumber,
             holder: holderName,
-          }) + (bankName ? `\n🏦 ${bankName}` : ''),
+          }) +
+          (bankName ? `\n🏦 ${bankName}` : ''),
         cancelKeyboard(locale),
         { parseMode: 'Markdown' },
       );
     } catch (err: any) {
       await this.runtime.alert(ctx);
-      await this.runtime.render(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+      await this.runtime.render(
+        ctx,
+        this.runtime.translateError(locale, err),
+        mainMenuKeyboard(locale),
+      );
     }
   }
 
@@ -342,7 +369,8 @@ export class BuyFlow {
     const session = await this.runtime.getSession(telegramId);
     try {
       // Default to USDT_TRC20 (cheapest/most common). User can request others via future menu.
-      const cryptoCurrency = (session.data?.cryptoCurrency as typeof CURRENCIES[number]) ?? 'USDT_TRC20';
+      const cryptoCurrency =
+        (session.data?.cryptoCurrency as (typeof CURRENCIES)[number]) ?? 'USDT_TRC20';
       const payment = await this.payments.initiate({
         userId: session.userId!,
         orderPublicId,
@@ -352,7 +380,9 @@ export class BuyFlow {
       const order = await this.orders.findOne(orderPublicId, session.userId!);
 
       // Look up the deposit address from SystemSetting (same convention as PaymentsService).
-      const addressRow = await this.runtime.getSetting(`payment.crypto.${cryptoCurrency.toLowerCase()}.address`);
+      const addressRow = await this.runtime.getSetting(
+        `payment.crypto.${cryptoCurrency.toLowerCase()}.address`,
+      );
       if (!addressRow) {
         await this.runtime.alert(ctx, t(locale, 'pay.crypto.no.address'));
         return;
@@ -379,7 +409,11 @@ export class BuyFlow {
       );
     } catch (err: any) {
       await this.runtime.alert(ctx);
-      await this.runtime.render(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+      await this.runtime.render(
+        ctx,
+        this.runtime.translateError(locale, err),
+        mainMenuKeyboard(locale),
+      );
     }
   }
 
@@ -390,12 +424,9 @@ export class BuyFlow {
     await this.runtime.clearState(telegramId);
     await this.runtime.resetMenu(telegramId, 'main');
     await this.runtime.alert(ctx);
-    await this.runtime.render(
-      ctx,
-      `${t(locale, 'pay.crypto.waiting')}`,
-      mainMenuKeyboard(locale),
-      { parseMode: 'Markdown' },
-    );
+    await this.runtime.render(ctx, `${t(locale, 'pay.crypto.waiting')}`, mainMenuKeyboard(locale), {
+      parseMode: 'Markdown',
+    });
   }
 
   /** Handle a receipt photo upload (card-to-card for an order). */
@@ -415,7 +446,10 @@ export class BuyFlow {
     try {
       const fileLink = await (ctx as any).telegram.getFile(photoFileId);
       const buffer = await this.downloadTelegramFile(fileLink.file_path);
-      const payerName = [ctx.from?.first_name, ctx.from?.last_name].filter(Boolean).join(' ') || ctx.from?.username || 'Unknown';
+      const payerName =
+        [ctx.from?.first_name, ctx.from?.last_name].filter(Boolean).join(' ') ||
+        ctx.from?.username ||
+        'Unknown';
       const uploaded = await this.storage.upload({
         key: `receipts/${session.userId}/${Date.now()}-${photoFileId}.jpg`,
         body: buffer,
@@ -474,7 +508,11 @@ export class BuyFlow {
         }
       })();
     } catch (err: any) {
-      await this.runtime.send(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+      await this.runtime.send(
+        ctx,
+        this.runtime.translateError(locale, err),
+        mainMenuKeyboard(locale),
+      );
     }
   }
 

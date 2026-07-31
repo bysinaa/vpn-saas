@@ -1,14 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  UsePipes,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UsePipes } from '@nestjs/common';
 import { EducationService } from './education.service';
 import {
   CreateArticleInput,
@@ -36,10 +26,7 @@ export class EducationController {
   }
 
   @Post(':slug/read')
-  markRead(
-    @Param('slug') slug: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  markRead(@Param('slug') slug: string, @CurrentUser() user: AuthenticatedUser) {
     return this.education.trackProgress(user.id, BigInt(slug));
   }
 

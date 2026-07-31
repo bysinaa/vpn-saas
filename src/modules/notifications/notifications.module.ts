@@ -8,12 +8,7 @@ import { ProxyModule } from '@/common/proxy/proxy.module';
 import { AuthModule } from '@/modules/auth/auth.module';
 
 @Module({
-  imports: [
-    PrismaModule,
-    RedisModule,
-    ProxyModule,
-    AuthModule,
-  ],
+  imports: [PrismaModule, RedisModule, ProxyModule, AuthModule],
   controllers: [NotificationsController],
   providers: [NotificationsService, BroadcastService],
   exports: [NotificationsService, BroadcastService],

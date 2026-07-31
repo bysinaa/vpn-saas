@@ -30,11 +30,7 @@ export class ReportsService {
     @Inject(STORAGE) private readonly storage: IStorage,
   ) {}
 
-  async revenueReport(
-    from: Date,
-    to: Date,
-    groupBy: 'day' | 'month',
-  ): Promise<ReportResult> {
+  async revenueReport(from: Date, to: Date, groupBy: 'day' | 'month'): Promise<ReportResult> {
     const dateFormat = groupBy === 'day' ? 'YYYY-MM-DD' : 'YYYY-MM';
     const trunc = groupBy === 'day' ? 'day' : 'month';
     // Payment uses `confirmedAt` (not settledAt) and PaymentStatus CONFIRMED
@@ -96,7 +92,18 @@ export class ReportsService {
     });
 
     const csv = this.buildCsv(
-      ['subscription_id', 'status', 'plan_slug', 'plan_name', 'start_date', 'end_date', 'traffic_limit_bytes', 'used_bytes', 'user_telegram_id', 'user_username'],
+      [
+        'subscription_id',
+        'status',
+        'plan_slug',
+        'plan_name',
+        'start_date',
+        'end_date',
+        'traffic_limit_bytes',
+        'used_bytes',
+        'user_telegram_id',
+        'user_username',
+      ],
       subscriptions.map((s) => [
         s.publicId,
         s.status,
@@ -146,7 +153,16 @@ export class ReportsService {
     });
 
     const csv = this.buildCsv(
-      ['user_id', 'telegram_id', 'username', 'first_name', 'last_name', 'status', 'wallet_balance_minor', 'created_at'],
+      [
+        'user_id',
+        'telegram_id',
+        'username',
+        'first_name',
+        'last_name',
+        'status',
+        'wallet_balance_minor',
+        'created_at',
+      ],
       users.map((u) => [
         u.publicId,
         u.telegramId?.toString() ?? '',
@@ -182,11 +198,7 @@ export class ReportsService {
     return lines.join('\r\n');
   }
 
-  private async uploadReport(
-    type: string,
-    csv: string,
-    rowCount: number,
-  ): Promise<ReportResult> {
+  private async uploadReport(type: string, csv: string, rowCount: number): Promise<ReportResult> {
     if (rowCount === 0) {
       throw BusinessException.notFound(`No data found for ${type} report`);
     }

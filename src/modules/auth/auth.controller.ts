@@ -18,7 +18,8 @@ export class AuthController {
   @Post('register')
   @ApiOperation({ summary: 'Register a new user with email/password' })
   register(
-    @Body(new ZodValidationPipe(AuthSchemas.register)) body: { email: string; password: string; username?: string },
+    @Body(new ZodValidationPipe(AuthSchemas.register))
+    body: { email: string; password: string; username?: string },
     @Req() req: FastifyRequest,
   ) {
     return this.auth.registerEmail(body);
@@ -29,7 +30,8 @@ export class AuthController {
   @HttpCode(200)
   @ApiOperation({ summary: 'Login with email/telegramId + password' })
   login(
-    @Body(new ZodValidationPipe(AuthSchemas.login)) body: { email?: string; telegramId?: string; password?: string },
+    @Body(new ZodValidationPipe(AuthSchemas.login))
+    body: { email?: string; telegramId?: string; password?: string },
     @Req() req: FastifyRequest,
   ) {
     return this.auth.login({

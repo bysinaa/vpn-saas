@@ -73,9 +73,13 @@ export class ProxyHttpService implements OnModuleInit {
       // `agent` callback below).
       this.httpsAgent = new mod.SocksProxyAgent(url);
       this.httpAgent = new mod.SocksProxyAgent(url);
-      this.logger.log(`Outbound proxy enabled via ${this.maskUrl(url)} (bypass: ${config.proxy.bypass.join(',') || 'none'})`);
+      this.logger.log(
+        `Outbound proxy enabled via ${this.maskUrl(url)} (bypass: ${config.proxy.bypass.join(',') || 'none'})`,
+      );
     } catch (err) {
-      this.logger.error(`Failed to create proxy agent for "${url}": ${(err as Error).message}. Falling back to direct connections.`);
+      this.logger.error(
+        `Failed to create proxy agent for "${url}": ${(err as Error).message}. Falling back to direct connections.`,
+      );
     }
   }
 

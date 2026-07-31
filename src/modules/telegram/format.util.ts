@@ -28,7 +28,10 @@ export function formatUsage(used: bigint | string | null, limit: bigint | string
 }
 
 /** Percentage of traffic used (0-100), or null when unlimited. */
-export function trafficPercent(used: bigint | string | null, limit: bigint | string | null): number | null {
+export function trafficPercent(
+  used: bigint | string | null,
+  limit: bigint | string | null,
+): number | null {
   if (limit === null || limit === undefined) return null;
   const u = typeof used === 'bigint' ? used : BigInt(used ?? 0n);
   const l = typeof limit === 'bigint' ? limit : BigInt(limit);
@@ -73,8 +76,16 @@ export function formatDate(date: Date | string | null | undefined, locale: BotLo
 }
 
 /** Short date (no time). */
-const FA_DATE_SHORT = new Intl.DateTimeFormat('fa-IR', { year: 'numeric', month: '2-digit', day: '2-digit' });
-const EN_DATE_SHORT = new Intl.DateTimeFormat('en-GB', { year: 'numeric', month: 'short', day: '2-digit' });
+const FA_DATE_SHORT = new Intl.DateTimeFormat('fa-IR', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+const EN_DATE_SHORT = new Intl.DateTimeFormat('en-GB', {
+  year: 'numeric',
+  month: 'short',
+  day: '2-digit',
+});
 
 export function formatDateShort(date: Date | string | null | undefined, locale: BotLocale): string {
   if (!date) return '∞';

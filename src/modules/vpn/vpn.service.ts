@@ -125,7 +125,11 @@ export class VpnService {
    */
   private generateUsername(
     user: { username?: string | null; firstName?: string | null; telegramId?: string | null },
-    plan: { name?: string | null; trafficLimitGb?: number | bigint | null; durationDays?: number | null } | null,
+    plan: {
+      name?: string | null;
+      trafficLimitGb?: number | bigint | null;
+      durationDays?: number | null;
+    } | null,
     trafficLimitBytes?: bigint,
     expireMs?: number | null,
   ): string {

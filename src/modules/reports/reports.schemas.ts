@@ -9,9 +9,7 @@ export const revenueReportSchema = z.object({
 export const subscriptionsReportSchema = z.object({
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
-  status: z
-    .enum(['ACTIVE', 'EXPIRED', 'SUSPENDED', 'PAUSED', 'TRIAL', 'CANCELLED'])
-    .optional(),
+  status: z.enum(['ACTIVE', 'EXPIRED', 'SUSPENDED', 'PAUSED', 'TRIAL', 'CANCELLED']).optional(),
 });
 
 export const usersReportSchema = z.object({

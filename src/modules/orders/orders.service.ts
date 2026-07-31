@@ -62,7 +62,8 @@ export class OrdersService {
   }): Promise<OrderDto> {
     const plan = await this.plans.getRaw(input.planPublicId);
     if (plan.status !== 'ACTIVE') throw BusinessException.conflict('Plan is not available');
-    if (plan.type === 'TRIAL') throw BusinessException.conflict('Trial plans are created via /trials endpoint');
+    if (plan.type === 'TRIAL')
+      throw BusinessException.conflict('Trial plans are created via /trials endpoint');
 
     const unitPrice = this.plans.priceMinor(plan);
     const quantity = input.quantity ?? 1;
@@ -90,7 +91,10 @@ export class OrdersService {
   }
 
   /** Pay with wallet balance: deducts funds, completes order, provisions sub. */
-  async payWithWallet(orderPublicId: string, userId: bigint): Promise<{ order: OrderDto; subscription: any }> {
+  async payWithWallet(
+    orderPublicId: string,
+    userId: bigint,
+  ): Promise<{ order: OrderDto; subscription: any }> {
     const order = await this.getOwnedOrder(orderPublicId, userId);
     if (order.status !== 'PENDING') throw BusinessException.conflict('Order is not payable');
 
@@ -122,7 +126,10 @@ export class OrdersService {
    * Called by payment callbacks/jobs once a payment is confirmed.
    * Marks order completed and provisions the subscription.
    */
-  async completeOrder(orderId: bigint, userId: bigint): Promise<{ order: OrderDto; subscription: any }> {
+  async completeOrder(
+    orderId: bigint,
+    userId: bigint,
+  ): Promise<{ order: OrderDto; subscription: any }> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: { plan: true },
@@ -160,7 +167,8 @@ export class OrdersService {
 
   async cancel(orderPublicId: string, userId: bigint): Promise<OrderDto> {
     const order = await this.getOwnedOrder(orderPublicId, userId);
-    if (order.status === 'COMPLETED') throw BusinessException.conflict('Cannot cancel completed order');
+    if (order.status === 'COMPLETED')
+      throw BusinessException.conflict('Cannot cancel completed order');
     if (order.status === 'CANCELLED') return this.toDto(order);
     const updated = await this.prisma.order.update({
       where: { id: order.id },

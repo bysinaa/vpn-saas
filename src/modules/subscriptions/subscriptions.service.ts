@@ -64,17 +64,26 @@ export class SubscriptionsService {
     const expiresAt = plan.durationDays
       ? new Date(startsAt.getTime() + plan.durationDays * 24 * 3600 * 1000)
       : null;
-    const trafficLimitBytes = plan.trafficLimitGb ? plan.trafficLimitGb * 1024n * 1024n * 1024n : null;
+    const trafficLimitBytes = plan.trafficLimitGb
+      ? plan.trafficLimitGb * 1024n * 1024n * 1024n
+      : null;
 
     // For renewals/extends, find existing active sub
     const existing = await db.subscription.findFirst({
-      where: { userId: params.userId, planId: plan.id, status: { in: ['ACTIVE', 'PAUSED', 'TRIAL'] } },
+      where: {
+        userId: params.userId,
+        planId: plan.id,
+        status: { in: ['ACTIVE', 'PAUSED', 'TRIAL'] },
+      },
     });
 
     let subscription: any;
     if (existing && (params.type === 'RENEW' || params.type === 'EXTEND')) {
       const newExpiry = existing.expiresAt
-        ? new Date(Math.max(existing.expiresAt.getTime(), Date.now()) + (plan.durationDays ?? 0) * 86400000)
+        ? new Date(
+            Math.max(existing.expiresAt.getTime(), Date.now()) +
+              (plan.durationDays ?? 0) * 86400000,
+          )
         : expiresAt;
       subscription = await db.subscription.update({
         where: { id: existing.id },
@@ -145,7 +154,10 @@ export class SubscriptionsService {
     return this.toDto(sub);
   }
 
-  async listMine(userId: bigint, query: Record<string, unknown>): Promise<PaginatedDto<SubscriptionDto>> {
+  async listMine(
+    userId: bigint,
+    query: Record<string, unknown>,
+  ): Promise<PaginatedDto<SubscriptionDto>> {
     const params = parsePagination(query);
     const where: Record<string, unknown> = { userId };
     if (query.status) where.status = query.status;
@@ -267,7 +279,11 @@ export class SubscriptionsService {
       include: { plan: true },
     });
     await this.prisma.subscriptionEvent.create({
-      data: { subscriptionId: sub.id, event: 'TRANSFER', payload: { from: fromUserId.toString(), to: toUserId.toString() } },
+      data: {
+        subscriptionId: sub.id,
+        event: 'TRANSFER',
+        payload: { from: fromUserId.toString(), to: toUserId.toString() },
+      },
     });
     return this.toDto(updated);
   }

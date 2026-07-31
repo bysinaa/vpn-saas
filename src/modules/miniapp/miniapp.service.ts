@@ -7,10 +7,7 @@ import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { OrdersService } from '../orders/orders.service';
 import { config } from '@/config';
 import { BusinessException } from '@/common/exceptions/business.exception';
-import {
-  createHmac,
-  timingSafeEqual,
-} from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 export interface MiniAppUser {
   id: string;
@@ -157,9 +154,7 @@ export class MiniAppService {
         .update(config.telegram.botToken)
         .digest();
 
-      const computedHash = createHmac('sha256', secretKey)
-        .update(dataCheckString)
-        .digest('hex');
+      const computedHash = createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
 
       // Timing-safe comparison
       const a = Buffer.from(hash, 'hex');

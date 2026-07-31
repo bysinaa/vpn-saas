@@ -30,11 +30,7 @@ export class AnalyticsController {
   @RequirePermissions(['read:analytics'])
   @UsePipes(new ZodValidationPipe(seriesQuerySchema))
   getSeries(@Query() query: SeriesQuery) {
-    return this.analytics.getSeries(
-      query.metric,
-      new Date(query.from),
-      new Date(query.to),
-    );
+    return this.analytics.getSeries(query.metric, new Date(query.from), new Date(query.to));
   }
 
   @Get('summary')

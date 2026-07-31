@@ -89,12 +89,15 @@ export class AffiliateService {
     return { data: items.map((a) => this.toDto(a)), meta: buildMeta(total, params) };
   }
 
-  async updateAccount(id: bigint, input: {
-    status?: string;
-    commissionRate?: number;
-    payoutMethod?: string;
-    payoutDetails?: Record<string, unknown>;
-  }): Promise<AffiliateAccountDto> {
+  async updateAccount(
+    id: bigint,
+    input: {
+      status?: string;
+      commissionRate?: number;
+      payoutMethod?: string;
+      payoutDetails?: Record<string, unknown>;
+    },
+  ): Promise<AffiliateAccountDto> {
     const data: Record<string, unknown> = {};
     if (input.status) data.status = input.status;
     if (input.commissionRate !== undefined) data.commissionRate = input.commissionRate;
@@ -119,9 +122,8 @@ export class AffiliateService {
       where: { userId: input.referrerId },
     });
     const rate = affiliate?.commissionRate ? BigInt(affiliate.commissionRate.toString()) : 0n;
-    const commission = affiliate?.status === 'ACTIVE' && rate > 0n
-      ? (input.amountMinor * rate) / 100n
-      : 0n;
+    const commission =
+      affiliate?.status === 'ACTIVE' && rate > 0n ? (input.amountMinor * rate) / 100n : 0n;
 
     const referral = await this.prisma.referralLog.create({
       data: {

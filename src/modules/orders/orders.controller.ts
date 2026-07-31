@@ -22,10 +22,7 @@ export class OrdersController {
 
   @Post()
   @UsePipes(new ZodValidationPipe(createOrderSchema))
-  async create(
-    @Body() body: CreateOrderInput,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  async create(@Body() body: CreateOrderInput, @CurrentUser() user: AuthenticatedUser) {
     return this.orders.create({
       userId: user.id,
       planPublicId: body.planPublicId,
@@ -38,34 +35,22 @@ export class OrdersController {
 
   @Post(':publicId/pay-wallet')
   @HttpCode(200)
-  async payWithWallet(
-    @Param('publicId') publicId: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  async payWithWallet(@Param('publicId') publicId: string, @CurrentUser() user: AuthenticatedUser) {
     return this.orders.payWithWallet(publicId, user.id);
   }
 
   @Delete(':publicId')
-  async cancel(
-    @Param('publicId') publicId: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  async cancel(@Param('publicId') publicId: string, @CurrentUser() user: AuthenticatedUser) {
     return this.orders.cancel(publicId, user.id);
   }
 
   @Get('mine')
-  listMine(
-    @CurrentUser() user: AuthenticatedUser,
-    @Query() query: Record<string, unknown>,
-  ) {
+  listMine(@CurrentUser() user: AuthenticatedUser, @Query() query: Record<string, unknown>) {
     return this.orders.listMine(user.id, query);
   }
 
   @Get(':publicId')
-  findOne(
-    @Param('publicId') publicId: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  findOne(@Param('publicId') publicId: string, @CurrentUser() user: AuthenticatedUser) {
     return this.orders.findOne(publicId, user.id);
   }
 

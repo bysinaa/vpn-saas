@@ -65,13 +65,7 @@ export class RedisService implements OnModuleDestroy {
     let cursor = '0';
     let deleted = 0;
     do {
-      const [next, batch] = await this.client.scan(
-        cursor,
-        'MATCH',
-        pattern,
-        'COUNT',
-        100,
-      );
+      const [next, batch] = await this.client.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
       cursor = next;
       if (batch.length > 0) {
         deleted += await this.client.del(...batch);

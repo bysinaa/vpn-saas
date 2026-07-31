@@ -62,7 +62,11 @@ export class ServersService {
     }));
   }
 
-  async createCountry(input: { code: string; name: string; flagEmoji?: string }): Promise<CountryDto> {
+  async createCountry(input: {
+    code: string;
+    name: string;
+    flagEmoji?: string;
+  }): Promise<CountryDto> {
     const country = await this.prisma.country.create({
       data: { code: input.code.toUpperCase(), name: input.name, flag: input.flagEmoji ?? null },
       include: { _count: { select: { cities: true } } },
@@ -76,7 +80,10 @@ export class ServersService {
     };
   }
 
-  async updateCountry(id: bigint, input: Partial<{ code: string; name: string; flagEmoji: string }>): Promise<CountryDto> {
+  async updateCountry(
+    id: bigint,
+    input: Partial<{ code: string; name: string; flagEmoji: string }>,
+  ): Promise<CountryDto> {
     const country = await this.prisma.country.update({
       where: { id },
       data: {
@@ -212,15 +219,18 @@ export class ServersService {
   }
 
   /** Record a health probe result. */
-  async recordHealth(serverId: bigint, probe: {
-    cpuUsage?: number;
-    memoryUsage?: number;
-    networkIn?: string;
-    networkOut?: string;
-    activeUsers?: number;
-    isReachable: boolean;
-    latencyMs?: number;
-  }): Promise<void> {
+  async recordHealth(
+    serverId: bigint,
+    probe: {
+      cpuUsage?: number;
+      memoryUsage?: number;
+      networkIn?: string;
+      networkOut?: string;
+      activeUsers?: number;
+      isReachable: boolean;
+      latencyMs?: number;
+    },
+  ): Promise<void> {
     // ServerHealthLog: status is required; cpuPercent/memPercent replace
     // cpuUsage/memoryUsage; no network bytes / isReachable fields.
     await this.prisma.serverHealthLog.create({

@@ -69,10 +69,19 @@ export class PlansService {
     return cats.map(this.toCategoryDto);
   }
 
-  async createCategory(input: { name: string; description?: string; sortOrder?: number }): Promise<PlanCategoryDto> {
+  async createCategory(input: {
+    name: string;
+    description?: string;
+    sortOrder?: number;
+  }): Promise<PlanCategoryDto> {
     const slug = this.slugify(input.name);
     const cat = await this.prisma.planCategory.create({
-      data: { name: input.name, slug, description: input.description, sortOrder: input.sortOrder ?? 0 },
+      data: {
+        name: input.name,
+        slug,
+        description: input.description,
+        sortOrder: input.sortOrder ?? 0,
+      },
     });
     return this.toCategoryDto(cat);
   }
@@ -140,7 +149,7 @@ export class PlansService {
     status?: string;
   }): Promise<PlanDto> {
     let slug = this.slugify(input.name);
-    
+
     // Handle duplicate slugs by appending a numeric suffix
     let counter = 1;
     let existingSlug = await this.prisma.plan.findUnique({ where: { slug } });
@@ -179,17 +188,33 @@ export class PlansService {
     return this.toDto(plan);
   }
 
-  async update(publicId: string, input: Partial<{
-    name: string; description: string; price: string; originalPrice: string;
-    discountPercent: number; priority: number; isVisible: boolean; status: string;
-    durationDays: number; trafficLimitGb: number; deviceLimit: number; serverLimit: number;
-    countries: string[]; isTrial: boolean; isRenewable: boolean; isTransferable: boolean; allowPause: boolean;
-  }>): Promise<PlanDto> {
+  async update(
+    publicId: string,
+    input: Partial<{
+      name: string;
+      description: string;
+      price: string;
+      originalPrice: string;
+      discountPercent: number;
+      priority: number;
+      isVisible: boolean;
+      status: string;
+      durationDays: number;
+      trafficLimitGb: number;
+      deviceLimit: number;
+      serverLimit: number;
+      countries: string[];
+      isTrial: boolean;
+      isRenewable: boolean;
+      isTransferable: boolean;
+      allowPause: boolean;
+    }>,
+  ): Promise<PlanDto> {
     const existing = await this.prisma.plan.findUnique({ where: { publicId } });
     if (!existing) throw BusinessException.notFound('Plan not found');
 
     const data: Record<string, unknown> = {};
-    if (input.name) data.name = input.name, (data as any).slug = this.slugify(input.name);
+    if (input.name) ((data.name = input.name), ((data as any).slug = this.slugify(input.name)));
     if (input.description !== undefined) data.description = input.description;
     if (input.price) data.price = toMinor(input.price);
     if (input.originalPrice) data.originalPrice = toMinor(input.originalPrice);
@@ -198,7 +223,8 @@ export class PlansService {
     if (input.isVisible !== undefined) data.isVisible = input.isVisible;
     if (input.status) data.status = input.status;
     if (input.durationDays !== undefined) data.durationDays = input.durationDays;
-    if (input.trafficLimitGb !== undefined) data.trafficLimitGb = input.trafficLimitGb != null ? BigInt(input.trafficLimitGb) : null;
+    if (input.trafficLimitGb !== undefined)
+      data.trafficLimitGb = input.trafficLimitGb != null ? BigInt(input.trafficLimitGb) : null;
     if (input.deviceLimit !== undefined) data.deviceLimit = input.deviceLimit;
     if (input.serverLimit !== undefined) data.serverLimit = input.serverLimit;
     if (input.countries) data.countries = input.countries;
@@ -213,7 +239,10 @@ export class PlansService {
   }
 
   async remove(publicId: string): Promise<void> {
-    await this.prisma.plan.update({ where: { publicId }, data: { status: 'ARCHIVED', isVisible: false } });
+    await this.prisma.plan.update({
+      where: { publicId },
+      data: { status: 'ARCHIVED', isVisible: false },
+    });
     await this.invalidateCache();
   }
 
@@ -235,7 +264,11 @@ export class PlansService {
   }
 
   private slugify(s: string): string {
-    return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return s
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
   }
 
   private toDto = (p: any): PlanDto => ({

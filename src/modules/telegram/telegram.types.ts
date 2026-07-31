@@ -183,7 +183,14 @@ export const BOT_ACTIONS = {
 export type BotAction = (typeof BOT_ACTIONS)[keyof typeof BOT_ACTIONS];
 
 /** Standard ticket categories. */
-export const TICKET_CATEGORIES = ['GENERAL', 'PAYMENT', 'TECHNICAL', 'SUBSCRIPTION', 'ACCOUNT', 'OTHER'] as const;
+export const TICKET_CATEGORIES = [
+  'GENERAL',
+  'PAYMENT',
+  'TECHNICAL',
+  'SUBSCRIPTION',
+  'ACCOUNT',
+  'OTHER',
+] as const;
 export type TicketCategory = (typeof TICKET_CATEGORIES)[number];
 
 /** Convert between the Prisma Language enum and the bot locale. */

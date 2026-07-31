@@ -1,7 +1,14 @@
 import { z } from 'zod';
 
 export const createArticleSchema = z.object({
-  topic: z.enum(['GETTING_STARTED', 'TROUBLESHOOTING', 'SETUP_GUIDE', 'FAQ', 'SECURITY', 'ADVANCED']),
+  topic: z.enum([
+    'GETTING_STARTED',
+    'TROUBLESHOOTING',
+    'SETUP_GUIDE',
+    'FAQ',
+    'SECURITY',
+    'ADVANCED',
+  ]),
   title: z.string().min(3).max(200),
   slug: z.string().min(3).max(200).optional(),
   content: z.string().min(10),

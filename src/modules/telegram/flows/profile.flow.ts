@@ -89,7 +89,8 @@ export class ProfileFlow {
         `${t(locale, 'profile.registered')}: ${formatDate(user.createdAt, locale)}\n` +
         `${t(locale, 'profile.referralCode')}: ${user.referralCode ?? '—'}\n` +
         `${t(locale, 'profile.wallet')}: ${fromMinor(wallet.balance)} ${wallet.currency}` +
-        (wallet.giftBalance > 0n ? ` (+${fromMinor(wallet.giftBalance)} 🎁)` : '') + '\n' +
+        (wallet.giftBalance > 0n ? ` (+${fromMinor(wallet.giftBalance)} 🎁)` : '') +
+        '\n' +
         `${t(locale, 'profile.purchases')}: ${user._count.orders}\n` +
         `${t(locale, 'profile.totalPaid')}: ${fromMinor(paidAgg._sum?.totalAmount ?? 0n)} ${wallet.currency}\n` +
         `${t(locale, 'profile.activePlans')}: ${activeSubs}\n` +
@@ -102,7 +103,11 @@ export class ProfileFlow {
       await this.runtime.render(ctx, msg, profileKeyboard(locale), { parseMode: 'Markdown' });
     } catch (err: any) {
       await this.runtime.alert(ctx);
-      await this.runtime.render(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+      await this.runtime.render(
+        ctx,
+        this.runtime.translateError(locale, err),
+        mainMenuKeyboard(locale),
+      );
     }
   }
 
@@ -143,7 +148,11 @@ export class ProfileFlow {
       await this.runtime.render(ctx, msg, profileKeyboard(locale), { parseMode: 'Markdown' });
     } catch (err: any) {
       await this.runtime.alert(ctx);
-      await this.runtime.render(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+      await this.runtime.render(
+        ctx,
+        this.runtime.translateError(locale, err),
+        mainMenuKeyboard(locale),
+      );
     }
   }
 }

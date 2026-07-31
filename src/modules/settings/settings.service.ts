@@ -159,9 +159,7 @@ export class SettingsService {
    */
   async isFlagEnabled(key: string, userId?: string): Promise<boolean> {
     const cached = await this.redis.getJson<FeatureFlagDto>(`${FLAGS_CACHE_PREFIX}key:${key}`);
-    const flag =
-      cached ??
-      (await this.prisma.featureFlag.findUnique({ where: { key } }));
+    const flag = cached ?? (await this.prisma.featureFlag.findUnique({ where: { key } }));
     if (!cached && flag) {
       await this.redis.setJson(`${FLAGS_CACHE_PREFIX}key:${key}`, this.toFlagDto(flag), CACHE_TTL);
     }

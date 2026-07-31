@@ -56,11 +56,17 @@ export class SupportFlow {
     await this.runtime.pushMenu(telegramId, 'support');
     await this.runtime.setState(telegramId, 'idle');
     await this.runtime.alert(ctx);
-    await this.runtime.render(ctx, t(locale, 'support.title'), supportMenuKeyboard(locale), { parseMode: 'Markdown' });
+    await this.runtime.render(ctx, t(locale, 'support.title'), supportMenuKeyboard(locale), {
+      parseMode: 'Markdown',
+    });
   }
 
   /** Start the new-ticket flow: show category picker (`newticket`). */
-  async startNewTicket(ctx: Context, preselectCategory?: string, reportSubId?: string): Promise<void> {
+  async startNewTicket(
+    ctx: Context,
+    preselectCategory?: string,
+    reportSubId?: string,
+  ): Promise<void> {
     const telegramId = ctx.from?.id?.toString()!;
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
@@ -85,7 +91,12 @@ export class SupportFlow {
     await this.runtime.setState(telegramId, 'support_awaiting_category', { reportSubId });
     await this.runtime.pushMenu(telegramId, 'ticket_categories');
     await this.runtime.alert(ctx);
-    await this.runtime.render(ctx, t(locale, 'support.category.title'), ticketCategoryKeyboard(locale), { parseMode: 'Markdown' });
+    await this.runtime.render(
+      ctx,
+      t(locale, 'support.category.title'),
+      ticketCategoryKeyboard(locale),
+      { parseMode: 'Markdown' },
+    );
   }
 
   /** Category chosen (`tcat:<CAT>`): persist + ask for subject. */
@@ -94,7 +105,9 @@ export class SupportFlow {
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) return;
-    await this.runtime.setState(telegramId, 'support_awaiting_subject', { ticketCategory: category });
+    await this.runtime.setState(telegramId, 'support_awaiting_subject', {
+      ticketCategory: category,
+    });
     await this.runtime.alert(ctx);
     await this.runtime.render(ctx, t(locale, 'support.subject.prompt'), cancelKeyboard(locale));
   }
@@ -152,7 +165,11 @@ export class SupportFlow {
         mainMenuKeyboard(locale),
       );
     } catch (err: any) {
-      await this.runtime.send(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+      await this.runtime.send(
+        ctx,
+        this.runtime.translateError(locale, err),
+        mainMenuKeyboard(locale),
+      );
     }
     return true;
   }
@@ -176,11 +193,16 @@ export class SupportFlow {
         status: statusFilter,
       });
       await this.runtime.pushMenu(telegramId, 'tickets_list');
-      await this.runtime.setState(telegramId, 'idle', { ticketListStatus: status, ticketPage: page });
+      await this.runtime.setState(telegramId, 'idle', {
+        ticketListStatus: status,
+        ticketPage: page,
+      });
       await this.runtime.alert(ctx);
 
       if (!result.data.length) {
-        await this.runtime.render(ctx, t(locale, 'support.empty'), supportMenuKeyboard(locale), { parseMode: 'Markdown' });
+        await this.runtime.render(ctx, t(locale, 'support.empty'), supportMenuKeyboard(locale), {
+          parseMode: 'Markdown',
+        });
         return;
       }
 
@@ -197,7 +219,11 @@ export class SupportFlow {
       );
     } catch (err: any) {
       await this.runtime.alert(ctx);
-      await this.runtime.render(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+      await this.runtime.render(
+        ctx,
+        this.runtime.translateError(locale, err),
+        mainMenuKeyboard(locale),
+      );
     }
   }
 
@@ -230,10 +256,16 @@ export class SupportFlow {
         `Subject: ${tk.subject}\n` +
         `${t(locale, 'sub.detail.status')}: ${tk.status}\n` +
         `${t(locale, 'profile.registered')}: ${formatDate(tk.createdAt, locale)}`;
-      await this.runtime.render(ctx, msg, ticketDetailKeyboard(locale, tk.publicId, isOpen), { parseMode: 'Markdown' });
+      await this.runtime.render(ctx, msg, ticketDetailKeyboard(locale, tk.publicId, isOpen), {
+        parseMode: 'Markdown',
+      });
     } catch (err: any) {
       await this.runtime.alert(ctx);
-      await this.runtime.render(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+      await this.runtime.render(
+        ctx,
+        this.runtime.translateError(locale, err),
+        mainMenuKeyboard(locale),
+      );
     }
   }
 
@@ -264,7 +296,11 @@ export class SupportFlow {
       await this.runtime.render(ctx, msg, mainMenuKeyboard(locale), { parseMode: 'Markdown' });
     } catch (err: any) {
       await this.runtime.alert(ctx);
-      await this.runtime.render(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+      await this.runtime.render(
+        ctx,
+        this.runtime.translateError(locale, err),
+        mainMenuKeyboard(locale),
+      );
     }
   }
 
@@ -285,7 +321,12 @@ export class SupportFlow {
       }
       if (tk.status === 'CLOSED') {
         await this.runtime.alert(ctx);
-        await this.runtime.render(ctx, t(locale, 'support.ticketClosed'), mainMenuKeyboard(locale), { parseMode: 'Markdown' });
+        await this.runtime.render(
+          ctx,
+          t(locale, 'support.ticketClosed'),
+          mainMenuKeyboard(locale),
+          { parseMode: 'Markdown' },
+        );
         return;
       }
       await this.runtime.setState(telegramId, 'ticket_awaiting_reply', { ticketPublicId });
@@ -293,7 +334,11 @@ export class SupportFlow {
       await this.runtime.render(ctx, t(locale, 'support.reply.prompt'), cancelKeyboard(locale));
     } catch (err: any) {
       await this.runtime.alert(ctx);
-      await this.runtime.render(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+      await this.runtime.render(
+        ctx,
+        this.runtime.translateError(locale, err),
+        mainMenuKeyboard(locale),
+      );
     }
   }
 
@@ -324,7 +369,11 @@ export class SupportFlow {
       await this.runtime.resetMenu(telegramId, 'main');
       await this.runtime.send(ctx, t(locale, 'support.reply.sent'), mainMenuKeyboard(locale));
     } catch (err: any) {
-      await this.runtime.send(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+      await this.runtime.send(
+        ctx,
+        this.runtime.translateError(locale, err),
+        mainMenuKeyboard(locale),
+      );
     }
     return true;
   }
@@ -339,10 +388,16 @@ export class SupportFlow {
     try {
       await this.tickets.updateStatus(ticketPublicId, { status: 'CLOSED' });
       await this.runtime.alert(ctx);
-      await this.runtime.render(ctx, t(locale, 'support.ticketClosed'), mainMenuKeyboard(locale), { parseMode: 'Markdown' });
+      await this.runtime.render(ctx, t(locale, 'support.ticketClosed'), mainMenuKeyboard(locale), {
+        parseMode: 'Markdown',
+      });
     } catch (err: any) {
       await this.runtime.alert(ctx);
-      await this.runtime.render(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+      await this.runtime.render(
+        ctx,
+        this.runtime.translateError(locale, err),
+        mainMenuKeyboard(locale),
+      );
     }
   }
 }

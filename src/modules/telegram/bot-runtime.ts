@@ -72,7 +72,8 @@ export class BotRuntime {
       });
 
       const normalize = (s?: string) => (s ? s.trim().replace(/^\+/, '') : '');
-      const isConfiguredSuperAdmin = normalize(config.superAdmin.telegramId) === normalize(telegramId);
+      const isConfiguredSuperAdmin =
+        normalize(config.superAdmin.telegramId) === normalize(telegramId);
       return {
         telegramId,
         state: 'idle',
@@ -109,7 +110,11 @@ export class BotRuntime {
   }
 
   /** Transition to a new state, persisting immediately. */
-  async setState(telegramId: string, state: BotState, data?: Record<string, unknown>): Promise<BotSession> {
+  async setState(
+    telegramId: string,
+    state: BotState,
+    data?: Record<string, unknown>,
+  ): Promise<BotSession> {
     const session = await this.getSession(telegramId);
     session.state = state;
     session.data = { ...session.data, ...data };
@@ -284,7 +289,12 @@ export class BotRuntime {
   }
 
   /** Send a brand-new message (when a clean slate is needed). */
-  async send(ctx: Context, text: string, keyboard?: any, parseMode?: 'Markdown' | 'HTML'): Promise<void> {
+  async send(
+    ctx: Context,
+    text: string,
+    keyboard?: any,
+    parseMode?: 'Markdown' | 'HTML',
+  ): Promise<void> {
     const extra: any = {};
     if (keyboard?.reply_markup) extra.reply_markup = keyboard.reply_markup;
     else if (keyboard) extra.reply_markup = keyboard;
@@ -373,7 +383,8 @@ export class BotRuntime {
     const locale = await this.getLocale(telegramId);
     const session = await this.getSession(telegramId);
     const normalize = (s?: string) => (s ? s.trim().replace(/^\+/, '') : '');
-    const isConfiguredSuperAdmin = normalize(config.superAdmin.telegramId) === normalize(telegramId);
+    const isConfiguredSuperAdmin =
+      normalize(config.superAdmin.telegramId) === normalize(telegramId);
 
     if (isConfiguredSuperAdmin) {
       return mainMenuKeyboard(locale, 'SUPER_ADMIN');

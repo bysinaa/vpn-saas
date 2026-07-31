@@ -14,7 +14,14 @@ import {
 import { SubscriptionsService } from '../../subscriptions/subscriptions.service';
 import { PlansService } from '../../plans/plans.service';
 import { VpnService } from '../../vpn/vpn.service';
-import { formatTraffic, formatDate, daysRemaining, progressBar, trafficPercent, statusEmoji } from '../format.util';
+import {
+  formatTraffic,
+  formatDate,
+  daysRemaining,
+  progressBar,
+  trafficPercent,
+  statusEmoji,
+} from '../format.util';
 import { fromMinor } from '@/common/utils/money.util';
 
 const SUBS_PAGE_SIZE = 5;
@@ -46,7 +53,10 @@ export class SubscriptionsFlow {
       await this.runtime.alert(ctx, t(locale, 'auth.required'));
       return;
     }
-    const result = await this.subscriptions.listMine(session.userId, { page: page + 1, limit: SUBS_PAGE_SIZE });
+    const result = await this.subscriptions.listMine(session.userId, {
+      page: page + 1,
+      limit: SUBS_PAGE_SIZE,
+    });
     await this.runtime.pushMenu(telegramId, 'subs_list');
     await this.runtime.alert(ctx);
     if (!result.data.length) {
@@ -79,7 +89,11 @@ export class SubscriptionsFlow {
     try {
       const sub = await this.prisma.subscription.findUnique({
         where: { publicId: subPublicId },
-        include: { plan: true, vpnUser: true, servers: { include: { server: { include: { city: { include: { country: true } } } } } } },
+        include: {
+          plan: true,
+          vpnUser: true,
+          servers: { include: { server: { include: { city: { include: { country: true } } } } } },
+        },
       });
       if (!sub || sub.userId !== session.userId) {
         await this.runtime.alert(ctx, t(locale, 'error.not.found'));
@@ -120,17 +134,29 @@ export class SubscriptionsFlow {
         `${t(locale, 'sub.detail.server')}: ${server?.name ?? '—'}\n` +
         `${t(locale, 'sub.detail.country')}: ${country}\n` +
         `${t(locale, 'sub.detail.protocol')}: ${protocol}\n` +
-        `${t(locale, 'sub.detail.traffic')}: ${traffic}` + (pct !== null ? `\n${progressBar(pct)} ${pct}%` : '') + '\n' +
+        `${t(locale, 'sub.detail.traffic')}: ${traffic}` +
+        (pct !== null ? `\n${progressBar(pct)} ${pct}%` : '') +
+        '\n' +
         `${t(locale, 'sub.detail.expires')}: ${sub.expiresAt ? formatDate(sub.expiresAt, locale) : '∞'}` +
-        (daysLeft !== null ? ` (${t(locale, 'sub.detail.daysLeft', { days: daysLeft })})` : '') + '\n' +
+        (daysLeft !== null ? ` (${t(locale, 'sub.detail.daysLeft', { days: daysLeft })})` : '') +
+        '\n' +
         `${t(locale, 'sub.detail.created')}: ${formatDate(sub.createdAt, locale)}`;
 
       const canReset = !!limitBytes && usedBytes > 0n && sub.status !== 'EXPIRED';
       await this.runtime.alert(ctx);
-      await this.runtime.render(ctx, msg, subscriptionDetailKeyboard(locale, subPublicId, { canReset }), { parseMode: 'Markdown' });
+      await this.runtime.render(
+        ctx,
+        msg,
+        subscriptionDetailKeyboard(locale, subPublicId, { canReset }),
+        { parseMode: 'Markdown' },
+      );
     } catch (err: any) {
       await this.runtime.alert(ctx);
-      await this.runtime.render(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+      await this.runtime.render(
+        ctx,
+        this.runtime.translateError(locale, err),
+        mainMenuKeyboard(locale),
+      );
     }
   }
 
@@ -155,7 +181,12 @@ export class SubscriptionsFlow {
       return;
     }
     await this.runtime.alert(ctx);
-    await this.runtime.render(ctx, `${t(locale, 'sub.link.title')}\n\n\`${link}\``, mainMenuKeyboard(locale), { parseMode: 'Markdown' });
+    await this.runtime.render(
+      ctx,
+      `${t(locale, 'sub.link.title')}\n\n\`${link}\``,
+      mainMenuKeyboard(locale),
+      { parseMode: 'Markdown' },
+    );
   }
 
   /** Show the connection guide. */
@@ -163,7 +194,12 @@ export class SubscriptionsFlow {
     const telegramId = ctx.from?.id?.toString()!;
     const locale = await this.runtime.getLocale(telegramId);
     await this.runtime.alert(ctx);
-    await this.runtime.render(ctx, `${t(locale, 'sub.guide.title')}\n\n${t(locale, 'sub.guide.body')}`, mainMenuKeyboard(locale), { parseMode: 'Markdown' });
+    await this.runtime.render(
+      ctx,
+      `${t(locale, 'sub.guide.title')}\n\n${t(locale, 'sub.guide.body')}`,
+      mainMenuKeyboard(locale),
+      { parseMode: 'Markdown' },
+    );
   }
 
   /** Confirm a renew action (`subrenew:<id>` -> yes/no). */
@@ -172,14 +208,21 @@ export class SubscriptionsFlow {
     const locale = await this.runtime.getLocale(telegramId);
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) return;
-    const sub = await this.prisma.subscription.findUnique({ where: { publicId: subPublicId }, include: { plan: true } });
+    const sub = await this.prisma.subscription.findUnique({
+      where: { publicId: subPublicId },
+      include: { plan: true },
+    });
     if (!sub || sub.userId !== session.userId) {
       await this.runtime.alert(ctx, t(locale, 'error.not.found'));
       return;
     }
     const price = (await this.plans.getRaw(sub.plan.publicId)).price;
     await this.runtime.alert(ctx);
-    await this.runtime.render(ctx, t(locale, 'sub.renew.confirm', { amount: fromMinor(price), currency: sub.plan.currency }), yesNoKeyboard(locale, 'renew', subPublicId));
+    await this.runtime.render(
+      ctx,
+      t(locale, 'sub.renew.confirm', { amount: fromMinor(price), currency: sub.plan.currency }),
+      yesNoKeyboard(locale, 'renew', subPublicId),
+    );
   }
 
   /** Execute a confirmed renew. */
@@ -195,17 +238,25 @@ export class SubscriptionsFlow {
         await this.runtime.render(ctx, t(locale, 'sub.renew.success'), mainMenuKeyboard(locale));
       } catch (err: any) {
         await this.runtime.alert(ctx);
-        await this.runtime.render(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+        await this.runtime.render(
+          ctx,
+          this.runtime.translateError(locale, err),
+          mainMenuKeyboard(locale),
+        );
       }
     });
-    if (result === undefined) await this.runtime.alert(ctx, t(await this.runtime.getLocale(telegramId), 'common.loading'));
+    if (result === undefined)
+      await this.runtime.alert(ctx, t(await this.runtime.getLocale(telegramId), 'common.loading'));
   }
 
   /** Ask the user for the number of days to extend. */
   async promptExtend(ctx: Context, subPublicId: string): Promise<void> {
     const telegramId = ctx.from?.id?.toString()!;
     const locale = await this.runtime.getLocale(telegramId);
-    await this.runtime.setState(telegramId, 'subs_viewing_detail', { subPublicId, pendingAction: 'extend' });
+    await this.runtime.setState(telegramId, 'subs_viewing_detail', {
+      subPublicId,
+      pendingAction: 'extend',
+    });
     await this.runtime.alert(ctx);
     await this.runtime.render(ctx, t(locale, 'sub.extend.prompt'), cancelKeyboard(locale));
   }
@@ -226,9 +277,17 @@ export class SubscriptionsFlow {
       await this.subscriptions.extend(subPublicId, session.userId, days);
       await this.runtime.clearState(telegramId);
       await this.runtime.resetMenu(telegramId, 'main');
-      await this.runtime.send(ctx, t(locale, 'sub.extend.success', { days }), mainMenuKeyboard(locale));
+      await this.runtime.send(
+        ctx,
+        t(locale, 'sub.extend.success', { days }),
+        mainMenuKeyboard(locale),
+      );
     } catch (err: any) {
-      await this.runtime.send(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+      await this.runtime.send(
+        ctx,
+        this.runtime.translateError(locale, err),
+        mainMenuKeyboard(locale),
+      );
     }
     return true;
   }
@@ -240,11 +299,22 @@ export class SubscriptionsFlow {
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) return;
     const plans = (await this.plans.listVisible()).filter((p) => !p.isTrial);
-    const kbPlans = plans.map((p) => ({ publicId: p.publicId, name: p.name, priceLabel: `${p.price} ${p.currency}` }));
+    const kbPlans = plans.map((p) => ({
+      publicId: p.publicId,
+      name: p.name,
+      priceLabel: `${p.price} ${p.currency}`,
+    }));
     // Store subPublicId in session so the callback only carries the planPublicId
-    await this.runtime.setState(telegramId, 'sub_awaiting_upgrade', { upgradeSubPublicId: subPublicId });
+    await this.runtime.setState(telegramId, 'sub_awaiting_upgrade', {
+      upgradeSubPublicId: subPublicId,
+    });
     await this.runtime.alert(ctx);
-    await this.runtime.render(ctx, `${t(locale, 'sub.upgrade.title')}\n\n${t(locale, 'sub.upgrade.select')}`, upgradePlansKeyboard(locale, kbPlans), { parseMode: 'Markdown' });
+    await this.runtime.render(
+      ctx,
+      `${t(locale, 'sub.upgrade.title')}\n\n${t(locale, 'sub.upgrade.select')}`,
+      upgradePlansKeyboard(locale, kbPlans),
+      { parseMode: 'Markdown' },
+    );
   }
 
   /** Execute an upgrade (`upg:<planId>`). Creates an upgrade order. */
@@ -265,7 +335,11 @@ export class SubscriptionsFlow {
     const telegramId = ctx.from?.id?.toString()!;
     const locale = await this.runtime.getLocale(telegramId);
     await this.runtime.alert(ctx);
-    await this.runtime.render(ctx, t(locale, 'sub.reset.confirm'), yesNoKeyboard(locale, 'reset', subPublicId));
+    await this.runtime.render(
+      ctx,
+      t(locale, 'sub.reset.confirm'),
+      yesNoKeyboard(locale, 'reset', subPublicId),
+    );
   }
 
   /** Execute a confirmed traffic reset. */
@@ -281,17 +355,25 @@ export class SubscriptionsFlow {
         await this.runtime.render(ctx, t(locale, 'sub.reset.success'), mainMenuKeyboard(locale));
       } catch (err: any) {
         await this.runtime.alert(ctx);
-        await this.runtime.render(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+        await this.runtime.render(
+          ctx,
+          this.runtime.translateError(locale, err),
+          mainMenuKeyboard(locale),
+        );
       }
     });
-    if (result === undefined) await this.runtime.alert(ctx, t(await this.runtime.getLocale(telegramId), 'common.loading'));
+    if (result === undefined)
+      await this.runtime.alert(ctx, t(await this.runtime.getLocale(telegramId), 'common.loading'));
   }
 
   /** Open a support ticket pre-filled with the subscription context. */
   async reportProblem(ctx: Context, subPublicId: string): Promise<void> {
     const telegramId = ctx.from?.id?.toString()!;
     const locale = await this.runtime.getLocale(telegramId);
-    await this.runtime.setState(telegramId, 'support_awaiting_subject', { ticketCategory: 'TECHNICAL', reportSubId: subPublicId });
+    await this.runtime.setState(telegramId, 'support_awaiting_subject', {
+      ticketCategory: 'TECHNICAL',
+      reportSubId: subPublicId,
+    });
     await this.runtime.alert(ctx);
     await this.runtime.render(ctx, t(locale, 'support.subject.prompt'), cancelKeyboard(locale));
   }

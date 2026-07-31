@@ -1,4 +1,10 @@
-import { Injectable, OnModuleInit, OnApplicationBootstrap, OnModuleDestroy, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnApplicationBootstrap,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
 import { Telegraf, type Context } from 'telegraf';
 import { config } from '@/config';
 import { PrismaService } from '@/common/prisma/prisma.service';
@@ -210,7 +216,9 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
             }`,
           );
           if (attempt >= MAX_ATTEMPTS) {
-            this.logger.error('Telegram bot launch exhausted all retries — bot will not receive updates');
+            this.logger.error(
+              'Telegram bot launch exhausted all retries — bot will not receive updates',
+            );
             return;
           }
           const delay = BASE_DELAY_MS * Math.pow(2, Math.min(attempt - 1, 4));
@@ -300,9 +308,9 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
           : 'fa';
         const userMsg = this.runtime.translateError(locale, err) || t(locale, 'error.generic');
         await ctx?.reply?.(userMsg).catch(() => {});
-if (ctx.callbackQuery) {
-  await ctx?.answerCbQuery?.().catch(() => {});
-}
+        if (ctx.callbackQuery) {
+          await ctx?.answerCbQuery?.().catch(() => {});
+        }
       }
     });
   }
@@ -358,7 +366,9 @@ if (ctx.callbackQuery) {
     // Admin CRUD actions (spec #9/#10 — manage plans/settings/panels in-bot).
     // Distinct prefixes avoid colliding with the adm:* catch-all above.
     this.bot.action(/aplan:(detail|toggle|archive|new|edit)(?::(.+))?/, (ctx) => {
-      const m = (ctx.callbackQuery as any)?.data?.match(/aplan:(detail|toggle|archive|new|edit)(?::(.+))?/);
+      const m = (ctx.callbackQuery as any)?.data?.match(
+        /aplan:(detail|toggle|archive|new|edit)(?::(.+))?/,
+      );
       return this.admin.onPlanAction(ctx, m![1], m![2] ?? '');
     });
     this.bot.action(/apledit:([a-zA-Z]+):(.+)/, (ctx) => {
@@ -371,7 +381,9 @@ if (ctx.callbackQuery) {
       return this.admin.onSettingAction(ctx, m![1], m![2] ?? '');
     });
     this.bot.action(/apnl:(detail|health|toggle|new)(?::(.+))?/, (ctx) => {
-      const m = (ctx.callbackQuery as any)?.data?.match(/apnl:(detail|health|toggle|new)(?::(.+))?/);
+      const m = (ctx.callbackQuery as any)?.data?.match(
+        /apnl:(detail|health|toggle|new)(?::(.+))?/,
+      );
       return this.admin.onPanelAction(ctx, m![1], m![2] ?? '');
     });
     // Admin broadcast confirm/cancel actions (bcast: prefix to avoid adm: catch-all)
@@ -389,10 +401,16 @@ if (ctx.callbackQuery) {
     );
 
     // Buy flow
-    this.bot.action(/plan:(.+)/, (ctx) => this.buy.onSelectPlan(ctx, this.match(ctx, /plan:(.+)/)!));
+    this.bot.action(/plan:(.+)/, (ctx) =>
+      this.buy.onSelectPlan(ctx, this.match(ctx, /plan:(.+)/)!),
+    );
     this.bot.action('orderproceed', this.wrap(this.buy.onProceed.bind(this.buy)));
     this.bot.action(/paymethod:(.+)/, (ctx) =>
-      this.buy.onSelectPaymentMethod(ctx, this.match(ctx, /paymethod:(.+)/)! as 'WALLET' | 'ONLINE' | 'CARD_TO_CARD' | 'CRYPTO' | 'VOUCHER'),
+      this.buy.onSelectPaymentMethod(
+        ctx,
+        this.match(ctx, /paymethod:(.+)/)! as
+          'WALLET' | 'ONLINE' | 'CARD_TO_CARD' | 'CRYPTO' | 'VOUCHER',
+      ),
     );
     // "I've sent the crypto" confirm button (shared by buy + wallet deposit).
     this.bot.action('cryptoconfirm', this.wrap(this.onCryptoConfirm.bind(this)));
@@ -402,33 +420,67 @@ if (ctx.callbackQuery) {
     this.bot.action('whistory', this.wrap(this.wallet.showHistory.bind(this.wallet)));
     this.bot.action('wgift', this.wrap(this.wallet.showGiftHistory.bind(this.wallet)));
     // Wallet deposit: pre-set amount buttons (100k / 200k / 500k)
-    this.bot.action(/wdepamt:(.+)/, (ctx) => this.wallet.onSelectPresetDepositAmount(ctx, this.match(ctx, /wdepamt:(.+)/)!));
+    this.bot.action(/wdepamt:(.+)/, (ctx) =>
+      this.wallet.onSelectPresetDepositAmount(ctx, this.match(ctx, /wdepamt:(.+)/)!),
+    );
 
     // Subscriptions flow
     this.bot.action(/sub:(.+)/, (ctx) => this.subs.showDetail(ctx, this.match(ctx, /sub:(.+)/)!));
-    this.bot.action(/subpage:(.+)/, (ctx) => this.subs.showList(ctx, Number(this.match(ctx, /subpage:(.+)/)!)));
-    this.bot.action(/sublink:(.+)/, (ctx) => this.subs.showLink(ctx, this.match(ctx, /sublink:(.+)/)!));
-    this.bot.action(/subguide:(.+)/, (ctx) => this.subs.showGuide(ctx, this.match(ctx, /subguide:(.+)/)!));
-    this.bot.action(/subrenew:(.+)/, (ctx) => this.subs.confirmRenew(ctx, this.match(ctx, /subrenew:(.+)/)!));
-    this.bot.action(/yes:renew:(.+)/, (ctx) => this.subs.doRenew(ctx, this.match(ctx, /yes:renew:(.+)/)!));
-    this.bot.action(/subextend:(.+)/, (ctx) => this.subs.promptExtend(ctx, this.match(ctx, /subextend:(.+)/)!));
-    this.bot.action(/subupgrade:(.+)/, (ctx) => this.subs.showUpgrade(ctx, this.match(ctx, /subupgrade:(.+)/)!));
+    this.bot.action(/subpage:(.+)/, (ctx) =>
+      this.subs.showList(ctx, Number(this.match(ctx, /subpage:(.+)/)!)),
+    );
+    this.bot.action(/sublink:(.+)/, (ctx) =>
+      this.subs.showLink(ctx, this.match(ctx, /sublink:(.+)/)!),
+    );
+    this.bot.action(/subguide:(.+)/, (ctx) =>
+      this.subs.showGuide(ctx, this.match(ctx, /subguide:(.+)/)!),
+    );
+    this.bot.action(/subrenew:(.+)/, (ctx) =>
+      this.subs.confirmRenew(ctx, this.match(ctx, /subrenew:(.+)/)!),
+    );
+    this.bot.action(/yes:renew:(.+)/, (ctx) =>
+      this.subs.doRenew(ctx, this.match(ctx, /yes:renew:(.+)/)!),
+    );
+    this.bot.action(/subextend:(.+)/, (ctx) =>
+      this.subs.promptExtend(ctx, this.match(ctx, /subextend:(.+)/)!),
+    );
+    this.bot.action(/subupgrade:(.+)/, (ctx) =>
+      this.subs.showUpgrade(ctx, this.match(ctx, /subupgrade:(.+)/)!),
+    );
     this.bot.action(/upg:(.+)/, (ctx) => {
       const m = ctx.callbackQuery && (ctx as any).callbackQuery!.data!.match(/upg:(.+)/);
       return this.subs.doUpgrade(ctx, m![1]);
     });
-    this.bot.action(/subreset:(.+)/, (ctx) => this.subs.confirmReset(ctx, this.match(ctx, /subreset:(.+)/)!));
-    this.bot.action(/yes:reset:(.+)/, (ctx) => this.subs.doReset(ctx, this.match(ctx, /yes:reset:(.+)/)!));
-    this.bot.action(/subreport:(.+)/, (ctx) => this.subs.reportProblem(ctx, this.match(ctx, /subreport:(.+)/)!));
+    this.bot.action(/subreset:(.+)/, (ctx) =>
+      this.subs.confirmReset(ctx, this.match(ctx, /subreset:(.+)/)!),
+    );
+    this.bot.action(/yes:reset:(.+)/, (ctx) =>
+      this.subs.doReset(ctx, this.match(ctx, /yes:reset:(.+)/)!),
+    );
+    this.bot.action(/subreport:(.+)/, (ctx) =>
+      this.subs.reportProblem(ctx, this.match(ctx, /subreport:(.+)/)!),
+    );
 
     // Support / tickets flow
     this.bot.action('newticket', this.wrap(this.support.startNewTicket.bind(this.support)));
-    this.bot.action(/tcat:(.+)/, (ctx) => this.support.onSelectCategory(ctx, this.match(ctx, /tcat:(.+)/)!));
-    this.bot.action(/tickets:(OPEN|CLOSED)/, (ctx) => this.support.showList(ctx, this.match(ctx, /tickets:(OPEN|CLOSED)/)! as 'OPEN' | 'CLOSED'));
-    this.bot.action(/ticket:(.+)/, (ctx) => this.support.showDetail(ctx, this.match(ctx, /ticket:(.+)/)!));
-    this.bot.action(/tkview:(.+)/, (ctx) => this.support.viewMessages(ctx, this.match(ctx, /tkview:(.+)/)!));
-    this.bot.action(/tkreply:(.+)/, (ctx) => this.support.startReply(ctx, this.match(ctx, /tkreply:(.+)/)!));
-    this.bot.action(/tkclose:(.+)/, (ctx) => this.support.closeTicket(ctx, this.match(ctx, /tkclose:(.+)/)!));
+    this.bot.action(/tcat:(.+)/, (ctx) =>
+      this.support.onSelectCategory(ctx, this.match(ctx, /tcat:(.+)/)!),
+    );
+    this.bot.action(/tickets:(OPEN|CLOSED)/, (ctx) =>
+      this.support.showList(ctx, this.match(ctx, /tickets:(OPEN|CLOSED)/)! as 'OPEN' | 'CLOSED'),
+    );
+    this.bot.action(/ticket:(.+)/, (ctx) =>
+      this.support.showDetail(ctx, this.match(ctx, /ticket:(.+)/)!),
+    );
+    this.bot.action(/tkview:(.+)/, (ctx) =>
+      this.support.viewMessages(ctx, this.match(ctx, /tkview:(.+)/)!),
+    );
+    this.bot.action(/tkreply:(.+)/, (ctx) =>
+      this.support.startReply(ctx, this.match(ctx, /tkreply:(.+)/)!),
+    );
+    this.bot.action(/tkclose:(.+)/, (ctx) =>
+      this.support.closeTicket(ctx, this.match(ctx, /tkclose:(.+)/)!),
+    );
     this.bot.action(/tkpage:(.+)/, async (ctx) => {
       const data = (ctx as any).callbackQuery?.data ?? '';
       const sess = await this.runtime.getSession(ctx.from!.id.toString());
@@ -528,11 +580,10 @@ if (ctx.callbackQuery) {
     // in many versions; fall back to parsing the message text if unavailable.
     const messageText =
       typeof (ctx.message as { text?: unknown } | undefined)?.text === 'string'
-        ? ((ctx.message as { text: string }).text)
+        ? (ctx.message as { text: string }).text
         : undefined;
     const rawPayload =
-      (ctx as any).startPayload ??
-      (messageText ? messageText.split(' ')[1] : undefined);
+      (ctx as any).startPayload ?? (messageText ? messageText.split(' ')[1] : undefined);
     const referralCode = rawPayload && rawPayload.length ? rawPayload : undefined;
 
     const result = await this.auth.mintForTelegramUser({
@@ -550,8 +601,8 @@ if (ctx.callbackQuery) {
   private async showMenu(ctx: Context): Promise<void> {
     const telegramId = ctx.from?.id?.toString()!;
     const locale = await this.runtime.getLocale(telegramId);
-const session = await this.runtime.getSession(telegramId);
-const role = session.data?.forceAdminMenu ? 'SUPER_ADMIN' : await this.getUserRole(telegramId);
+    const session = await this.runtime.getSession(telegramId);
+    const role = session.data?.forceAdminMenu ? 'SUPER_ADMIN' : await this.getUserRole(telegramId);
     await this.runtime.resetMenu(telegramId, 'main');
     await this.runtime.setState(telegramId, 'idle');
     // Spec #7 UX: edit the existing message in place (no new message on menu tap).
@@ -597,7 +648,11 @@ const role = session.data?.forceAdminMenu ? 'SUPER_ADMIN' : await this.getUserRo
     await this.runtime.resetMenu(telegramId, 'main');
     await this.runtime.alert(ctx);
     // Spec #7 UX: edit-in-place.
-    await this.runtime.editOrSend(ctx, t(locale, 'cancel'), mainMenuKeyboard(locale, await this.getUserRole(telegramId)));
+    await this.runtime.editOrSend(
+      ctx,
+      t(locale, 'cancel'),
+      mainMenuKeyboard(locale, await this.getUserRole(telegramId)),
+    );
   }
 
   private async onBack(ctx: Context): Promise<void> {
@@ -632,7 +687,11 @@ const role = session.data?.forceAdminMenu ? 'SUPER_ADMIN' : await this.getUserRo
         await this.admin.show(ctx);
         break;
       default:
-        await this.runtime.render(ctx, t(locale, 'menu.title'), mainMenuKeyboard(locale, await this.getUserRole(telegramId)));
+        await this.runtime.render(
+          ctx,
+          t(locale, 'menu.title'),
+          mainMenuKeyboard(locale, await this.getUserRole(telegramId)),
+        );
     }
   }
 
@@ -655,11 +714,11 @@ const role = session.data?.forceAdminMenu ? 'SUPER_ADMIN' : await this.getUserRo
 
     // Stub answerCbQuery for text updates so flow handlers don't crash.
     if (typeof ctx.answerCbQuery !== 'function') {
-ctx.answerCbQuery = async () => {
-  if (ctx.callbackQuery) {
-    await ctx?.answerCbQuery?.().catch(() => {});
-  }
-};
+      ctx.answerCbQuery = async () => {
+        if (ctx.callbackQuery) {
+          await ctx?.answerCbQuery?.().catch(() => {});
+        }
+      };
     }
 
     // Onboarding guard: a brand-new user must pick a language before they can
@@ -678,7 +737,10 @@ ctx.answerCbQuery = async () => {
           await this.ensureUser(ctx);
           session.userId = (await this.runtime.getSession(telegramId)).userId;
         } catch (err: any) {
-          this.logger.error(`ensureUser failed for ${telegramId}: ${err?.message ?? err}`, err?.stack);
+          this.logger.error(
+            `ensureUser failed for ${telegramId}: ${err?.message ?? err}`,
+            err?.stack,
+          );
         }
       }
     }
@@ -738,7 +800,11 @@ ctx.answerCbQuery = async () => {
       if (matches('menu.support')) return this.support.show(ctx);
       if (matches('menu.admin')) return this.admin.show(ctx);
       if (matches('menu.language')) {
-        await this.runtime.send(ctx, t(locale, 'start.welcome', { brand: await this.runtime.getBrandName() }), languageKeyboard());
+        await this.runtime.send(
+          ctx,
+          t(locale, 'start.welcome', { brand: await this.runtime.getBrandName() }),
+          languageKeyboard(),
+        );
         return;
       }
       if (matches('menu.back')) return this.onBack(ctx);
@@ -781,7 +847,11 @@ ctx.answerCbQuery = async () => {
         await this.runtime.alert(ctx);
         // Only send error message if the flow didn't already handle the response
         const role = await this.getUserRole(telegramId);
-        await this.runtime.render(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale, role));
+        await this.runtime.render(
+          ctx,
+          this.runtime.translateError(locale, err),
+          mainMenuKeyboard(locale, role),
+        );
       }
       return;
     }

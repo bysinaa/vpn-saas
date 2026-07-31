@@ -92,7 +92,10 @@ export class ReferralFlow {
       const currency = wallet?.currency ?? 'IRR';
 
       const link = this.runtime.buildReferralLink(user.referralCode);
-      const shareText = t(locale, 'referral.share.text', { brand: await this.runtime.getBrandName(), link });
+      const shareText = t(locale, 'referral.share.text', {
+        brand: await this.runtime.getBrandName(),
+        link,
+      });
 
       const msg =
         `${t(locale, 'referral.title')}\n\n` +
@@ -107,10 +110,16 @@ export class ReferralFlow {
       await this.runtime.pushMenu(telegramId, 'referral');
       await this.runtime.setState(telegramId, 'idle');
       await this.runtime.alert(ctx);
-      await this.runtime.render(ctx, msg, referralKeyboard(locale, link, shareText), { parseMode: 'Markdown' });
+      await this.runtime.render(ctx, msg, referralKeyboard(locale, link, shareText), {
+        parseMode: 'Markdown',
+      });
     } catch (err: any) {
       await this.runtime.alert(ctx);
-      await this.runtime.render(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+      await this.runtime.render(
+        ctx,
+        this.runtime.translateError(locale, err),
+        mainMenuKeyboard(locale),
+      );
     }
   }
 
@@ -122,14 +131,22 @@ export class ReferralFlow {
     if (!session.userId) return;
 
     // Read configurable rule values from SystemSetting (with sensible defaults).
-    const commissionPct = Number((await this.runtime.getSetting('referral.commission_percent')) ?? '10');
-    const bonusMinor = BigInt((await this.runtime.getSetting('referral.signup_bonus_minor')) ?? '0');
+    const commissionPct = Number(
+      (await this.runtime.getSetting('referral.commission_percent')) ?? '10',
+    );
+    const bonusMinor = BigInt(
+      (await this.runtime.getSetting('referral.signup_bonus_minor')) ?? '0',
+    );
     const wallet = await this.prisma.wallet.findUnique({ where: { userId: session.userId } });
     const currency = wallet?.currency ?? 'IRR';
 
-    const referralCode = (await this.prisma.user.findUnique({ where: { id: session.userId } }))?.referralCode ?? '';
+    const referralCode =
+      (await this.prisma.user.findUnique({ where: { id: session.userId } }))?.referralCode ?? '';
     const link = referralCode ? this.runtime.buildReferralLink(referralCode) : '';
-    const shareText = t(locale, 'referral.share.text', { brand: await this.runtime.getBrandName(), link });
+    const shareText = t(locale, 'referral.share.text', {
+      brand: await this.runtime.getBrandName(),
+      link,
+    });
 
     const body = t(locale, 'referral.rules.body', {
       commission: commissionPct,
@@ -138,7 +155,9 @@ export class ReferralFlow {
     });
 
     await this.runtime.alert(ctx);
-    await this.runtime.render(ctx, body, referralKeyboard(locale, link, shareText), { parseMode: 'Markdown' });
+    await this.runtime.render(ctx, body, referralKeyboard(locale, link, shareText), {
+      parseMode: 'Markdown',
+    });
   }
 
   /** Show the referral history (`refhistory`), paginated. */
@@ -167,7 +186,12 @@ export class ReferralFlow {
       await this.runtime.alert(ctx);
 
       if (!referrals.length) {
-        await this.runtime.render(ctx, t(locale, 'referral.history.empty'), mainMenuKeyboard(locale), { parseMode: 'Markdown' });
+        await this.runtime.render(
+          ctx,
+          t(locale, 'referral.history.empty'),
+          mainMenuKeyboard(locale),
+          { parseMode: 'Markdown' },
+        );
         return;
       }
 
@@ -186,7 +210,11 @@ export class ReferralFlow {
       await this.runtime.render(ctx, msg, mainMenuKeyboard(locale), { parseMode: 'Markdown' });
     } catch (err: any) {
       await this.runtime.alert(ctx);
-      await this.runtime.render(ctx, this.runtime.translateError(locale, err), mainMenuKeyboard(locale));
+      await this.runtime.render(
+        ctx,
+        this.runtime.translateError(locale, err),
+        mainMenuKeyboard(locale),
+      );
     }
   }
 
@@ -194,7 +222,10 @@ export class ReferralFlow {
   private async generateUniqueCode(): Promise<string> {
     for (let i = 0; i < 5; i++) {
       const code = randomCode(8);
-      const exists = await this.prisma.user.findFirst({ where: { referralCode: code }, select: { id: true } });
+      const exists = await this.prisma.user.findFirst({
+        where: { referralCode: code },
+        select: { id: true },
+      });
       if (!exists) return code;
     }
     // Fallback: use a timestamp-suffixed code.
