@@ -627,5 +627,222 @@
       "rawOutput": "PANEL_ALREADY_REGISTERED: {\n  \"id\": \"2\",\n  \"name\": \"3x-ui (mhsanaei) local\",\n  \"baseUrl\": \"http://127.0.0.1:2053\",\n  \"status\": \"ACTIVE\"\n}\n",
       "error": null
     }
+  },
+  "databases": {
+    "discovered": [
+      {
+        "source": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env",
+        "type": "envfile",
+        "host": "localhost",
+        "port": 5432,
+        "container": null,
+        "image": null,
+        "mounts": [],
+        "envVars": {
+          "DATABASE_URL": "postgresql://vpn_user:change-me-postgres-password@127.0.0.1:5433/vpn_saas?schema=public"
+        },
+        "composeFile": null,
+        "serviceName": null,
+        "credentialsFound": {
+          "DATABASE_URL": "postgresql://vpn_user:change-me-postgres-password@127.0.0.1:5433/vpn_saas?schema=public"
+        },
+        "timestamp": "2026-07-31T22:36:09.062Z",
+        "listen": "tcp-connect-success"
+      },
+      {
+        "source": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\deploy\\infrastructure\\postgres\\.env",
+        "type": "envfile",
+        "host": "localhost",
+        "port": "5432",
+        "container": null,
+        "image": null,
+        "mounts": [],
+        "envVars": {
+          "POSTGRES_USER": "postgres",
+          "POSTGRES_PASSWORD": "change-me-strong-password",
+          "POSTGRES_PORT": "5432"
+        },
+        "composeFile": null,
+        "serviceName": null,
+        "credentialsFound": {
+          "POSTGRES_USER": "postgres",
+          "POSTGRES_PASSWORD": "change-me-strong-password",
+          "POSTGRES_PORT": "5432"
+        },
+        "timestamp": "2026-07-31T22:36:09.063Z"
+      },
+      {
+        "source": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\deploy\\infrastructure\\shared\\.env",
+        "type": "envfile",
+        "host": "postgres",
+        "port": "5432",
+        "container": null,
+        "image": null,
+        "mounts": [],
+        "envVars": {
+          "POSTGRES_HOST": "postgres",
+          "POSTGRES_PORT": "5432",
+          "POSTGRES_USER": "postgres",
+          "POSTGRES_PASSWORD": "change-me-strong-password",
+          "XUI_DB_TYPE": "postgres",
+          "XUI_DB_DSN": "postgres://postgres:change-me-strong-password@postgres:5432/xui"
+        },
+        "composeFile": null,
+        "serviceName": null,
+        "credentialsFound": {
+          "POSTGRES_HOST": "postgres",
+          "POSTGRES_PORT": "5432",
+          "POSTGRES_USER": "postgres",
+          "POSTGRES_PASSWORD": "change-me-strong-password",
+          "XUI_DB_TYPE": "postgres",
+          "XUI_DB_DSN": "postgres://postgres:change-me-strong-password@postgres:5432/xui"
+        },
+        "timestamp": "2026-07-31T22:36:09.063Z"
+      },
+      {
+        "source": "docker:postgres",
+        "type": "docker",
+        "host": "localhost",
+        "port": 5432,
+        "container": "postgres",
+        "image": "postgres:16-alpine",
+        "mounts": [],
+        "envVars": {},
+        "composeFile": null,
+        "serviceName": null,
+        "credentialsFound": {},
+        "timestamp": "2026-07-31T22:36:09.234Z"
+      },
+      {
+        "source": "docker:postgres",
+        "type": "docker",
+        "host": "localhost",
+        "port": 5432,
+        "container": "postgres",
+        "image": "postgres:16-alpine",
+        "mounts": [],
+        "envVars": {},
+        "composeFile": null,
+        "serviceName": null,
+        "credentialsFound": {},
+        "timestamp": "2026-07-31T22:36:09.234Z"
+      },
+      {
+        "source": "docker:vpn-saas-postgres-1",
+        "type": "docker",
+        "host": "localhost",
+        "port": 5433,
+        "container": "vpn-saas-postgres-1",
+        "image": "postgres:16-alpine",
+        "mounts": [],
+        "envVars": {},
+        "composeFile": null,
+        "serviceName": null,
+        "credentialsFound": {},
+        "timestamp": "2026-07-31T22:36:09.299Z",
+        "listen": "tcp-connect-success"
+      },
+      {
+        "source": "docker:vpn-saas-postgres-1",
+        "type": "docker",
+        "host": "localhost",
+        "port": 5433,
+        "container": "vpn-saas-postgres-1",
+        "image": "postgres:16-alpine",
+        "mounts": [],
+        "envVars": {},
+        "composeFile": null,
+        "serviceName": null,
+        "credentialsFound": {},
+        "timestamp": "2026-07-31T22:36:09.299Z"
+      },
+      {
+        "source": "docker:parto-postgres",
+        "type": "docker",
+        "host": "localhost",
+        "port": 55432,
+        "container": "parto-postgres",
+        "image": "postgres:16-alpine",
+        "mounts": [],
+        "envVars": {},
+        "composeFile": null,
+        "serviceName": null,
+        "credentialsFound": {},
+        "timestamp": "2026-07-31T22:36:09.362Z"
+      },
+      {
+        "source": "docker:parto-postgres",
+        "type": "docker",
+        "host": "localhost",
+        "port": 55432,
+        "container": "parto-postgres",
+        "image": "postgres:16-alpine",
+        "mounts": [],
+        "envVars": {},
+        "composeFile": null,
+        "serviceName": null,
+        "credentialsFound": {},
+        "timestamp": "2026-07-31T22:36:09.362Z"
+      }
+    ],
+    "registrySuggested": {
+      "databases": [
+        {
+          "type": "postgres",
+          "host": "localhost",
+          "port": 5432,
+          "database": "vpn_saas",
+          "owner": "tazaxy",
+          "managed": false,
+          "source": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env",
+          "credentials": {
+            "DATABASE_URL": "postgresql://vpn_user:change-me-postgres-password@127.0.0.1:5433/vpn_saas?schema=public"
+          }
+        },
+        {
+          "type": "postgres",
+          "host": "postgres",
+          "port": "5432",
+          "database": "vpn_saas",
+          "owner": "tazaxy",
+          "managed": false,
+          "source": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\deploy\\infrastructure\\shared\\.env",
+          "credentials": {
+            "POSTGRES_HOST": "postgres",
+            "POSTGRES_PORT": "5432",
+            "POSTGRES_USER": "postgres",
+            "POSTGRES_PASSWORD": "change-me-strong-password",
+            "XUI_DB_TYPE": "postgres",
+            "XUI_DB_DSN": "postgres://postgres:change-me-strong-password@postgres:5432/xui"
+          }
+        },
+        {
+          "type": "postgres",
+          "host": "localhost",
+          "port": 5433,
+          "database": "vpn_saas",
+          "owner": "tazaxy",
+          "managed": false,
+          "source": "docker:vpn-saas-postgres-1"
+        },
+        {
+          "type": "postgres",
+          "host": "localhost",
+          "port": 55432,
+          "database": "vpn_saas",
+          "owner": "unknown",
+          "managed": false,
+          "source": "docker:parto-postgres"
+        }
+      ]
+    },
+    "notes": [
+      {
+        "type": "compose-suggest",
+        "path": "C:\\Users\\TAZA\\Desktop\\vpn-saas\\deploy\\infrastructure\\postgres\\docker-compose.yml",
+        "service": "postgres",
+        "snippet": "image: postgres:16-alpine"
+      }
+    ]
   }
 }

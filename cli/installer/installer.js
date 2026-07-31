@@ -33,10 +33,10 @@ async function main() {
   const args = process.argv.slice(2);
   const cmd = args[0];
 
-  if (!cmd || cmd === 'help') {
+if (!cmd || cmd === 'help') {
     console.log('installer.js - run installer stages');
     console.log('Usage: node cli/installer/installer.js <command> [--flags]');
-    console.log('Commands: preflight | detect | confirm [--base-url=URL] | register');
+    console.log('Commands: preflight | detect | detect-db | confirm [--base-url=URL] | register');
     process.exit(0);
   }
 
@@ -45,10 +45,31 @@ async function main() {
     process.exit(0);
   }
 
-  if (cmd === 'detect') {
+if (cmd === 'detect') {
     // forward remaining args (e.g. --insecure, --base-url=...)
     const forward = args.slice(1);
     await run(path.join('cli', 'installer', 'detect-xui.js'), forward);
+    process.exit(0);
+  }
+
+  if (cmd === 'detect-db') {
+    // Run the new database discovery stage (non-destructive)
+    const forward = args.slice(1);
+    await run(path.join('cli', 'installer', 'detect-db.js'), forward);
+    process.exit(0);
+  }
+
+  if (cmd === 'resolve-db') {
+    // Validate discovered DB candidates and optionally generate an isolated Postgres compose file
+    const forward = args.slice(1);
+    await run(path.join('cli', 'installer', 'resolve-db.js'), forward);
+    process.exit(0);
+  }
+
+  if (cmd === 'db-decision') {
+    // Interactive DB decision helper (CLI)
+    const forward = args.slice(1);
+    await run(path.join('cli', 'installer', 'db-decision.js'), forward);
     process.exit(0);
   }
 
