@@ -125,11 +125,21 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
     this.registerHandlers();
     this.attachErrorHandler();
 
-    const botInfo = await this._bot.telegram.getMe();
+    // Best-effort getMe — if the proxy is unreachable (e.g. inside Docker where
+    // 127.0.0.1:10808 doesn't exist), don't crash the entire app. The
+    // ensureBotConnectivity() call in onApplicationBootstrap will retry with
+    // a direct connection and set the username if this fails.
+    try {
+      const botInfo = await this._bot.telegram.getMe();
+      this.runtime.setBotUsername(botInfo.username);
+    } catch (err: any) {
+      this.logger.warn(
+        `Telegram getMe() failed in onModuleInit (proxy may be unreachable): ${err?.message ?? err}`,
+      );
+    }
 
     // Share the live Telegraf instance with BotRuntime so notifyAdmins() works.
     this.runtime.setBot(this._bot);
-    this.runtime.setBotUsername(botInfo.username);
     // Also share with BroadcastService so broadcasts use the same connection.
     this.broadcast.setBot(this._bot);
   }
