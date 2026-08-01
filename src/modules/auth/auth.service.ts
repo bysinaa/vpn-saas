@@ -342,7 +342,7 @@ export class AuthService {
       }
     }
 
-    return this.issueSession(user.id, user.publicId, user.role, user.email, user.telegramId, {
+    return this.issueSession(user!.id, user!.publicId, user!.role, user!.email, user!.telegramId, {
       userAgent: 'telegram-bot',
       ip: input.ip ?? '',
     });

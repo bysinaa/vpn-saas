@@ -9,6 +9,10 @@
  * Commands:
  *   preflight         Run preflight checks (cli/installer/preflight.js)
  *   detect            Run autodiscovery (cli/installer/detect-xui.js)
+ *   detect-db         Run database discovery
+ *   resolve-db        Validate discovered db candidates
+ *   db-decision       Interactive db decision helper
+ *   install-db        Orchestrated adaptive DB installation/selection
  *   confirm [--base-url=...]  Persist confirmed base URL (cli/installer/confirm-xui.js)
  *   register          Placeholder: register panel with SaaS backend (not implemented)
  *
@@ -36,7 +40,7 @@ async function main() {
 if (!cmd || cmd === 'help') {
     console.log('installer.js - run installer stages');
     console.log('Usage: node cli/installer/installer.js <command> [--flags]');
-    console.log('Commands: preflight | detect | detect-db | confirm [--base-url=URL] | register');
+    console.log('Commands: preflight | detect | detect-db | resolve-db | db-decision | install-db | confirm [--base-url=URL] | register');
     process.exit(0);
   }
 
@@ -70,6 +74,12 @@ if (cmd === 'detect') {
     // Interactive DB decision helper (CLI)
     const forward = args.slice(1);
     await run(path.join('cli', 'installer', 'db-decision.js'), forward);
+    process.exit(0);
+  }
+
+  if (cmd === 'install-db') {
+    const forward = args.slice(1);
+    await run(path.join('cli', 'installer', 'install-db.js'), forward);
     process.exit(0);
   }
 

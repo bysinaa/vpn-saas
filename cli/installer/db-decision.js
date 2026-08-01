@@ -3,18 +3,16 @@
  * db-decision.js
  *
  * Interactive DB decision helper for the installer.
+ * This version delegates all discovery/validation/persistence to the centralized
+ * DatabaseManager (cli/installer/database-manager.js -> src/database/database-manager.js).
  *
- * Responsibilities:
+ * Responsibilities (delegated):
  *  - Present discovered PostgreSQL instances (from installer-state.json).
- *  - Let operator choose:
- *     1) Reuse an existing detected instance
- *     2) Create an isolated Postgres (generate compose file only)
- *     3) Provide manual credentials (DATABASE_URL or parts)
- *  - Validate choices by invoking resolve-db.js where appropriate.
- *  - Persist the final choice into installer-state.json under state.databases.selected
+ *  - Let operator choose reuse / generate isolated / provide credentials.
+ *  - Persist final choice via DatabaseManager.persist()
  *
  * Safety rules:
- *  - Non-destructive by default. Creating an isolated instance only writes files; it does NOT start containers.
+ *  - Non-destructive by default. Creating an isolated instance only writes compose file; it does NOT start containers.
  *  - Never resets/changes credentials for discovered instances.
  *
  * Usage:
@@ -26,16 +24,8 @@ const { spawnSync } = require('child_process');
 const readline = require('readline');
 
 const STATE_PATH = path.resolve(process.cwd(), 'installer-state.json');
-
-function loadState() {
-  const _sm = require('./state-manager');
-  try { return _sm.loadState(STATE_PATH); } catch (e) { return {}; }
-}
-
-function saveState(state) {
-  const _sm = require('./state-manager');
-  _sm.saveState(STATE_PATH, state);
-}
+const dbm = require('./database-manager');
+const stateManager = require('./state-manager');
 
 function prompt(question) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -66,17 +56,24 @@ function runResolveDbValidate() {
 
 async function main() {
   console.log('DB Decision helper: this tool will help you pick or create a PostgreSQL instance for VPN SaaS.');
-  const state = loadState();
-  state.databases = state.databases || {};
-  const registry = (state.databases.registrySuggested && state.databases.registrySuggested.databases) || [];
 
+  // Load state via CLI state-manager
+  let state = {};
+  try {
+    state = stateManager.loadState(STATE_PATH) || {};
+  } catch (e) {
+    console.warn('Warning: failed to load installer-state.json via state-manager:', e && e.message ? e.message : e);
+    state = {};
+  }
+
+  const registry = (state.databases && state.databases.registrySuggested && state.databases.registrySuggested.databases) || [];
   if (!registry.length) {
     console.log('No discovered registry entries were found. You can either generate an isolated Postgres or provide manual credentials.');
   } else {
     listRegistry(registry);
   }
 
-  console.log('\nOptions:');
+  console.log('\\nOptions:');
   console.log('  1) Reuse an existing detected PostgreSQL instance');
   console.log('  2) Create an isolated Postgres (generate docker-compose file only; you must run it manually)');
   console.log('  3) Provide manual credentials (DATABASE_URL or user/password)');
@@ -95,21 +92,18 @@ async function main() {
     }
     const chosen = registry[idx];
     console.log('You selected:', chosen);
+
     if (!chosen.credentials || Object.keys(chosen.credentials).length === 0) {
       console.log('Warning: the selected instance has no discovered credentials. The installer will NOT modify this instance. You must provide credentials manually or choose to create an isolated Postgres.');
       const c = await prompt('Do you want to (a) provide credentials now, (b) generate an isolated Postgres, or (c) cancel? (a/b/c): ');
       if (c === 'a') {
-        // ask for credentials
         const dbUrl = await prompt('Enter DATABASE_URL (leave empty to provide user/password instead): ');
         if (dbUrl) {
-          // persist as manual registry entry (managed=false)
           const entry = { type: 'postgres', host: chosen.host, port: chosen.port, database: chosen.database || 'vpn_saas', owner: chosen.owner || 'unknown', managed: false, source: `manual:provided-dburl`, credentials: { DATABASE_URL: dbUrl } };
-          state.databases.registrySuggested = state.databases.registrySuggested || { databases: [] };
-          state.databases.selected = entry;
-          saveState(state);
+          await dbm.persist(entry);
           console.log('Saved manual DATABASE_URL to installer-state.json as selected database.');
-          console.log('Validating selection using resolve-db...');
-          runResolveDbValidate();
+          console.log('Validating selection using DatabaseManager.validate()...');
+          await dbm.validate({ registry: [entry], generateIsolated: false });
           process.exit(0);
         } else {
           const user = await prompt('POSTGRES_USER: ');
@@ -120,22 +114,15 @@ async function main() {
             process.exit(4);
           }
           const entry = { type: 'postgres', host: chosen.host, port: chosen.port, database: db || 'vpn_saas', owner: chosen.owner || 'unknown', managed: false, source: `manual:provided-userpass`, credentials: { POSTGRES_USER: user, POSTGRES_PASSWORD: pass, POSTGRES_DB: db || 'vpn_saas' } };
-          state.databases.registrySuggested = state.databases.registrySuggested || { databases: [] };
-          state.databases.selected = entry;
-          saveState(state);
+          await dbm.persist(entry);
           console.log('Saved manual credentials to installer-state.json as selected database.');
-          console.log('Validating selection using resolve-db...');
-          runResolveDbValidate();
+          console.log('Validating selection using DatabaseManager.validate()...');
+          await dbm.validate({ registry: [entry], generateIsolated: false });
           process.exit(0);
         }
       } else if (c === 'b') {
-        // generate isolated
         console.log('Generating isolated Postgres (compose file only)...');
-        const res = spawnSync('node', [path.join('cli', 'installer', 'resolve-db.js'), '--generate-isolated'], { cwd: process.cwd(), stdio: 'inherit', env: process.env });
-        if (res.status !== 0) {
-          console.error('Failed to generate isolated Postgres. See output above.');
-          process.exit(5);
-        }
+        await dbm.validate({ registry: null, generateIsolated: true });
         console.log('Compose generated. Follow instructions from resolve-db output to start container and re-run this helper.');
         process.exit(0);
       } else {
@@ -144,29 +131,23 @@ async function main() {
       }
     } else {
       // credentials present - persist selection and validate
-      state.databases.selected = chosen;
-      saveState(state);
+      await dbm.persist(chosen);
       console.log('Saved selected candidate to installer-state.json as selected database. Validating now...');
-      runResolveDbValidate();
+      await dbm.validate({ registry: [chosen], generateIsolated: false });
       process.exit(0);
     }
   } else if (opt === '2') {
     console.log('Generating isolated Postgres (compose file only)...');
-    const res = spawnSync('node', [path.join('cli', 'installer', 'resolve-db.js'), '--generate-isolated'], { cwd: process.cwd(), stdio: 'inherit', env: process.env });
-    if (res.status !== 0) {
-      console.error('Failed to generate isolated Postgres. See output above.');
-      process.exit(6);
-    }
+    await dbm.validate({ registry: null, generateIsolated: true });
     console.log('Compose generated. Follow instructions from resolve-db output to start container and re-run this helper.');
     process.exit(0);
   } else if (opt === '3') {
     const dbUrl = await prompt('Enter DATABASE_URL (leave empty to provide user/password instead): ');
     if (dbUrl) {
       const entry = { type: 'postgres', host: null, port: null, database: null, owner: 'manual', managed: false, source: `manual:provided-dburl`, credentials: { DATABASE_URL: dbUrl } };
-      state.databases.selected = entry;
-      saveState(state);
+      await dbm.persist(entry);
       console.log('Saved manual DATABASE_URL to installer-state.json as selected database. Validating now...');
-      runResolveDbValidate();
+      await dbm.validate({ registry: [entry], generateIsolated: false });
       process.exit(0);
     } else {
       const host = await prompt('Host (default localhost): ');
@@ -179,10 +160,9 @@ async function main() {
         process.exit(7);
       }
       const entry = { type: 'postgres', host: host || 'localhost', port: port ? parseInt(port, 10) : 5432, database: db || 'vpn_saas', owner: 'manual', managed: false, source: `manual:provided-userpass`, credentials: { POSTGRES_USER: user, POSTGRES_PASSWORD: pass, POSTGRES_DB: db || 'vpn_saas' } };
-      state.databases.selected = entry;
-      saveState(state);
+      await dbm.persist(entry);
       console.log('Saved manual credentials to installer-state.json as selected database. Validating now...');
-      runResolveDbValidate();
+      await dbm.validate({ registry: [entry], generateIsolated: false });
       process.exit(0);
     }
   } else {

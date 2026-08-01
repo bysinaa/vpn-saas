@@ -1202,13 +1202,13 @@ export class AdminFlow {
   }
 
   /** Handle broadcast message text input — sent to admin confirmation. */
-    async onBroadcastText(ctx: Context, text: string): Promise<boolean> {
-      const locale = await this.guard(ctx);
-      if (!locale) return false;
-      const telegramId = this.getTelegramId(ctx);
-      if (!telegramId) return false;
-      const session = await this.runtime.getSession(telegramId);
-      if (session.state !== 'admin_broadcast_awaiting_message') return false;
+  async onBroadcastText(ctx: Context, text: string): Promise<boolean> {
+    const locale = await this.guard(ctx);
+    if (!locale) return false;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return false;
+    const session = await this.runtime.getSession(telegramId);
+    if (session.state !== 'admin_broadcast_awaiting_message') return false;
 
     if (text.trim() === '/cancel') {
       await this.runtime.clearState(telegramId);
