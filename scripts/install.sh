@@ -189,8 +189,14 @@ main() {
   install_or_update_repo
   build_cli
   install_launcher
-  run_cli_installer "$@"
-  show_management_menu
+  # If the user requested only 3X‑UI installation, skip the interactive installer
+  if [[ "$@" == *"--install-3xui"* ]]; then
+    log "Installing 3X‑UI runtime only (skipping interactive configuration)"
+    node cli/dist-cli/index.js install3xui
+  else
+    run_cli_installer "$@"
+    show_management_menu
+  fi
 }
 
 main "$@"
