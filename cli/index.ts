@@ -227,28 +227,148 @@ async function showInteractiveMenu() {
   }
 }
 
+/**
+ * Discovery-first interactive menu.
+ *
+ * Reads installer-state.json, checks for .env, detects Docker containers,
+ * and shows a context-aware menu with status indicators (✅/❌/⚠️).
+ * The menu adapts based on what's already installed/configured.
+ */
 async function promptMenuSelection(): Promise<MenuAction> {
   const readline = await import('readline');
 
-  const installed = fs.existsSync(path.join(workspaceRoot, '.env'));
-  const firstActionLabel = installed ? 'Edit .env File' : 'Install Platform';
+  // ── Discovery ───────────────────────────────────────────────────
+  const state = loadInstallerState();
+  const envExists = fs.existsSync(path.join(workspaceRoot, '.env'));
+  const dockerState = await detectDockerState();
 
-  console.log('Tazaxy CLI');
+  // Derive installation status from discovery data
+  const xuiDetected = state?.xui?.detected === true || dockerState.xuiContainerRunning;
+  const xuiConfirmed = !!state?.xui?.confirmed;
+  const dbDiscovered = !!state?.db?.discovered;
+  const configWritten = !!state?.config?.written;
+  const healthChecked = !!state?.health;
+  const appRunning = dockerState.appContainerRunning;
+  const fullyInstalled = envExists && xuiDetected && dbDiscovered && configWritten;
+
+  // ── Status icons ────────────────────────────────────────────────
+  const icon = (ok: boolean) => (ok ? '\x1b[32m✅\x1b[0m' : '\x1b[31m❌\x1b[0m');
+  const warn = '\x1b[33m⚠️\x1b[0m';
+
+  // ── Build dynamic menu ──────────────────────────────────────────
+  type MenuItem = { label: string; action: MenuAction };
+  const items: MenuItem[] = [];
+
+  // 1. Install / Repair
+  if (fullyInstalled) {
+    items.push({ label: 'Repair / Reconfigure Platform', action: 'install' });
+  } else if (envExists) {
+    items.push({ label: 'Continue Installation (incomplete)', action: 'install' });
+  } else {
+    items.push({ label: 'Install Platform', action: 'install' });
+  }
+
+  // 2. Edit .env (only if it exists)
+  if (envExists) {
+    items.push({ label: 'Edit .env File', action: 'editEnv' });
+  }
+
+  // 3. Health Status
+  {
+    const healthIcon = healthChecked
+      ? state?.health?.value?.overall === 'healthy'
+        ? icon(true)
+        : warn
+      : icon(false);
+    items.push({ label: `${healthIcon} Health Status`, action: 'status' });
+  }
+
+  // 4. Super Admin
+  items.push({ label: 'Configure Super Admin', action: 'admin' });
+
+  // 5. 3X-UI Panel
+  {
+    const panelIcon = xuiConfirmed ? icon(true) : xuiDetected ? warn : icon(false);
+    const panelLabel = xuiConfirmed
+      ? '3X-UI Panel (configured)'
+      : xuiDetected
+        ? '3X-UI Panel (detected, unconfirmed)'
+        : '3X-UI Panel (not detected)';
+    items.push({ label: `${panelIcon} ${panelLabel}`, action: 'panel' });
+  }
+
+  // 6. Start Services
+  {
+    const startIcon = appRunning ? icon(true) : icon(false);
+    items.push({ label: `${startIcon} Start Services`, action: 'start' });
+  }
+
+  // 7. Stop Services
+  if (appRunning) {
+    items.push({ label: 'Stop Services', action: 'stop' });
+  }
+
+  // 8. Restart Services
+  if (appRunning) {
+    items.push({ label: 'Restart Services', action: 'restart' });
+  }
+
+  // 9. View Logs
+  if (appRunning) {
+    items.push({ label: 'View Logs', action: 'logs' });
+  }
+
+  // 10. Payment Gateways
+  items.push({ label: 'Payment Gateways', action: 'payments' });
+
+  // 11. Infrastructure (PostgreSQL)
+  {
+    const dbIcon = dbDiscovered ? icon(true) : icon(false);
+    items.push({ label: `${dbIcon} Infrastructure (PostgreSQL)`, action: 'infrastructure' });
+  }
+
+  // 12. Check for Updates
+  items.push({ label: 'Check for Updates', action: 'update' });
+
+  // 13. Install 3X-UI (standalone)
+  {
+    const xuiStandaloneIcon = dockerState.xuiContainerRunning ? icon(true) : icon(false);
+    items.push({ label: `${xuiStandaloneIcon} Install / Repair 3X-UI`, action: 'install3xui' });
+  }
+
+  // 14. Full Uninstall
+  items.push({ label: 'Full Uninstall', action: 'uninstall' });
+
+  // 15. Exit
+  items.push({ label: 'Exit', action: 'exit' });
+
+  // ── Render menu ─────────────────────────────────────────────────
   console.log('');
-  console.log(`1. ${firstActionLabel}`);
-  console.log('2. Health Status');
-  console.log('3. Configure Super Admin');
-  console.log('4. Configure 3X-UI');
-  console.log('5. Start Services');
-  console.log('6. Stop Services');
-  console.log('7. Restart Services');
-  console.log('8. View Logs');
-  console.log('9. Payment Gateways');
-   console.log('10. Infrastructure');
-   console.log('11. Check for Updates');
-   console.log('12. Install 3X-UI');
-   console.log('13. Full Uninstall');
-   console.log('14. Exit');
+  console.log('\x1b[36m╔══════════════════════════════════════════════════════════════╗\x1b[0m');
+  console.log('\x1b[36m║          🔧 Tazaxy CLI v2.0.0 — Discovery Menu              ║\x1b[0m');
+  console.log('\x1b[36m╚══════════════════════════════════════════════════════════════╝\x1b[0m');
+  console.log('');
+
+  // Show discovery summary
+  console.log('  Discovery Summary:');
+  console.log(`    ${icon(envExists)} .env file          ${envExists ? 'found' : 'missing'}`);
+  console.log(`    ${icon(dbDiscovered)} PostgreSQL         ${dbDiscovered ? state?.db?.discovered?.value?.databaseUrl?.replace(/:[^:@]+@/, ':****@') || 'discovered' : 'not discovered'}`);
+  console.log(`    ${xuiConfirmed ? icon(true) : xuiDetected ? warn : icon(false)} 3X-UI Panel       ${xuiConfirmed ? `confirmed (${state?.xui?.confirmed?.baseUrl})` : xuiDetected ? 'detected (unconfirmed)' : 'not detected'}`);
+  console.log(`    ${icon(appRunning)} App Container      ${appRunning ? 'running' : 'stopped'}`);
+  console.log(`    ${icon(dockerState.redisContainerRunning)} Redis Container    ${dockerState.redisContainerRunning ? 'running' : 'stopped'}`);
+  console.log(`    ${icon(dockerState.minioContainerRunning)} MinIO Container    ${dockerState.minioContainerRunning ? 'running' : 'stopped'}`);
+  if (healthChecked) {
+    const overall = state?.health?.value?.overall;
+    const healthIcon = overall === 'healthy' ? icon(true) : warn;
+    console.log(`    ${healthIcon} Health             ${overall || 'unknown'}`);
+  }
+  console.log('');
+
+  // Show menu items
+  items.forEach((item, idx) => {
+    const num = String(idx + 1).padStart(2, ' ');
+    console.log(`  ${num}. ${item.label}`);
+  });
   console.log('');
 
   const rl = readline.createInterface({
@@ -256,43 +376,88 @@ async function promptMenuSelection(): Promise<MenuAction> {
     output: process.stdout,
   });
 
+  const maxNum = items.length;
   const answer = await new Promise<string>((resolve) => {
-     rl.question('Select an action (1-14): ', (value) => {
+    rl.question(`Select an action (1-${maxNum}): `, (value) => {
       rl.close();
       resolve(value.trim());
     });
   });
 
-  switch (answer) {
-    case '1':
-      return installed ? 'editEnv' : 'install';
-    case '2':
-      return 'status';
-    case '3':
-      return 'admin';
-    case '4':
-      return 'panel';
-    case '5':
-      return 'start';
-    case '6':
-      return 'stop';
-    case '7':
-      return 'restart';
-    case '8':
-      return 'logs';
-    case '9':
-      return 'payments';
-     case '10':
-       return 'infrastructure';
-     case '11':
-       return 'update';
-     case '12':
-       return 'install3xui';
-     case '13':
-       return 'uninstall';
-     default:
-       return 'exit';
+  const idx = parseInt(answer, 10) - 1;
+  if (idx >= 0 && idx < items.length) {
+    return items[idx].action;
   }
+  return 'exit';
+}
+
+/**
+ * Load installer-state.json (if it exists) and return the parsed state.
+ */
+function loadInstallerState(): Record<string, any> | null {
+  const statePath = path.join(workspaceRoot, 'installer-state.json');
+  try {
+    if (!fs.existsSync(statePath)) return null;
+    const content = fs.readFileSync(statePath, 'utf8');
+    return JSON.parse(content);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Detect Docker container states by running `docker ps`.
+ * Returns flags for app, redis, minio, postgres, and 3x-ui containers.
+ */
+async function detectDockerState(): Promise<{
+  appContainerRunning: boolean;
+  redisContainerRunning: boolean;
+  minioContainerRunning: boolean;
+  postgresContainerRunning: boolean;
+  xuiContainerRunning: boolean;
+}> {
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
+
+  const result = {
+    appContainerRunning: false,
+    redisContainerRunning: false,
+    minioContainerRunning: false,
+    postgresContainerRunning: false,
+    xuiContainerRunning: false,
+  };
+
+  try {
+    const { stdout } = await execAsync('docker ps --format "{{.Names}}||{{.Image}}"', {
+      timeout: 5000,
+      windowsHide: true,
+    });
+    const lines = stdout.trim().split('\n').filter(Boolean);
+    for (const line of lines) {
+      const [name, image] = line.split('||');
+      const lower = `${name} ${image}`.toLowerCase();
+      if (lower.includes('vpn-saas-app') || lower.includes('app') && lower.includes('vpn-saas')) {
+        result.appContainerRunning = true;
+      }
+      if (lower.includes('redis')) {
+        result.redisContainerRunning = true;
+      }
+      if (lower.includes('minio')) {
+        result.minioContainerRunning = true;
+      }
+      if (lower.includes('postgres') || lower.includes('pg')) {
+        result.postgresContainerRunning = true;
+      }
+      if (lower.includes('xui') || lower.includes('3x-ui') || lower.includes('x-ui')) {
+        result.xuiContainerRunning = true;
+      }
+    }
+  } catch {
+    // Docker not available or not running — all flags stay false
+  }
+
+  return result;
 }
 
 async function manageEnvFile() {
