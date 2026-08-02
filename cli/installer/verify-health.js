@@ -20,6 +20,11 @@
  *  12. 3X-UI panel login verification (actual credential authentication)
  *  13. Queue system (BullMQ) connectivity
  *
+ * Every failure includes:
+ *  - exact reason
+ *  - root cause classification
+ *  - suggested fix
+ *
  * Usage:
  *   node cli/installer/verify-health.js [--app-url=http://localhost:3001] [--xui-url=http://127.0.0.1:2053] [--insecure] [--json]
  *
@@ -28,6 +33,51 @@
  *   1 = one or more required checks failed
  *   2 = could not run checks (e.g. docker not available)
  */
+
+// ── Error classification & remediation ─────────────────────────────
+/**
+ * Classify an error message/code into a category and provide a suggested fix.
+ */
+function classifyError(code, msg) {
+  const m = (msg || '').toLowerCase();
+  if (code === 'ENOTFOUND' || /getaddrinfo|eai_again|hostname|dns/.test(m)) {
+    return { category: 'DNS_FAILURE', fix: 'Check hostname resolution. Verify DNS or /etc/hosts entries.' };
+  }
+  if (code === 'ECONNREFUSED' || code === 'ECONNRESET' || /connection refused|connect econnrefused/.test(m)) {
+    return { category: 'CONNECTION_REFUSED', fix: 'The service is not running or not listening on the expected port. Start it with: docker compose up -d' };
+  }
+  if (code === 'ETIMEDOUT' || /timeout|timed out/.test(m)) {
+    return { category: 'TIMEOUT', fix: 'The service is too slow to respond or network is blocking traffic. Check firewall rules and service logs.' };
+  }
+  if (code === '28P01' || /password|authentication|auth failed|role.*does not exist/.test(m)) {
+    return { category: 'AUTH_FAILURE', fix: 'Credentials are wrong. Verify POSTGRES_USER/POSTGRES_PASSWORD in .env match the database server.' };
+  }
+  if (code === '3D000' || /database.*does not exist|database.*not found/.test(m)) {
+    return { category: 'DATABASE_MISSING', fix: 'The database does not exist. Create it or run: docker compose exec app npx prisma migrate deploy' };
+  }
+  if (code === '42501' || /permission|denied|not authorized/.test(m)) {
+    return { category: 'PERMISSION_DENIED', fix: 'The user lacks permissions. Grant the required privileges on the database.' };
+  }
+  if (code === '28000' || /no pg_hba.conf|ssl|ssl connection/.test(m)) {
+    return { category: 'SSL_ISSUE', fix: 'SSL configuration mismatch. Check pg_hba.conf or set SSL mode in DATABASE_URL (e.g. ?sslmode=disable).' };
+  }
+  if (/terminating|connection terminated|server closed/.test(m)) {
+    return { category: 'SERVER_CRASHED', fix: 'The server crashed or closed the connection. Check service logs: docker compose logs <service>' };
+  }
+  return { category: 'UNKNOWN', fix: 'Check the service logs for more details: docker compose logs <service> --tail 50' };
+}
+
+/**
+ * Attach diagnostic info to a check result.
+ */
+function diagnose(result) {
+  if (result.status === 'fail' || result.status === 'warn') {
+    const cls = classifyError(null, result.detail);
+    result.category = cls.category;
+    result.suggestedFix = cls.fix;
+  }
+  return result;
+}
 const { exec } = require('child_process');
 const http = require('http');
 const https = require('https');
@@ -600,19 +650,19 @@ async function main() {
 
   const results = [];
 
-  // Run all checks
-  results.push(await checkDockerContainers());
-  results.push(await checkAppHealth(appUrl));
-  results.push(await checkAppReadiness(appUrl));
-  results.push(await checkDatabase());
-  results.push(await checkRedis());
-  results.push(await checkMinIO());
-  results.push(await checkMigrations());
-  results.push(await checkSwagger(appUrl));
-  results.push(await checkTelegramBot(appUrl));
-  results.push(await checkXuiPanel(xuiUrl));
-  results.push(await checkXuiLogin(xuiUrl));
-  results.push(await checkQueue(appUrl));
+  // Run all checks (diagnose attaches category + suggestedFix on failures)
+  results.push(diagnose(await checkDockerContainers()));
+  results.push(diagnose(await checkAppHealth(appUrl)));
+  results.push(diagnose(await checkAppReadiness(appUrl)));
+  results.push(diagnose(await checkDatabase()));
+  results.push(diagnose(await checkRedis()));
+  results.push(diagnose(await checkMinIO()));
+  results.push(diagnose(await checkMigrations()));
+  results.push(diagnose(await checkSwagger(appUrl)));
+  results.push(diagnose(await checkTelegramBot(appUrl)));
+  results.push(diagnose(await checkXuiPanel(xuiUrl)));
+  results.push(diagnose(await checkXuiLogin(xuiUrl)));
+  results.push(diagnose(await checkQueue(appUrl)));
 
   // Summary
   const required = results.filter((r) => r.required);
@@ -645,6 +695,10 @@ async function main() {
       const icon = r.status === 'pass' ? '✓' : r.status === 'fail' ? '✗' : r.status === 'warn' ? '⚠' : '⊘';
       const req = r.required ? '[REQUIRED]' : '[optional]';
       console.log(`  ${icon} ${r.name.padEnd(20)} ${req.padEnd(12)} ${r.status.toUpperCase().padEnd(6)} ${r.detail} (${r.durationMs}ms)`);
+      if ((r.status === 'fail' || r.status === 'warn') && r.category) {
+        console.log(`    ${' '.padEnd(20)} Category: ${r.category}`);
+        console.log(`    ${' '.padEnd(20)} Fix:     ${r.suggestedFix}`);
+      }
     }
 
     console.log('');
