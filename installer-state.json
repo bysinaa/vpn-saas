@@ -201,431 +201,561 @@
         "name": "3x-ui",
         "image": "ghcr.io/mhsanaei/3x-ui:latest",
         "portsRaw": "0.0.0.0:2053->2053/tcp, [::]:2053->2053/tcp",
-        "inspect": null
+        "inspect": {
+          "published": [
+            {
+              "containerPort": "2053/tcp",
+              "hostIp": "0.0.0.0",
+              "hostPort": "2053"
+            },
+            {
+              "containerPort": "2053/tcp",
+              "hostIp": "::",
+              "hostPort": "2053"
+            }
+          ],
+          "containerIP": "172.17.0.2",
+          "mounts": [
+            {
+              "Source": "3x-ui-db",
+              "Destination": "/etc/x-ui",
+              "Mode": "rw"
+            },
+            {
+              "Source": "3x-ui-cert",
+              "Destination": "/root/cert",
+              "Mode": "rw"
+            }
+          ],
+          "image": "ghcr.io/mhsanaei/3x-ui:latest",
+          "envVars": {
+            "XUI_IN_DOCKER": "true",
+            "XUI_MAIN_FOLDER": "/app",
+            "XUI_ENABLE_FAIL2BAN": "true",
+            "XUI_DB_TYPE": "",
+            "XUI_DB_DSN": ""
+          }
+        }
       }
     ],
     "probes": [
       {
+        "url": "http://127.0.0.1:2053",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env"
+      },
+      {
+        "url": "https://localhost:2053/",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example"
+      },
+      {
+        "url": "https://panel.example.com",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example"
+      },
+      {
         "url": "http://localhost:2053",
-        "from": "docker:3x-ui:portsRaw"
+        "from": "docker:3x-ui:2053/tcp"
+      },
+      {
+        "url": "http://:::2053",
+        "from": "docker:3x-ui:2053/tcp"
+      },
+      {
+        "url": "http://127.0.0.1:2053/login",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env"
+      },
+      {
+        "url": "http://127.0.0.1:2053/panel/inbounds",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env"
+      },
+      {
+        "url": "http://127.0.0.1:2053/server/status",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env"
+      },
+      {
+        "url": "http://127.0.0.1:2053/xui/inbounds",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env"
+      },
+      {
+        "url": "http://127.0.0.1:2053/api/panel/api/inbounds",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env"
       },
       {
         "url": "https://localhost:2053",
-        "from": "docker:3x-ui:portsRaw"
-      },
-      {
-        "url": "http://localhost:2053/login",
-        "from": "docker:3x-ui:portsRaw"
-      },
-      {
-        "url": "http://localhost:2053/api",
-        "from": "docker:3x-ui:portsRaw"
-      },
-      {
-        "url": "http://localhost:2053/health",
-        "from": "docker:3x-ui:portsRaw"
-      },
-      {
-        "url": "http://localhost:2053/status",
-        "from": "docker:3x-ui:portsRaw"
-      },
-      {
-        "url": "http://localhost:2053/admin/xui/session",
-        "from": "docker:3x-ui:portsRaw"
-      },
-      {
-        "url": "http://localhost:2053/admin/xui/test",
-        "from": "docker:3x-ui:portsRaw"
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example"
       },
       {
         "url": "https://localhost:2053/login",
-        "from": "docker:3x-ui:portsRaw"
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example"
       },
       {
-        "url": "https://localhost:2053/api",
-        "from": "docker:3x-ui:portsRaw"
+        "url": "https://localhost:2053/panel/inbounds",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example"
       },
       {
-        "url": "https://localhost:2053/health",
-        "from": "docker:3x-ui:portsRaw"
+        "url": "https://localhost:2053/server/status",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example"
       },
       {
-        "url": "https://localhost:2053/status",
-        "from": "docker:3x-ui:portsRaw"
+        "url": "https://localhost:2053/xui/inbounds",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example"
       },
       {
-        "url": "https://localhost:2053/admin/xui/session",
-        "from": "docker:3x-ui:portsRaw"
+        "url": "https://localhost:2053/api/panel/api/inbounds",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example"
       },
       {
-        "url": "https://localhost:2053/admin/xui/test",
-        "from": "docker:3x-ui:portsRaw"
+        "url": "https://panel.example.com/login",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example"
+      },
+      {
+        "url": "https://panel.example.com/panel/inbounds",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example"
+      },
+      {
+        "url": "https://panel.example.com/server/status",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example"
+      },
+      {
+        "url": "https://panel.example.com/xui/inbounds",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example"
+      },
+      {
+        "url": "https://panel.example.com/api/panel/api/inbounds",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example"
+      },
+      {
+        "url": "http://localhost:2053/login",
+        "from": "docker:3x-ui:2053/tcp"
+      },
+      {
+        "url": "http://localhost:2053/panel/inbounds",
+        "from": "docker:3x-ui:2053/tcp"
+      },
+      {
+        "url": "http://localhost:2053/server/status",
+        "from": "docker:3x-ui:2053/tcp"
+      },
+      {
+        "url": "http://localhost:2053/xui/inbounds",
+        "from": "docker:3x-ui:2053/tcp"
+      },
+      {
+        "url": "http://localhost:2053/api/panel/api/inbounds",
+        "from": "docker:3x-ui:2053/tcp"
       }
     ],
     "probesResults": [
       {
+        "url": "http://127.0.0.1:2053",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env",
+        "statusCode": 200,
+        "headers": {
+          "cache-control": "no-cache, no-store, must-revalidate",
+          "content-length": "1810",
+          "content-security-policy": "default-src 'self'; script-src 'self' 'nonce-tKMh55W2lsGdK1VT2ZWJlA'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+          "content-type": "text/html; charset=utf-8",
+          "expires": "0",
+          "last-modified": "Fri, 31 Jul 2026 10:46:39 GMT",
+          "pragma": "no-cache",
+          "referrer-policy": "no-referrer",
+          "set-cookie": [
+            "3x-ui=MTc4NTYzMjA3N3xEdi1MQkFFQ180d0FBUkFCRUFBQVRfLU1BQUVHYzNSeWFXNW5EQXdBQ2tOVFVrWmZWRTlMUlU0R2MzUnlhVzVuREMwQUswYzRlWFZ1WjFkeGJEa3paVlpQUkRkRGMwUk1hMnROWjJkV1NFUjBRbUpWYmkxNE1raFRVMjFEZDBFPXxT5SB-5nBf6YhAoTyD6PgX3zuYVFHyIsQfm4tL_K5Urg==; Path=/; Expires=Sun, 02 Aug 2026 06:54:37 GMT; Max-Age=21600; HttpOnly; SameSite=Lax"
+          ],
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "date": "Sun, 02 Aug 2026 00:54:37 GMT"
+        },
+        "bodySnippet": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <meta name=\"robots\" content=\"noindex,nofollow\" />\n    <title>Sign in</title>\n    <script type=\"module\" crossorigin src=\"/assets/login-BVkwtAry.js\"></script>\n    <link rel=\"modulepreload\" crossorigin href=\"/assets/rolldown-runtime-QTnfLwEv.js\">\n    <link rel=\"modulepreload\" crossorigin href=\"/assets/vendor-Dk7d1KLu.js\">\n    <link rel=\"modulepreloa",
+        "error": null,
+        "timestamp": "2026-08-02T00:54:37.823Z"
+      },
+      {
+        "url": "https://localhost:2053/",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example",
+        "statusCode": 0,
+        "headers": {},
+        "bodySnippet": "",
+        "error": "write EPROTO EC4F0000:error:0A00010B:SSL routines:tls_validate_record_header:wrong version number:openssl\\ssl\\record\\methods\\tlsany_meth.c:78:\n",
+        "timestamp": "2026-08-02T00:54:37.824Z"
+      },
+      {
+        "url": "https://panel.example.com",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example",
+        "statusCode": 0,
+        "headers": {},
+        "bodySnippet": "",
+        "error": "getaddrinfo ENOTFOUND panel.example.com",
+        "timestamp": "2026-08-02T00:54:37.944Z"
+      },
+      {
         "url": "http://localhost:2053",
-        "from": "docker:3x-ui:portsRaw",
-        "head": {
-          "command": "curl -I -k --max-time 5 -sS -L \"http://localhost:2053\" || true",
-          "success": true,
-          "code": 0,
-          "stdout": "HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Security-Policy: default-src 'self'; script-src 'self' 'nonce-kuqh0UndPXujabVdbGls6w'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\r\nDate: Fri, 31 Jul 2026 16:37:34 GMT\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY",
-          "stderr": ""
+        "from": "docker:3x-ui:2053/tcp",
+        "statusCode": 200,
+        "headers": {
+          "cache-control": "no-cache, no-store, must-revalidate",
+          "content-length": "1810",
+          "content-security-policy": "default-src 'self'; script-src 'self' 'nonce-2ngQamPNPeTKE/kRngx3TQ'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+          "content-type": "text/html; charset=utf-8",
+          "expires": "0",
+          "last-modified": "Fri, 31 Jul 2026 10:46:39 GMT",
+          "pragma": "no-cache",
+          "referrer-policy": "no-referrer",
+          "set-cookie": [
+            "3x-ui=MTc4NTYzMjA3N3xEdi1MQkFFQ180d0FBUkFCRUFBQVRfLU1BQUVHYzNSeWFXNW5EQXdBQ2tOVFVrWmZWRTlMUlU0R2MzUnlhVzVuREMwQUt6RlpWbVpxV0V4c09HbDRUWFl5T0ZaUVRqQnphMVJXVmtSbk9VaEpOVGh5ZEY4ek9FZE5PREkzU1RnPXzs2B0FiknZ_ShvuVsHFUPHR9PVjgLuEOYbnfsnJCZDCA==; Path=/; Expires=Sun, 02 Aug 2026 06:54:37 GMT; Max-Age=21600; HttpOnly; SameSite=Lax"
+          ],
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "date": "Sun, 02 Aug 2026 00:54:37 GMT"
         },
-        "statusLine": "HTTP/1.1 404",
-        "get": {
-          "snippet": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <meta name=\"robots\" content=\"noindex,nofollow\" /"
+        "bodySnippet": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <meta name=\"robots\" content=\"noindex,nofollow\" />\n    <title>Sign in</title>\n    <script type=\"module\" crossorigin src=\"/assets/login-BVkwtAry.js\"></script>\n    <link rel=\"modulepreload\" crossorigin href=\"/assets/rolldown-runtime-QTnfLwEv.js\">\n    <link rel=\"modulepreload\" crossorigin href=\"/assets/vendor-Dk7d1KLu.js\">\n    <link rel=\"modulepreloa",
+        "error": null,
+        "timestamp": "2026-08-02T00:54:37.825Z"
+      },
+      {
+        "url": "http://:::2053",
+        "from": "docker:3x-ui:2053/tcp",
+        "statusCode": 0,
+        "headers": {},
+        "bodySnippet": "",
+        "error": "invalid-url",
+        "timestamp": "2026-08-02T00:54:37.807Z"
+      },
+      {
+        "url": "http://127.0.0.1:2053/login",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env",
+        "statusCode": 404,
+        "headers": {
+          "content-security-policy": "default-src 'self'; script-src 'self' 'nonce-4Mx7qd7/cN6SxP9Ixnbdig'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+          "referrer-policy": "no-referrer",
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "date": "Sun, 02 Aug 2026 00:54:37 GMT",
+          "content-length": "0"
         },
-        "timestamp": "2026-07-31T16:37:34.774Z"
+        "bodySnippet": "",
+        "error": null,
+        "timestamp": "2026-08-02T00:54:37.822Z"
+      },
+      {
+        "url": "http://127.0.0.1:2053/panel/inbounds",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env",
+        "statusCode": 307,
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'self'; script-src 'self' 'nonce-vVQVYtq8nJuK+G4YeqPfUw'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+          "content-type": "text/html; charset=utf-8",
+          "location": "/",
+          "referrer-policy": "no-referrer",
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "date": "Sun, 02 Aug 2026 00:54:37 GMT",
+          "content-length": "37"
+        },
+        "bodySnippet": "<a href=\"/\">Temporary Redirect</a>.\n\n",
+        "error": null,
+        "timestamp": "2026-08-02T00:54:37.823Z"
+      },
+      {
+        "url": "http://127.0.0.1:2053/server/status",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env",
+        "statusCode": 404,
+        "headers": {
+          "content-security-policy": "default-src 'self'; script-src 'self' 'nonce-vmq15Aw+ykPd4WgU5Rpk2Q'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+          "referrer-policy": "no-referrer",
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "date": "Sun, 02 Aug 2026 00:54:37 GMT",
+          "content-length": "0"
+        },
+        "bodySnippet": "",
+        "error": null,
+        "timestamp": "2026-08-02T00:54:37.822Z"
+      },
+      {
+        "url": "http://127.0.0.1:2053/xui/inbounds",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env",
+        "statusCode": 404,
+        "headers": {
+          "content-security-policy": "default-src 'self'; script-src 'self' 'nonce-E8H36yfQtzqxe5gJNLBe4w'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+          "referrer-policy": "no-referrer",
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "date": "Sun, 02 Aug 2026 00:54:37 GMT",
+          "content-length": "0"
+        },
+        "bodySnippet": "",
+        "error": null,
+        "timestamp": "2026-08-02T00:54:37.824Z"
+      },
+      {
+        "url": "http://127.0.0.1:2053/api/panel/api/inbounds",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env",
+        "statusCode": 404,
+        "headers": {
+          "content-security-policy": "default-src 'self'; script-src 'self' 'nonce-79BLJe2onStZwnkSHS3mSg'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+          "referrer-policy": "no-referrer",
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "date": "Sun, 02 Aug 2026 00:54:37 GMT",
+          "content-length": "0"
+        },
+        "bodySnippet": "",
+        "error": null,
+        "timestamp": "2026-08-02T00:54:37.824Z"
       },
       {
         "url": "https://localhost:2053",
-        "from": "docker:3x-ui:portsRaw",
-        "head": {
-          "command": "curl -I -k --max-time 5 -sS -L \"https://localhost:2053\" || true",
-          "success": false,
-          "code": 1,
-          "stdout": "HTTP/1.1 200 Connection established",
-          "stderr": "curl: (35) schannel: next InitializeSecurityContext failed: SEC_E_INVALID_TOKEN (0x80090308) - The token supplied to the function is invalid\r\n'true' is not recognized as an internal or external command,\r\noperable program or batch file."
-        },
-        "statusLine": "HTTP/1.1 200",
-        "get": {
-          "command": "curl -sS -k --max-time 5 -L \"https://localhost:2053\" || true",
-          "success": false,
-          "code": 1,
-          "stdout": "",
-          "stderr": "curl: (35) schannel: next InitializeSecurityContext failed: SEC_E_INVALID_TOKEN (0x80090308) - The token supplied to the function is invalid\r\n'true' is not recognized as an internal or external command,\r\noperable program or batch file."
-        },
-        "timestamp": "2026-07-31T16:37:34.773Z"
-      },
-      {
-        "url": "http://localhost:2053/login",
-        "from": "docker:3x-ui:portsRaw",
-        "head": {
-          "command": "curl -I -k --max-time 5 -sS -L \"http://localhost:2053/login\" || true",
-          "success": true,
-          "code": 0,
-          "stdout": "HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Security-Policy: default-src 'self'; script-src 'self' 'nonce-EZsjvag0u0mrxsezMeAqAw'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\r\nDate: Fri, 31 Jul 2026 16:37:34 GMT\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY",
-          "stderr": ""
-        },
-        "statusLine": "HTTP/1.1 404",
-        "get": {
-          "command": "curl -sS -k --max-time 5 -L \"http://localhost:2053/login\" || true",
-          "success": true,
-          "code": 0,
-          "stdout": "",
-          "stderr": ""
-        },
-        "timestamp": "2026-07-31T16:37:34.774Z"
-      },
-      {
-        "url": "http://localhost:2053/api",
-        "from": "docker:3x-ui:portsRaw",
-        "head": {
-          "command": "curl -I -k --max-time 5 -sS -L \"http://localhost:2053/api\" || true",
-          "success": true,
-          "code": 0,
-          "stdout": "HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Security-Policy: default-src 'self'; script-src 'self' 'nonce-0hYt6uLjwH3TZEvGVRdn8g'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\r\nDate: Fri, 31 Jul 2026 16:37:34 GMT\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY",
-          "stderr": ""
-        },
-        "statusLine": "HTTP/1.1 404",
-        "get": {
-          "command": "curl -sS -k --max-time 5 -L \"http://localhost:2053/api\" || true",
-          "success": true,
-          "code": 0,
-          "stdout": "",
-          "stderr": ""
-        },
-        "timestamp": "2026-07-31T16:37:34.774Z"
-      },
-      {
-        "url": "http://localhost:2053/health",
-        "from": "docker:3x-ui:portsRaw",
-        "head": {
-          "command": "curl -I -k --max-time 5 -sS -L \"http://localhost:2053/health\" || true",
-          "success": true,
-          "code": 0,
-          "stdout": "HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Security-Policy: default-src 'self'; script-src 'self' 'nonce-tY3MDeXlHUVVuRCGK+OshA'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\r\nDate: Fri, 31 Jul 2026 16:37:34 GMT\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY",
-          "stderr": ""
-        },
-        "statusLine": "HTTP/1.1 404",
-        "get": {
-          "command": "curl -sS -k --max-time 5 -L \"http://localhost:2053/health\" || true",
-          "success": true,
-          "code": 0,
-          "stdout": "",
-          "stderr": ""
-        },
-        "timestamp": "2026-07-31T16:37:34.774Z"
-      },
-      {
-        "url": "http://localhost:2053/status",
-        "from": "docker:3x-ui:portsRaw",
-        "head": {
-          "command": "curl -I -k --max-time 5 -sS -L \"http://localhost:2053/status\" || true",
-          "success": true,
-          "code": 0,
-          "stdout": "HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Security-Policy: default-src 'self'; script-src 'self' 'nonce-H7+fVBWxHovAUBL6wvhkMQ'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\r\nDate: Fri, 31 Jul 2026 16:37:34 GMT\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY",
-          "stderr": ""
-        },
-        "statusLine": "HTTP/1.1 404",
-        "get": {
-          "command": "curl -sS -k --max-time 5 -L \"http://localhost:2053/status\" || true",
-          "success": true,
-          "code": 0,
-          "stdout": "",
-          "stderr": ""
-        },
-        "timestamp": "2026-07-31T16:37:34.772Z"
-      },
-      {
-        "url": "http://localhost:2053/admin/xui/session",
-        "from": "docker:3x-ui:portsRaw",
-        "head": {
-          "command": "curl -I -k --max-time 5 -sS -L \"http://localhost:2053/admin/xui/session\" || true",
-          "success": true,
-          "code": 0,
-          "stdout": "HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Security-Policy: default-src 'self'; script-src 'self' 'nonce-FOEIvLJJPptPN+EOZqL07Q'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\r\nDate: Fri, 31 Jul 2026 16:37:34 GMT\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY",
-          "stderr": ""
-        },
-        "statusLine": "HTTP/1.1 404",
-        "get": {
-          "command": "curl -sS -k --max-time 5 -L \"http://localhost:2053/admin/xui/session\" || true",
-          "success": true,
-          "code": 0,
-          "stdout": "",
-          "stderr": ""
-        },
-        "timestamp": "2026-07-31T16:37:34.773Z"
-      },
-      {
-        "url": "http://localhost:2053/admin/xui/test",
-        "from": "docker:3x-ui:portsRaw",
-        "head": {
-          "command": "curl -I -k --max-time 5 -sS -L \"http://localhost:2053/admin/xui/test\" || true",
-          "success": true,
-          "code": 0,
-          "stdout": "HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Security-Policy: default-src 'self'; script-src 'self' 'nonce-GMq6POY7zQPyZcmoVo1k5g'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\r\nDate: Fri, 31 Jul 2026 16:37:34 GMT\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY",
-          "stderr": ""
-        },
-        "statusLine": "HTTP/1.1 404",
-        "get": {
-          "command": "curl -sS -k --max-time 5 -L \"http://localhost:2053/admin/xui/test\" || true",
-          "success": true,
-          "code": 0,
-          "stdout": "",
-          "stderr": ""
-        },
-        "timestamp": "2026-07-31T16:37:34.773Z"
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example",
+        "statusCode": 0,
+        "headers": {},
+        "bodySnippet": "",
+        "error": "write EPROTO EC4F0000:error:0A00010B:SSL routines:tls_validate_record_header:wrong version number:openssl\\ssl\\record\\methods\\tlsany_meth.c:78:\n",
+        "timestamp": "2026-08-02T00:54:37.825Z"
       },
       {
         "url": "https://localhost:2053/login",
-        "from": "docker:3x-ui:portsRaw",
-        "head": {
-          "command": "curl -I -k --max-time 5 -sS -L \"https://localhost:2053/login\" || true",
-          "success": false,
-          "code": 1,
-          "stdout": "HTTP/1.1 200 Connection established",
-          "stderr": "curl: (35) schannel: next InitializeSecurityContext failed: SEC_E_INVALID_TOKEN (0x80090308) - The token supplied to the function is invalid\r\n'true' is not recognized as an internal or external command,\r\noperable program or batch file."
-        },
-        "statusLine": "HTTP/1.1 200",
-        "get": {
-          "command": "curl -sS -k --max-time 5 -L \"https://localhost:2053/login\" || true",
-          "success": false,
-          "code": 1,
-          "stdout": "",
-          "stderr": "curl: (35) schannel: next InitializeSecurityContext failed: SEC_E_INVALID_TOKEN (0x80090308) - The token supplied to the function is invalid\r\n'true' is not recognized as an internal or external command,\r\noperable program or batch file."
-        },
-        "timestamp": "2026-07-31T16:37:34.773Z"
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example",
+        "statusCode": 0,
+        "headers": {},
+        "bodySnippet": "",
+        "error": "write EPROTO EC4F0000:error:0A00010B:SSL routines:tls_validate_record_header:wrong version number:openssl\\ssl\\record\\methods\\tlsany_meth.c:78:\n",
+        "timestamp": "2026-08-02T00:54:37.826Z"
       },
       {
-        "url": "https://localhost:2053/api",
-        "from": "docker:3x-ui:portsRaw",
-        "head": {
-          "command": "curl -I -k --max-time 5 -sS -L \"https://localhost:2053/api\" || true",
-          "success": false,
-          "code": 1,
-          "stdout": "HTTP/1.1 200 Connection established",
-          "stderr": "curl: (35) schannel: next InitializeSecurityContext failed: SEC_E_INVALID_TOKEN (0x80090308) - The token supplied to the function is invalid\r\n'true' is not recognized as an internal or external command,\r\noperable program or batch file."
-        },
-        "statusLine": "HTTP/1.1 200",
-        "get": {
-          "command": "curl -sS -k --max-time 5 -L \"https://localhost:2053/api\" || true",
-          "success": false,
-          "code": 1,
-          "stdout": "",
-          "stderr": "curl: (35) schannel: next InitializeSecurityContext failed: SEC_E_INVALID_TOKEN (0x80090308) - The token supplied to the function is invalid\r\n'true' is not recognized as an internal or external command,\r\noperable program or batch file."
-        },
-        "timestamp": "2026-07-31T16:37:34.773Z"
+        "url": "https://localhost:2053/panel/inbounds",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example",
+        "statusCode": 0,
+        "headers": {},
+        "bodySnippet": "",
+        "error": "write EPROTO EC4F0000:error:0A00010B:SSL routines:tls_validate_record_header:wrong version number:openssl\\ssl\\record\\methods\\tlsany_meth.c:78:\n",
+        "timestamp": "2026-08-02T00:54:37.825Z"
       },
       {
-        "url": "https://localhost:2053/health",
-        "from": "docker:3x-ui:portsRaw",
-        "head": {
-          "command": "curl -I -k --max-time 5 -sS -L \"https://localhost:2053/health\" || true",
-          "success": false,
-          "code": 1,
-          "stdout": "HTTP/1.1 200 Connection established",
-          "stderr": "curl: (35) schannel: next InitializeSecurityContext failed: SEC_E_INVALID_TOKEN (0x80090308) - The token supplied to the function is invalid\r\n'true' is not recognized as an internal or external command,\r\noperable program or batch file."
-        },
-        "statusLine": "HTTP/1.1 200",
-        "get": {
-          "command": "curl -sS -k --max-time 5 -L \"https://localhost:2053/health\" || true",
-          "success": false,
-          "code": 1,
-          "stdout": "",
-          "stderr": "curl: (35) schannel: next InitializeSecurityContext failed: SEC_E_INVALID_TOKEN (0x80090308) - The token supplied to the function is invalid\r\n'true' is not recognized as an internal or external command,\r\noperable program or batch file."
-        },
-        "timestamp": "2026-07-31T16:37:34.822Z"
+        "url": "https://localhost:2053/server/status",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example",
+        "statusCode": 0,
+        "headers": {},
+        "bodySnippet": "",
+        "error": "write EPROTO EC4F0000:error:0A00010B:SSL routines:tls_validate_record_header:wrong version number:openssl\\ssl\\record\\methods\\tlsany_meth.c:78:\n",
+        "timestamp": "2026-08-02T00:54:37.826Z"
       },
       {
-        "url": "https://localhost:2053/status",
-        "from": "docker:3x-ui:portsRaw",
-        "head": {
-          "command": "curl -I -k --max-time 5 -sS -L \"https://localhost:2053/status\" || true",
-          "success": false,
-          "code": 1,
-          "stdout": "HTTP/1.1 200 Connection established",
-          "stderr": "curl: (35) schannel: next InitializeSecurityContext failed: SEC_E_INVALID_TOKEN (0x80090308) - The token supplied to the function is invalid\r\n'true' is not recognized as an internal or external command,\r\noperable program or batch file."
-        },
-        "statusLine": "HTTP/1.1 200",
-        "get": {
-          "command": "curl -sS -k --max-time 5 -L \"https://localhost:2053/status\" || true",
-          "success": false,
-          "code": 1,
-          "stdout": "",
-          "stderr": "curl: (35) schannel: next InitializeSecurityContext failed: SEC_E_INVALID_TOKEN (0x80090308) - The token supplied to the function is invalid\r\n'true' is not recognized as an internal or external command,\r\noperable program or batch file."
-        },
-        "timestamp": "2026-07-31T16:37:34.809Z"
+        "url": "https://localhost:2053/xui/inbounds",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example",
+        "statusCode": 0,
+        "headers": {},
+        "bodySnippet": "",
+        "error": "write EPROTO EC4F0000:error:0A00010B:SSL routines:tls_validate_record_header:wrong version number:openssl\\ssl\\record\\methods\\tlsany_meth.c:78:\n",
+        "timestamp": "2026-08-02T00:54:37.826Z"
       },
       {
-        "url": "https://localhost:2053/admin/xui/session",
-        "from": "docker:3x-ui:portsRaw",
-        "head": {
-          "command": "curl -I -k --max-time 5 -sS -L \"https://localhost:2053/admin/xui/session\" || true",
-          "success": false,
-          "code": 1,
-          "stdout": "HTTP/1.1 200 Connection established",
-          "stderr": "curl: (35) schannel: next InitializeSecurityContext failed: SEC_E_INVALID_TOKEN (0x80090308) - The token supplied to the function is invalid\r\n'true' is not recognized as an internal or external command,\r\noperable program or batch file."
-        },
-        "statusLine": "HTTP/1.1 200",
-        "get": {
-          "command": "curl -sS -k --max-time 5 -L \"https://localhost:2053/admin/xui/session\" || true",
-          "success": false,
-          "code": 1,
-          "stdout": "",
-          "stderr": "curl: (35) schannel: next InitializeSecurityContext failed: SEC_E_INVALID_TOKEN (0x80090308) - The token supplied to the function is invalid\r\n'true' is not recognized as an internal or external command,\r\noperable program or batch file."
-        },
-        "timestamp": "2026-07-31T16:37:34.791Z"
+        "url": "https://localhost:2053/api/panel/api/inbounds",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example",
+        "statusCode": 0,
+        "headers": {},
+        "bodySnippet": "",
+        "error": "write EPROTO EC4F0000:error:0A00010B:SSL routines:tls_validate_record_header:wrong version number:openssl\\ssl\\record\\methods\\tlsany_meth.c:78:\n",
+        "timestamp": "2026-08-02T00:54:37.827Z"
       },
       {
-        "url": "https://localhost:2053/admin/xui/test",
-        "from": "docker:3x-ui:portsRaw",
-        "head": {
-          "command": "curl -I -k --max-time 5 -sS -L \"https://localhost:2053/admin/xui/test\" || true",
-          "success": false,
-          "code": 1,
-          "stdout": "HTTP/1.1 200 Connection established",
-          "stderr": "curl: (35) schannel: next InitializeSecurityContext failed: SEC_E_INVALID_TOKEN (0x80090308) - The token supplied to the function is invalid\r\n'true' is not recognized as an internal or external command,\r\noperable program or batch file."
+        "url": "https://panel.example.com/login",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example",
+        "statusCode": 0,
+        "headers": {},
+        "bodySnippet": "",
+        "error": "getaddrinfo ENOTFOUND panel.example.com",
+        "timestamp": "2026-08-02T00:54:37.945Z"
+      },
+      {
+        "url": "https://panel.example.com/panel/inbounds",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example",
+        "statusCode": 0,
+        "headers": {},
+        "bodySnippet": "",
+        "error": "getaddrinfo ENOTFOUND panel.example.com",
+        "timestamp": "2026-08-02T00:54:37.945Z"
+      },
+      {
+        "url": "https://panel.example.com/server/status",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example",
+        "statusCode": 0,
+        "headers": {},
+        "bodySnippet": "",
+        "error": "getaddrinfo ENOTFOUND panel.example.com",
+        "timestamp": "2026-08-02T00:54:37.945Z"
+      },
+      {
+        "url": "https://panel.example.com/xui/inbounds",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example",
+        "statusCode": 0,
+        "headers": {},
+        "bodySnippet": "",
+        "error": "getaddrinfo ENOTFOUND panel.example.com",
+        "timestamp": "2026-08-02T00:54:37.945Z"
+      },
+      {
+        "url": "https://panel.example.com/api/panel/api/inbounds",
+        "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example",
+        "statusCode": 0,
+        "headers": {},
+        "bodySnippet": "",
+        "error": "getaddrinfo ENOTFOUND panel.example.com",
+        "timestamp": "2026-08-02T00:54:37.945Z"
+      },
+      {
+        "url": "http://localhost:2053/login",
+        "from": "docker:3x-ui:2053/tcp",
+        "statusCode": 404,
+        "headers": {
+          "content-security-policy": "default-src 'self'; script-src 'self' 'nonce-6EfGkjCDQF7Qc8FZCsSn0Q'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+          "referrer-policy": "no-referrer",
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "date": "Sun, 02 Aug 2026 00:54:37 GMT",
+          "content-length": "0"
         },
-        "statusLine": "HTTP/1.1 200",
-        "get": {
-          "command": "curl -sS -k --max-time 5 -L \"https://localhost:2053/admin/xui/test\" || true",
-          "success": false,
-          "code": 1,
-          "stdout": "",
-          "stderr": "curl: (35) schannel: next InitializeSecurityContext failed: SEC_E_INVALID_TOKEN (0x80090308) - The token supplied to the function is invalid\r\n'true' is not recognized as an internal or external command,\r\noperable program or batch file."
+        "bodySnippet": "",
+        "error": null,
+        "timestamp": "2026-08-02T00:54:37.951Z"
+      },
+      {
+        "url": "http://localhost:2053/panel/inbounds",
+        "from": "docker:3x-ui:2053/tcp",
+        "statusCode": 307,
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'self'; script-src 'self' 'nonce-Kf+OheJgm+tUtWXo57K8tA'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+          "content-type": "text/html; charset=utf-8",
+          "location": "/",
+          "referrer-policy": "no-referrer",
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "date": "Sun, 02 Aug 2026 00:54:37 GMT",
+          "content-length": "37"
         },
-        "timestamp": "2026-07-31T16:37:34.791Z"
+        "bodySnippet": "<a href=\"/\">Temporary Redirect</a>.\n\n",
+        "error": null,
+        "timestamp": "2026-08-02T00:54:37.951Z"
+      },
+      {
+        "url": "http://localhost:2053/server/status",
+        "from": "docker:3x-ui:2053/tcp",
+        "statusCode": 404,
+        "headers": {
+          "content-security-policy": "default-src 'self'; script-src 'self' 'nonce-gU7fRtbfWRYnD6lypOuTsg'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+          "referrer-policy": "no-referrer",
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "date": "Sun, 02 Aug 2026 00:54:37 GMT",
+          "content-length": "0"
+        },
+        "bodySnippet": "",
+        "error": null,
+        "timestamp": "2026-08-02T00:54:37.952Z"
+      },
+      {
+        "url": "http://localhost:2053/xui/inbounds",
+        "from": "docker:3x-ui:2053/tcp",
+        "statusCode": 404,
+        "headers": {
+          "content-security-policy": "default-src 'self'; script-src 'self' 'nonce-Unq3h8nhUxJPlJoJzCvucQ'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+          "referrer-policy": "no-referrer",
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "date": "Sun, 02 Aug 2026 00:54:37 GMT",
+          "content-length": "0"
+        },
+        "bodySnippet": "",
+        "error": null,
+        "timestamp": "2026-08-02T00:54:37.952Z"
+      },
+      {
+        "url": "http://localhost:2053/api/panel/api/inbounds",
+        "from": "docker:3x-ui:2053/tcp",
+        "statusCode": 404,
+        "headers": {
+          "content-security-policy": "default-src 'self'; script-src 'self' 'nonce-HIBRuK7m5Ycoy7z/tUD++g'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+          "referrer-policy": "no-referrer",
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "date": "Sun, 02 Aug 2026 00:54:37 GMT",
+          "content-length": "0"
+        },
+        "bodySnippet": "",
+        "error": null,
+        "timestamp": "2026-08-02T00:54:37.952Z"
       }
     ],
-    "selected": {
-      "url": "http://localhost:2053",
-      "from": "docker:3x-ui:portsRaw",
-      "scoreHint": "HTTP/1.1 404"
-    },
+    "configSettings": null,
+    "envDiscoveries": [
+      {
+        "source": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env",
+        "key": "SANITY_PANEL_BASE_URL",
+        "url": "http://127.0.0.1:2053"
+      },
+      {
+        "source": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example",
+        "key": "XUI_PANEL_URL",
+        "url": "https://localhost:2053/"
+      },
+      {
+        "source": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env.example",
+        "key": "SANITY_PANEL_BASE_URL",
+        "url": "https://panel.example.com"
+      }
+    ],
     "authTests": {
       "unauthenticated": [
         {
-          "url": "http://localhost:2053/admin/xui/inbounds",
-          "head": {
-            "command": "curl -I -k --max-time 5 -sS -L \"http://localhost:2053/admin/xui/inbounds\" || true",
-            "success": true,
-            "code": 0,
-            "stdout": "HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Security-Policy: default-src 'self'; script-src 'self' 'nonce-dnnypmYzqyLf7takSwOb5g'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\r\nDate: Fri, 31 Jul 2026 16:37:34 GMT\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY",
-            "stderr": ""
-          },
-          "statusLine": "HTTP/1.1 404",
-          "snippet": null,
-          "timestamp": "2026-07-31T16:37:34.973Z"
+          "url": "http://127.0.0.1:2053/login",
+          "statusCode": 404,
+          "bodySnippet": "",
+          "error": null,
+          "timestamp": "2026-08-02T00:54:37.956Z"
         },
         {
-          "url": "http://localhost:2053/api/clients",
-          "head": {
-            "command": "curl -I -k --max-time 5 -sS -L \"http://localhost:2053/api/clients\" || true",
-            "success": true,
-            "code": 0,
-            "stdout": "HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Security-Policy: default-src 'self'; script-src 'self' 'nonce-JrdvCYQYMFfKhd/zul+Ddw'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\r\nDate: Fri, 31 Jul 2026 16:37:35 GMT\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY",
-            "stderr": ""
-          },
-          "statusLine": "HTTP/1.1 404",
-          "snippet": null,
-          "timestamp": "2026-07-31T16:37:35.146Z"
+          "url": "http://127.0.0.1:2053/panel/inbounds",
+          "statusCode": 307,
+          "bodySnippet": "<a href=\"/\">Temporary Redirect</a>.\n\n",
+          "error": null,
+          "timestamp": "2026-08-02T00:54:37.958Z"
         },
         {
-          "url": "http://localhost:2053/api",
-          "head": {
-            "command": "curl -I -k --max-time 5 -sS -L \"http://localhost:2053/api\" || true",
-            "success": true,
-            "code": 0,
-            "stdout": "HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Security-Policy: default-src 'self'; script-src 'self' 'nonce-fWRipvtBc0nGigEfV+tcig'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\r\nDate: Fri, 31 Jul 2026 16:37:35 GMT\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY",
-            "stderr": ""
-          },
-          "statusLine": "HTTP/1.1 404",
-          "snippet": null,
-          "timestamp": "2026-07-31T16:37:35.387Z"
+          "url": "http://127.0.0.1:2053/server/status",
+          "statusCode": 404,
+          "bodySnippet": "",
+          "error": null,
+          "timestamp": "2026-08-02T00:54:37.959Z"
         },
         {
-          "url": "http://localhost:2053/status",
-          "head": {
-            "command": "curl -I -k --max-time 5 -sS -L \"http://localhost:2053/status\" || true",
-            "success": true,
-            "code": 0,
-            "stdout": "HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Security-Policy: default-src 'self'; script-src 'self' 'nonce-DoN5hY5wLrGVl8TMGnn9Og'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\r\nDate: Fri, 31 Jul 2026 16:37:35 GMT\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY",
-            "stderr": ""
-          },
-          "statusLine": "HTTP/1.1 404",
-          "snippet": null,
-          "timestamp": "2026-07-31T16:37:35.551Z"
+          "url": "http://127.0.0.1:2053/xui/inbounds",
+          "statusCode": 404,
+          "bodySnippet": "",
+          "error": null,
+          "timestamp": "2026-08-02T00:54:37.961Z"
         },
         {
-          "url": "http://localhost:2053/health",
-          "head": {
-            "command": "curl -I -k --max-time 5 -sS -L \"http://localhost:2053/health\" || true",
-            "success": true,
-            "code": 0,
-            "stdout": "HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Security-Policy: default-src 'self'; script-src 'self' 'nonce-SujrKrlPdw15uF/cppk3Yg'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\r\nDate: Fri, 31 Jul 2026 16:37:35 GMT\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY",
-            "stderr": ""
-          },
-          "statusLine": "HTTP/1.1 404",
-          "snippet": null,
-          "timestamp": "2026-07-31T16:37:35.755Z"
+          "url": "http://127.0.0.1:2053/api/panel/api/inbounds",
+          "statusCode": 404,
+          "bodySnippet": "",
+          "error": null,
+          "timestamp": "2026-08-02T00:54:37.963Z"
         }
       ],
       "loginAttempts": []
     },
     "authenticated": false,
-    "detectedAt": "2026-07-31T16:37:35.756Z",
-    "confirmed": {
-      "baseUrl": "http://localhost:2053",
-      "confirmedBy": "cli",
-      "confirmedAt": "2026-07-31T16:37:35.985Z"
+    "selected": {
+      "url": "http://127.0.0.1:2053",
+      "from": "envfile:C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env",
+      "scoreHint": "HTTP 200, score=21"
     },
-    "registration": {
-      "timestamp": "2026-07-31T16:37:36.289Z",
-      "rawOutput": "PANEL_ALREADY_REGISTERED: {\n  \"id\": \"2\",\n  \"name\": \"3x-ui (mhsanaei) local\",\n  \"baseUrl\": \"http://127.0.0.1:2053\",\n  \"status\": \"ACTIVE\"\n}\n",
-      "error": null
+    "detectedAt": "2026-08-02T00:54:37.963Z",
+    "confirmed": {
+      "baseUrl": "http://127.0.0.1:2053",
+      "confirmedBy": "auto-detect",
+      "confirmedAt": "2026-08-02T00:54:38.072Z",
+      "autoConfirmed": true
     }
   },
   "databases": {
@@ -844,5 +974,105 @@
         "snippet": "image: postgres:16-alpine"
       }
     ]
+  },
+  "health": {
+    "value": {
+      "overall": "healthy",
+      "appUrl": "http://localhost:3001",
+      "xuiUrl": "http://127.0.0.1:2053",
+      "summary": {
+        "required": {
+          "total": 9,
+          "passed": 9,
+          "failed": 0,
+          "warned": 0
+        },
+        "optional": {
+          "total": 3,
+          "passed": 0,
+          "failed": 1,
+          "skipped": 2
+        }
+      },
+      "checks": [
+        {
+          "name": "docker-containers",
+          "status": "pass",
+          "required": true,
+          "detail": "app: healthy; minio: healthy; redis: healthy"
+        },
+        {
+          "name": "app-health",
+          "status": "pass",
+          "required": true,
+          "detail": "HTTP 200 — status: ok"
+        },
+        {
+          "name": "app-readiness",
+          "status": "pass",
+          "required": true,
+          "detail": "HTTP 200 — status: ok"
+        },
+        {
+          "name": "database",
+          "status": "pass",
+          "required": true,
+          "detail": "Prisma DB connectivity OK"
+        },
+        {
+          "name": "redis",
+          "status": "pass",
+          "required": true,
+          "detail": "PONG (localhost:3002)"
+        },
+        {
+          "name": "minio",
+          "status": "pass",
+          "required": true,
+          "detail": "HTTP 200 — healthy"
+        },
+        {
+          "name": "migrations",
+          "status": "pass",
+          "required": true,
+          "detail": "All migrations applied"
+        },
+        {
+          "name": "swagger",
+          "status": "skip",
+          "required": false,
+          "detail": "Swagger disabled in production (container NODE_ENV=production, local=development)"
+        },
+        {
+          "name": "telegram-bot",
+          "status": "fail",
+          "required": false,
+          "detail": "Telegram API check failed: HTTP 0 — connect ECONNREFUSED 10.10.34.36:443"
+        },
+        {
+          "name": "xui-panel",
+          "status": "pass",
+          "required": true,
+          "detail": "HTTP 200 — 3x-ui panel detected"
+        },
+        {
+          "name": "xui-login",
+          "status": "pass",
+          "required": true,
+          "detail": "Login successful as \"admin\" — session established"
+        },
+        {
+          "name": "queue",
+          "status": "skip",
+          "required": false,
+          "detail": "No dedicated queue health endpoint — relies on Redis check"
+        }
+      ]
+    },
+    "source": "verify-health",
+    "confidence": "high",
+    "timestamp": "2026-08-02T01:42:21.623Z",
+    "expiresAt": "2026-08-02T01:47:21.623Z",
+    "validationStatus": "valid"
   }
 }

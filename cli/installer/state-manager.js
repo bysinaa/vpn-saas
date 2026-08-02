@@ -2,36 +2,44 @@
 /**
  * state-manager.js
  *
- * Helper to load/save installer-state.json with optional redaction and optional
- * AES-256-GCM encryption using an environment key INSTALLER_STATE_KEY.
+ * Helper to load/save installer-state.json with:
+ *  - Optional AES-256-GCM encryption (INSTALLER_STATE_KEY)
+ *  - Optional secret redaction (REDACT_INSTALLER_STATE)
+ *  - **State validation**: timestamps, source, confidence, expiration
+ *  - **Cached entry validation**: before using a cached value, validate it;
+ *    if invalid (expired, missing, low-confidence), signal rediscovery.
+ *
+ * Entry format (for any cacheable value):
+ *   {
+ *     value: <any>,              // the cached value
+ *     source: string,            // where it came from: 'auto-detect' | 'cli' | 'envfile' | 'docker' | ...
+ *     confidence: 'high' | 'medium' | 'low',  // how reliable is this value
+ *     timestamp: ISO string,     // when it was set
+ *     expiresAt: ISO string|null,// when it becomes stale (null = never expires)
+ *     validationStatus: 'valid' | 'stale' | 'invalid' | 'unknown'
+ *   }
  *
  * Usage:
- *   const { loadState, saveState } = require('./state-manager');
+ *   const { loadState, saveState, setEntry, getValidatedEntry, validateState } = require('./state-manager');
  *   const state = loadState(STATE_PATH);
- *   // modify state...
+ *   setEntry(state, 'xui.confirmed', { baseUrl: 'http://...' }, { source: 'auto-detect', confidence: 'high', ttlSeconds: 3600 });
+ *   const entry = getValidatedEntry(state, 'xui.confirmed');
+ *   if (!entry) { // rediscover }
  *   saveState(STATE_PATH, state);
- *
- * Behavior:
- * - If file contents start with "ENC:" the rest is base64(iv|tag|ciphertext) and
- *   will be decrypted using INSTALLER_STATE_KEY. If the key is missing decryption
- *   will fail.
- * - If env var INSTALLER_STATE_KEY is present when saving, file will be written
- *   encrypted (prefixed with "ENC:").
- * - If env var REDACT_INSTALLER_STATE is truthy, sensitive fields will be
- *   redacted before persisting (replacing values with "[REDACTED]").
- *
- * Notes:
- * - This is designed to be a minimal, opt-in safety layer to avoid leaking
- *   credentials into plain JSON. It preserves backward compatibility (plain JSON)
- *   when no key is configured.
  */
 const fs = require('fs');
 const crypto = require('crypto');
-const util = require('util');
 
 const ENC_PREFIX = 'ENC:';
 const KEY_ENV = 'INSTALLER_STATE_KEY';
 const REDACT_ENV = 'REDACT_INSTALLER_STATE';
+
+// Default TTLs (in seconds)
+const DEFAULT_TTL = {
+  high: 3600,      // 1 hour for high-confidence entries
+  medium: 1800,    // 30 minutes for medium-confidence
+  low: 300,        // 5 minutes for low-confidence
+};
 
 // Crypto parameters
 const ALGORITHM = 'aes-256-gcm';
@@ -39,7 +47,6 @@ const IV_LEN = 12; // recommended for GCM
 const TAG_LEN = 16;
 
 function deriveKey(key) {
-  // Derive 32-byte key via SHA256 of provided secret
   return crypto.createHash('sha256').update(String(key), 'utf8').digest();
 }
 
@@ -48,7 +55,6 @@ function encryptString(plaintext, key) {
   const cipher = crypto.createCipheriv(ALGORITHM, deriveKey(key), iv, { authTagLength: TAG_LEN });
   const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
-  // Store as base64(iv | tag | ciphertext)
   const payload = Buffer.concat([iv, tag, ciphertext]).toString('base64');
   return ENC_PREFIX + payload;
 }
@@ -75,7 +81,6 @@ function isObject(val) {
 }
 
 function redactSecrets(obj, keyRegex = /password|secret|token|cookie|jwt|credential/i) {
-  // Deep clone and redact values whose keys match keyRegex
   if (Array.isArray(obj)) {
     return obj.map((v) => redactSecrets(v, keyRegex));
   }
@@ -83,16 +88,13 @@ function redactSecrets(obj, keyRegex = /password|secret|token|cookie|jwt|credent
   const out = {};
   for (const [k, v] of Object.entries(obj)) {
     if (keyRegex.test(k)) {
-      // Redact entire value
       out[k] = '[REDACTED]';
       continue;
     }
-    // Specific sensitive paths: raw outputs and credentials commonly produced by installer
     if (k === 'rawOutput' || k === 'rawLine') {
       out[k] = '[REDACTED]';
       continue;
     }
-    // Recurse
     out[k] = redactSecrets(v, keyRegex);
   }
   return out;
@@ -105,6 +107,163 @@ function tryParseJsonSafe(text) {
     return null;
   }
 }
+
+// ── State validation helpers ───────────────────────────────────────
+
+/**
+ * Resolve a dot-separated path (e.g. 'xui.confirmed.baseUrl') to its parent object and final key.
+ * Returns { parent, key, exists } or null if path is invalid.
+ */
+function resolvePath(obj, dotPath) {
+  const parts = dotPath.split('.');
+  let current = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const k = parts[i];
+    if (!isObject(current[k])) {
+      current[k] = {};
+    }
+    current = current[k];
+  }
+  return { parent: current, key: parts[parts.length - 1] };
+}
+
+/**
+ * Set a validated cache entry at a dot-separated path.
+ * @param {object} state - the state object (mutated in place)
+ * @param {string} dotPath - e.g. 'xui.confirmed'
+ * @param {any} value - the value to cache
+ * @param {object} opts - { source, confidence, ttlSeconds, expiresAt }
+ */
+function setEntry(state, dotPath, value, opts = {}) {
+  const { parent, key } = resolvePath(state, dotPath);
+  const now = new Date();
+  const confidence = opts.confidence || 'medium';
+  const ttlSeconds = opts.ttlSeconds != null ? opts.ttlSeconds : DEFAULT_TTL[confidence];
+
+  const entry = {
+    value,
+    source: opts.source || 'unknown',
+    confidence,
+    timestamp: now.toISOString(),
+    expiresAt: ttlSeconds > 0 ? new Date(now.getTime() + ttlSeconds * 1000).toISOString() : null,
+    validationStatus: 'valid',
+  };
+
+  parent[key] = entry;
+  return entry;
+}
+
+/**
+ * Get a cache entry at a dot-separated path, but only if it's still valid.
+ * If the entry is expired or missing, returns null (signaling rediscovery needed).
+ * Also updates validationStatus on the entry.
+ * @param {object} state - the state object
+ * @param {string} dotPath - e.g. 'xui.confirmed'
+ * @param {object} opts - { minConfidence, allowExpired }
+ * @returns {object|null} - the entry object, or null if invalid/missing
+ */
+function getValidatedEntry(state, dotPath, opts = {}) {
+  const parts = dotPath.split('.');
+  let current = state;
+  for (const k of parts) {
+    if (!isObject(current) || !(k in current)) return null;
+    current = current[k];
+  }
+
+  // If it's not an entry object (no timestamp), treat as raw value — return as-is with 'unknown' status
+  if (!isObject(current) || !current.timestamp) {
+    return { value: current, source: 'unknown', confidence: 'unknown', timestamp: null, expiresAt: null, validationStatus: 'unknown' };
+  }
+
+  const now = new Date();
+  const expiresAt = current.expiresAt ? new Date(current.expiresAt) : null;
+
+  // Check expiration
+  if (expiresAt && now > expiresAt) {
+    current.validationStatus = 'stale';
+    if (!opts.allowExpired) return null;
+  } else {
+    current.validationStatus = 'valid';
+  }
+
+  // Check confidence threshold
+  const minConfidence = opts.minConfidence || 'low';
+  const confidenceOrder = { low: 0, medium: 1, high: 2 };
+  const entryConfidence = confidenceOrder[current.confidence] != null ? confidenceOrder[current.confidence] : 0;
+  const requiredConfidence = confidenceOrder[minConfidence] != null ? confidenceOrder[minConfidence] : 0;
+  if (entryConfidence < requiredConfidence) {
+    current.validationStatus = 'invalid';
+    return null;
+  }
+
+  return current;
+}
+
+/**
+ * Validate the entire state object. Returns a report of which entries are valid/stale/invalid.
+ * @param {object} state
+ * @returns {object} - { valid: string[], stale: string[], invalid: string[], unknown: string[] }
+ */
+function validateState(state) {
+  const report = { valid: [], stale: [], invalid: [], unknown: [] };
+
+  function walk(obj, path) {
+    if (!isObject(obj)) return;
+    for (const [k, v] of Object.entries(obj)) {
+      const currentPath = path ? `${path}.${k}` : k;
+      if (isObject(v) && v.timestamp && v.source) {
+        // This is a cache entry
+        const now = new Date();
+        const expiresAt = v.expiresAt ? new Date(v.expiresAt) : null;
+        if (expiresAt && now > expiresAt) {
+          v.validationStatus = 'stale';
+          report.stale.push(currentPath);
+        } else if (v.validationStatus === 'invalid') {
+          report.invalid.push(currentPath);
+        } else {
+          v.validationStatus = 'valid';
+          report.valid.push(currentPath);
+        }
+      } else if (isObject(v)) {
+        walk(v, currentPath);
+      } else if (v != null) {
+        report.unknown.push(currentPath);
+      }
+    }
+  }
+
+  walk(state, '');
+  return report;
+}
+
+/**
+ * Purge all stale entries from state (sets them to null).
+ * Returns list of purged paths.
+ */
+function purgeStale(state) {
+  const purged = [];
+
+  function walk(obj, path) {
+    if (!isObject(obj)) return;
+    for (const [k, v] of Object.entries(obj)) {
+      const currentPath = path ? `${path}.${k}` : k;
+      if (isObject(v) && v.timestamp && v.expiresAt) {
+        const expiresAt = new Date(v.expiresAt);
+        if (new Date() > expiresAt) {
+          obj[k] = null;
+          purged.push(currentPath);
+        }
+      } else if (isObject(v)) {
+        walk(v, currentPath);
+      }
+    }
+  }
+
+  walk(state, '');
+  return purged;
+}
+
+// ── Load / Save ────────────────────────────────────────────────────
 
 function loadState(statePath) {
   try {
@@ -119,12 +278,9 @@ function loadState(statePath) {
       const json = decryptString(raw, key);
       return tryParseJsonSafe(json) || {};
     } else {
-      // Plain JSON
       return tryParseJsonSafe(raw) || {};
     }
   } catch (e) {
-    // Preserve previous behavior for scripts: on read failure, some scripts expect to exit or handle.
-    // Here we bubble the error so callers can decide.
     throw e;
   }
 }
@@ -134,7 +290,6 @@ function saveState(statePath, state) {
     const doRedact = !!process.env[REDACT_ENV];
     let toWriteObj = state;
     if (doRedact) {
-      // Only redact a copy
       toWriteObj = redactSecrets(state);
     }
 
@@ -147,7 +302,6 @@ function saveState(statePath, state) {
       fs.writeFileSync(statePath, plaintext, 'utf8');
     }
   } catch (e) {
-    // Bubble up so callers can log and exit as appropriate
     throw e;
   }
 }
@@ -155,10 +309,16 @@ function saveState(statePath, state) {
 module.exports = {
   loadState,
   saveState,
+  setEntry,
+  getValidatedEntry,
+  validateState,
+  purgeStale,
+  resolvePath,
   // exported for tests / debugging
   _internals: {
     encryptString,
     decryptString,
     redactSecrets,
+    DEFAULT_TTL,
   },
 };

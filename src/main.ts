@@ -8,6 +8,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { config } from '@/config';
 import { join, extname } from 'path';
+import { existsSync } from 'fs';
 
 /**
  * Application entry point.
@@ -42,8 +43,6 @@ async function bootstrap(): Promise<void> {
   // Switch to Pino logger
   app.useLogger(app.get(PinoLogger));
 
-  const logger = new Logger('Bootstrap');
-
   // ---- Global prefix ----
   if (config.app.globalPrefix) {
     app.setGlobalPrefix(config.app.globalPrefix, {
@@ -70,28 +69,13 @@ async function bootstrap(): Promise<void> {
   });
 
   // ---- Static files (dashboard + CMS) ----
-  // Resolve a public root that's valid both when running compiled (dist) and uncompiled (src).
-  // Candidate locations:
-  //  - dist/public  (when running built code)
-  //  - ../public    (when running via ts-node from project root)
-  //  - public       (fallback)
-  // Use the first existing path.
-  // require fs at runtime so this compiles both in ts-node and compiled builds
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const fs = require('fs');
+  // Resolve a public root valid both when running compiled (dist) and uncompiled (src).
   const candidates = [
-    join(__dirname, '..', 'public'), // compiled: dist/public or src/public depending on __dirname
-    join(__dirname, '..', '..', 'public'), // when __dirname is dist/<something>/src, try one level up
-    join(process.cwd(), 'public'), // fallback to project public dir
+    join(__dirname, '..', 'public'),
+    join(__dirname, '..', '..', 'public'),
+    join(process.cwd(), 'public'),
   ];
-  const publicRoot = candidates.find((p: string) => fs.existsSync(p)) ?? candidates[0];
-  // Debug: log resolved public root and file existence to help diagnose static file serving issues
-  // eslint-disable-next-line no-console
-  console.log('[STATIC] resolved publicRoot=', publicRoot);
-  // eslint-disable-next-line no-console
-  console.log('[STATIC] index exists=', fs.existsSync(join(publicRoot, 'dashboard', 'index.html')));
-  // eslint-disable-next-line no-console
-  console.log('[STATIC] app.js exists=', fs.existsSync(join(publicRoot, 'dashboard', 'app.js')));
+  const publicRoot = candidates.find((p: string) => existsSync(p)) ?? candidates[0];
   await app.register(fastifyStatic, {
     root: publicRoot,
     prefix: '/',
@@ -100,38 +84,25 @@ async function bootstrap(): Promise<void> {
 
   // SPA fallback: serve index.html for /dashboard routes (both /dashboard and /dashboard/*)
   const fastifyInstance = app.getHttpAdapter().getInstance();
-  // exact /dashboard -> serve index (add a log so we can see if this handler is hit)
   fastifyInstance.get('/dashboard', (_req: any, reply: any) => {
-    // lightweight log for debugging
-    // eslint-disable-next-line no-console
-    console.log('[STATIC] GET /dashboard -> serving dashboard/index.html');
     reply.type('text/html').sendFile('dashboard/index.html', publicRoot);
   });
-  // /dashboard/* -> serve index (for client-side routing)
   fastifyInstance.get('/dashboard/*', (_req: any, reply: any) => {
-    // eslint-disable-next-line no-console
-    console.log('[STATIC] GET /dashboard/* -> serving dashboard/index.html');
     reply.type('text/html').sendFile('dashboard/index.html', publicRoot);
   });
-  // Ensure unmatched dashboard paths are served the SPA index as a fallback.
-  // Use a lightweight onRequest hook to serve the SPA index only for HTML-like requests
-  // and when the path does not point to a static asset (has no file extension).
+  // Serve SPA index for unmatched /dashboard paths that accept HTML and aren't static assets
   fastifyInstance.addHook('onRequest', (request: any, reply: any, done: any) => {
     const url = request && request.raw ? request.raw.url : request && (request.url || '');
     const accept = request && request.headers ? request.headers['accept'] || '' : '';
     const isFile = typeof url === 'string' && extname(url) !== '';
-    // Only serve SPA index when URL is under /dashboard, does not look like a file,
-    // and the client accepts HTML (prevents intercepting requests for app.js, style.css, etc.).
     if (
       typeof url === 'string' &&
       url.startsWith('/dashboard') &&
       !isFile &&
       accept.includes('text/html')
     ) {
-      // eslint-disable-next-line no-console
-      console.log('[STATIC] onRequest hook matched (serving SPA index)', url);
       reply.type('text/html').sendFile('dashboard/index.html', publicRoot);
-      return; // do not call done() after sending
+      return;
     }
     done();
   });
@@ -177,13 +148,13 @@ async function bootstrap(): Promise<void> {
         persistAuthorization: true,
       },
     });
-    logger.log(`📚 Swagger UI available at /${config.app.globalPrefix}/docs`);
+    log.log(`📚 Swagger UI available at /${config.app.globalPrefix}/docs`);
   }
 
   // ---- Start server ----
   await app.listen(config.app.port, config.app.host);
 
-  logger.log(
+  log.log(
     `🚀 ${config.app.name} running on http://${config.app.host}:${config.app.port}` +
       (config.app.globalPrefix ? `/${config.app.globalPrefix}` : '') +
       ` [${config.app.env}]`,
@@ -191,7 +162,6 @@ async function bootstrap(): Promise<void> {
 }
 
 bootstrap().catch((err) => {
-  // eslint-disable-next-line no-console
   console.error('❌ Failed to bootstrap application', err);
   process.exit(1);
 });

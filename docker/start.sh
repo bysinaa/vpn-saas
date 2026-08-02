@@ -66,7 +66,91 @@ can_connect_database_url() {
     return 1
   fi
 
-  node -e "const { Client } = require('pg'); const client = new Client({ connectionString: process.env.DATABASE_URL }); client.connect().then(() => client.end()).then(() => process.exit(0)).catch(() => process.exit(1));"
+  node -e "
+const { Client } = require('pg');
+const client = new Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 5000 });
+client.connect()
+  .then(() => client.end())
+  .then(() => process.exit(0))
+  .catch((err) => {
+    const msg = err.message || String(err);
+    const code = err.code || '';
+
+    // Classify the error
+    let category = 'unknown';
+    if (code === 'ENOTFOUND' || /getaddrinfo|EAI_AGAIN|hostname/i.test(msg)) {
+      category = 'DNS_FAILURE';
+    } else if (code === 'ECONNREFUSED' || code === 'ECONNRESET' || /connect ECONNREFUSED|connection refused/i.test(msg)) {
+      category = 'TCP_FAILURE';
+    } else if (code === 'ETIMEDOUT' || /timeout|timed out/i.test(msg)) {
+      category = 'TCP_FAILURE';
+    } else if (code === '28P01' || /password|authentication|auth failed|role.*does not exist/i.test(msg)) {
+      category = 'AUTH_FAILURE';
+    } else if (code === '3D000' || /database.*does not exist|database.*not found/i.test(msg)) {
+      category = 'DATABASE_MISSING';
+    } else if (code === '42501' || /permission|denied|not authorized/i.test(msg)) {
+      category = 'PERMISSION_FAILURE';
+    } else if (code === '28000' || /no pg_hba.conf|SSL|SSL connection/i.test(msg)) {
+      category = 'SSL_MISMATCH';
+    } else if (/terminating|connection terminated|server closed/i.test(msg)) {
+      category = 'SERVER_CRASHED';
+    }
+
+    console.error('[startup] DB connection error:');
+    console.error('  Category:  ' + category);
+    console.error('  Code:      ' + (code || 'N/A'));
+    console.error('  Message:   ' + msg);
+    if (err.stack) console.error('  Stack:     ' + err.stack.split('\\n')[1]?.trim() || '');
+    process.exit(1);
+  });
+"
+}
+
+diagnose_database_url() {
+  if [ -z "${DATABASE_URL:-}" ]; then
+    log "No DATABASE_URL set"
+    return 1
+  fi
+
+  log "DATABASE_URL detected; validating connection"
+  log "  URL: $(echo "$DATABASE_URL" | sed 's/:[^:@/]*@/:***@/')"
+
+  # Parse the URL for diagnostics
+  DB_HOST=$(echo "$DATABASE_URL" | sed -n 's/.*@\([^:]*\).*/\1/p' 2>/dev/null || echo '')
+  DB_PORT=$(echo "$DATABASE_URL" | sed -n 's/.*:\([0-9]*\)\/.*/\1/p' 2>/dev/null || echo '5432')
+  DB_NAME=$(echo "$DATABASE_URL" | sed -n 's/.*\/\([^?]*\).*/\1/p' 2>/dev/null || echo '')
+  DB_USER=$(echo "$DATABASE_URL" | sed -n 's/.*\/\/\([^:]*\).*/\1/p' 2>/dev/null || echo '')
+
+  log "  Host: $DB_HOST"
+  log "  Port: $DB_PORT"
+  log "  Database: $DB_NAME"
+  log "  User: $DB_USER"
+
+  # Step 1: DNS resolution check
+  if [ -n "$DB_HOST" ] && [ "$DB_HOST" != "localhost" ] && [ "$DB_HOST" != "127.0.0.1" ]; then
+    log "  Checking DNS resolution for $DB_HOST..."
+    if ! nslookup "$DB_HOST" >/dev/null 2>&1 && ! getent hosts "$DB_HOST" >/dev/null 2>&1; then
+      fail "DNS_FAILURE: Cannot resolve hostname '$DB_HOST'. Check your DATABASE_URL host or DNS configuration."
+    fi
+    log "  DNS resolution OK"
+  fi
+
+  # Step 2: TCP connectivity check
+  log "  Checking TCP connectivity to $DB_HOST:$DB_PORT..."
+  if ! node -e "const net = require('net'); const sock = net.createConnection({ host: '$DB_HOST', port: Number('$DB_PORT') }, () => { sock.end(); process.exit(0); }); sock.on('error', () => process.exit(1)); sock.setTimeout(5000, () => { sock.destroy(); process.exit(1); });" 2>/dev/null; then
+    fail "TCP_FAILURE: Cannot connect to $DB_HOST:$DB_PORT. The PostgreSQL server is not running or not reachable. Check if the database container/service is up."
+  fi
+  log "  TCP connectivity OK"
+
+  # Step 3: Full connection attempt with detailed error
+  log "  Attempting PostgreSQL authentication..."
+  if can_connect_database_url; then
+    log "  Connected using existing DATABASE_URL"
+    return 0
+  fi
+
+  # can_connect_database_url already printed the classified error
+  fail "DATABASE_URL is set but connection failed (see error above). Fix the issue and restart."
 }
 
 can_connect_local_postgres() {
@@ -150,13 +234,8 @@ detect_and_prepare_database() {
   load_env_file "$POSTGRES_ENV_FILE"
   load_env_file ".env"
 
-  if [ -n "${DATABASE_URL:-}" ]; then
-    log "DATABASE_URL detected; validating connection"
-    if can_connect_database_url; then
-      log "Connected using existing DATABASE_URL"
-      return 0
-    fi
-    fail "DATABASE_URL is set but connection failed"
+  if diagnose_database_url; then
+    return 0
   fi
 
   POSTGRES_HOST="${POSTGRES_HOST:-localhost}"
@@ -203,10 +282,38 @@ wait_for_postgres() {
 
   log "Waiting for PostgreSQL to accept connections..."
   ATTEMPT=0
-  until node -e "const { Client } = require('pg'); const client = new Client({ connectionString: process.env.DATABASE_URL }); client.connect().then(() => { console.log('[startup] PostgreSQL connection successful'); return client.end(); }).then(() => process.exit(0)).catch((err) => { console.error('[startup] PostgreSQL connection failed:', err.message); process.exit(1); });"; do
+  until node -e "
+const { Client } = require('pg');
+const client = new Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 5000 });
+client.connect()
+  .then(() => { console.log('[startup] PostgreSQL connection successful'); return client.end(); })
+  .then(() => process.exit(0))
+  .catch((err) => {
+    const msg = err.message || String(err);
+    const code = err.code || '';
+    let category = 'unknown';
+    if (code === 'ENOTFOUND' || /getaddrinfo|EAI_AGAIN|hostname/i.test(msg)) category = 'DNS_FAILURE';
+    else if (code === 'ECONNREFUSED' || code === 'ECONNRESET' || /connection refused/i.test(msg)) category = 'TCP_FAILURE';
+    else if (code === 'ETIMEDOUT' || /timeout/i.test(msg)) category = 'TCP_FAILURE';
+    else if (code === '28P01' || /password|authentication|auth failed/i.test(msg)) category = 'AUTH_FAILURE';
+    else if (code === '3D000' || /database.*does not exist/i.test(msg)) category = 'DATABASE_MISSING';
+    else if (code === '42501' || /permission|denied/i.test(msg)) category = 'PERMISSION_FAILURE';
+    else if (code === '28000' || /SSL|pg_hba/i.test(msg)) category = 'SSL_MISMATCH';
+
+    if (process.env.STARTUP_DEBUG) {
+      console.error('[startup] PostgreSQL connection failed:');
+      console.error('  Category: ' + category);
+      console.error('  Code:     ' + (code || 'N/A'));
+      console.error('  Message:  ' + msg);
+    } else {
+      console.error('[startup] PostgreSQL not ready (' + category + '): ' + msg.substring(0, 100));
+    }
+    process.exit(1);
+  });
+"; do
     ATTEMPT=$((ATTEMPT + 1))
     if [ "$ATTEMPT" -ge 60 ]; then
-      fail "PostgreSQL did not become ready in time"
+      fail "PostgreSQL did not become ready in time (60 attempts). Last error category logged above. Set STARTUP_DEBUG=1 for full details."
     fi
     sleep 2
   done
