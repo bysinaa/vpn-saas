@@ -75,9 +75,9 @@ install_base_dependencies() {
 install_or_update_repo() {
   if [ -d "$INSTALL_DIR/.git" ]; then
     log "Updating existing repository at $INSTALL_DIR"
-git -C "$INSTALL_DIR" fetch origin
-git -C "$INSTALL_DIR" reset --hard origin/main
-git -C "$INSTALL_DIR" clean -fdx
+    git -C "$INSTALL_DIR" fetch origin
+    git -C "$INSTALL_DIR" reset --hard "origin/$BRANCH"
+    git -C "$INSTALL_DIR" clean -fdx
     return
   fi
 
@@ -92,7 +92,18 @@ build_cli() {
   npm install
 
   log "Building Tazaxy CLI"
-  npm run cli:build
+  if ! npm run cli:build; then
+    echo "ERROR: CLI build failed (npm run cli:build). Cannot continue." >&2
+    exit 1
+  fi
+
+  # Verify the compiled CLI entrypoint exists
+  if [ ! -f "$INSTALL_DIR/cli/dist-cli/index.js" ]; then
+    echo "ERROR: cli/dist-cli/index.js not found after build. Cannot continue." >&2
+    exit 1
+  fi
+
+  log "CLI built successfully: $(node cli/dist-cli/index.js --version 2>/dev/null || echo 'OK')"
 }
 
 install_launcher() {
