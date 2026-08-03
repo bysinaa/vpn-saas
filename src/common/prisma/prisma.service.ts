@@ -44,7 +44,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
             chosen.credentials.POSTGRES_DB ||
             chosen.credentials.PGDATABASE ||
             chosen.database ||
-            'vpn_saas';
+            'tazaxy';
           const host = chosen.host || 'localhost';
           const port = chosen.port || 5432;
           if (user && pass) {

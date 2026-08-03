@@ -21,12 +21,12 @@ fi
 mkdir -p "$BACKUP_DIR"
 
 TIMESTAMP="$(date +%Y-%m-%d_%H-%M-%S)"
-BACKUP_FILE="$BACKUP_DIR/vpn_saas_$TIMESTAMP.sql"
+BACKUP_FILE="$BACKUP_DIR/tazaxy_$TIMESTAMP.sql"
 
 log "Creating backup at $BACKUP_FILE"
 pg_dump "$DATABASE_URL" > "$BACKUP_FILE"
 
 log "Pruning backups older than $RETENTION_DAYS days"
-find "$BACKUP_DIR" -type f -name 'vpn_saas_*.sql' -mtime +"$RETENTION_DAYS" -delete
+find "$BACKUP_DIR" -type f -name 'tazaxy_*.sql' -mtime +"$RETENTION_DAYS" -delete
 
 log "Backup completed"

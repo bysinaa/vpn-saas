@@ -34,7 +34,7 @@ const envBool = (def: boolean) =>
 
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test', 'staging']).default('development'),
-  APP_NAME: z.string().default('vpn-saas'),
+  APP_NAME: z.string().default('tazaxy'),
   APP_PORT: z.coerce.number().default(3000),
   APP_HOST: z.string().default('0.0.0.0'),
   APP_URL: z.string().url(),
@@ -58,8 +58,8 @@ export const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(16),
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL: z.string().default('7d'),
-  JWT_ISSUER: z.string().default('vpn-saas'),
-  JWT_AUDIENCE: z.string().default('vpn-saas-clients'),
+  JWT_ISSUER: z.string().default('tazaxy'),
+  JWT_AUDIENCE: z.string().default('tazaxy-clients'),
 
   S3_ENDPOINT: z.string().url(),
   S3_REGION: z.string().default('us-east-1'),
@@ -83,27 +83,23 @@ export const envSchema = z.object({
   PROXY_URL: z.string().default(''),
   PROXY_BYPASS: z.string().default('localhost,127.0.0.1,::1'),
 
-  SANITY_PANEL_BASE_URL: z.string().url(),
+  XUI_PANEL_BASE_URL: z.string().url(),
   // 3x-ui v3.x uses session-cookie auth (login flow); username/password are used
   // to obtain a session. API_KEY is kept for backward-compat / future token API.
-  SANITY_PANEL_API_KEY: z.string().default(''),
-  SANITY_PANEL_USERNAME: z.string().default('admin'),
-  SANITY_PANEL_PASSWORD: z.string().default(''),
-  SANITY_PANEL_TIMEOUT_MS: z.coerce.number().default(15000),
-  SANITY_PANEL_MAX_RETRIES: z.coerce.number().default(3),
-  SANITY_PANEL_SYNC_CRON: z.string().default('0 */6 * * *'),
-  SANITY_PANEL_SUB_PORT: z.coerce.number().default(2053),
-  SANITY_PANEL_SUB_PATH: z.string().default('sub'),
+  XUI_PANEL_API_KEY: z.string().default(''),
+  XUI_PANEL_USERNAME: z.string().default('admin'),
+  XUI_PANEL_PASSWORD: z.string().default(''),
+  XUI_PANEL_TIMEOUT_MS: z.coerce.number().default(15000),
+  XUI_PANEL_MAX_RETRIES: z.coerce.number().default(3),
+  XUI_PANEL_SYNC_CRON: z.string().default('0 */6 * * *'),
+  XUI_PANEL_SUB_PORT: z.coerce.number().default(2053),
+  XUI_PANEL_SUB_PATH: z.string().default('sub'),
 
-  XUI_PANEL_URL: z.string().url().optional().default('https://localhost:2053/'),
-  XUI_USERNAME: z.string().default('admin'),
-  XUI_PASSWORD: z.string().default(''),
-  XUI_TIMEOUT_MS: z.coerce.number().default(15000),
-  XUI_SESSION_TTL_MS: z.coerce.number().default(3600000),
-  XUI_DEFAULT_INBOUND_ID: z.coerce.number().optional(),
+  XUI_PANEL_SESSION_TTL_MS: z.coerce.number().default(3600000),
+  XUI_PANEL_DEFAULT_INBOUND_ID: z.coerce.number().optional(),
 
   ONLINE_GATEWAY_ENABLED: envBool(true),
-  ONLINE_GATEWAY_BASE_URL: z.string().default(''),
+  ONLINE_GATEWAY_SANDBOX: envBool(false),
   ONLINE_GATEWAY_MERCHANT_ID: z.string().default(''),
   ONLINE_GATEWAY_API_KEY: z.string().default(''),
   ONLINE_GATEWAY_CALLBACK_URL: z.string().default(''),
@@ -126,7 +122,7 @@ export const envSchema = z.object({
   MAX_UPLOAD_SIZE_MB: z.coerce.number().default(10),
   RECEIPT_ALLOWED_MIMES: z.string().default('image/jpeg,image/png,image/webp,application/pdf'),
 
-  QUEUE_PREFIX: z.string().default('vpn-saas'),
+  QUEUE_PREFIX: z.string().default('tazaxy'),
   QUEUE_DEFAULT_ATTEMPTS: z.coerce.number().default(3),
   QUEUE_DEFAULT_BACKOFF: z.string().default('exponential'),
   QUEUE_DEFAULT_BACKOFF_DELAY: z.coerce.number().default(5000),

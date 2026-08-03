@@ -456,9 +456,9 @@ export class XuiService {
     const encryptedPassword = secretEncrypt(config.xui.password);
 
     await this.prisma.xuiConnection.upsert({
-      where: { panelUrl: config.xui.panelUrl },
+      where: { panelUrl: config.xui.baseUrl },
       create: {
-        panelUrl: config.xui.panelUrl,
+        panelUrl: config.xui.baseUrl,
         username: config.xui.username,
         passwordEncrypted: encryptedPassword,
         cookie: cookie ?? null,

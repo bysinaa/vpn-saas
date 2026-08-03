@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * VPN SaaS CLI - Production installation and management entrypoint.
+ * TAZAXY CLI - Production installation and management entrypoint.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -352,7 +352,7 @@ async function promptMenuSelection(): Promise<MenuAction> {
   // Show discovery summary
   console.log('  Discovery Summary:');
   console.log(`    ${icon(envExists)} .env file          ${envExists ? 'found' : 'missing'}`);
-  console.log(`    ${icon(dbDiscovered)} PostgreSQL         ${dbDiscovered ? state?.db?.discovered?.value?.databaseUrl?.replace(/:[^:@]+@/, ':****@') || 'discovered' : 'not discovered'}`);
+  console.log(`    ${icon(dbDiscovered)} PostgreSQL         ${dbDiscovered ? 'discovered' : 'not discovered'}`);
   console.log(`    ${xuiConfirmed ? icon(true) : xuiDetected ? warn : icon(false)} 3X-UI Panel       ${xuiConfirmed ? `confirmed (${state?.xui?.confirmed?.baseUrl})` : xuiDetected ? 'detected (unconfirmed)' : 'not detected'}`);
   console.log(`    ${icon(appRunning)} App Container      ${appRunning ? 'running' : 'stopped'}`);
   console.log(`    ${icon(dockerState.redisContainerRunning)} Redis Container    ${dockerState.redisContainerRunning ? 'running' : 'stopped'}`);
@@ -437,7 +437,7 @@ async function detectDockerState(): Promise<{
     for (const line of lines) {
       const [name, image] = line.split('||');
       const lower = `${name} ${image}`.toLowerCase();
-      if (lower.includes('vpn-saas-app') || lower.includes('app') && lower.includes('vpn-saas')) {
+      if (lower.includes('tazaxy-app') || lower.includes('app') && lower.includes('tazaxy')) {
         result.appContainerRunning = true;
       }
       if (lower.includes('redis')) {
@@ -621,7 +621,7 @@ async function runPrismaDeploy() {
 function resolveWorkspaceRoot(): string {
   const candidates = [
     process.env.TAZAXY_HOME,
-    '/opt/vpn-saas',
+    '/opt/tazaxy',
     path.resolve(__dirname, '..', '..'),
     process.cwd(),
   ].filter((value): value is string => Boolean(value));
@@ -667,7 +667,6 @@ INSTALL OPTIONS:
   --skip-3xui        Skip fresh 3X-UI installation
   --panel-url        Existing panel URL
   --panel-user       Existing panel username
-  --panel-pass       Existing panel password
   --domain           Public domain name
   --email            Administrative email
 
@@ -685,14 +684,17 @@ PANEL OPTIONS:
   --remove           Remove saved panel configuration
   --url <url>        Panel URL
   --user <user>      Panel username
-  --pass <pass>      Panel password
   --sub-port <port>  Subscription port
   --sub-path <path>  Subscription path
 `);
 }
 
-main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(`Error: ${message}`);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Error: ${message}`);
+    process.exit(1);
+  });
+}
+
+export { main, parseOptions };

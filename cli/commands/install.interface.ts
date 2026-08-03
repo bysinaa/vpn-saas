@@ -17,7 +17,6 @@ export interface InstallOptions {
   skip3xui?: boolean;
   panelUrl?: string;
   panelUser?: string;
-  panelPass?: string;
   interactive?: boolean;
   verbose?: boolean;
   domain?: string;
@@ -65,10 +64,10 @@ export interface PortProbeResult {
   description?: string;
 }
 
-export interface VpnSaasPanelRuntimeConfig {
+export interface TazaxyPanelRuntimeConfig {
   panelUrl: string;
   panelUser: string;
-  panelPass: string;
+  panelPass?: string;
   apiUrl: string;
   subscriptionBaseUrl: string;
   subscriptionPath: string;
@@ -84,7 +83,7 @@ export interface VpnSaasPanelRuntimeConfig {
   metadata?: Record<string, unknown>;
 }
 
-export interface VpnSaasPlatformConfig {
+export interface TazaxyPlatformConfig {
   version: number;
   installedAt?: string;
   updatedAt: string;
@@ -102,7 +101,7 @@ export interface VpnSaasPlatformConfig {
     webhookUrl?: string;
     useWebhook?: boolean;
   };
-  panel?: VpnSaasPanelRuntimeConfig;
+  panel?: TazaxyPanelRuntimeConfig;
   backup?: {
     directory: string;
     lastBackupAt?: string;
@@ -121,7 +120,7 @@ export interface MenuChoice<T extends string = string> {
 
 export abstract class BaseCommand {
   protected readonly workspaceRoot = process.cwd();
-  protected readonly runtimeDir = path.join(this.workspaceRoot, '.vpn-saas');
+  protected readonly runtimeDir = path.join(this.workspaceRoot, '.tazaxy');
   protected readonly runtimeConfigPath = path.join(this.runtimeDir, 'config.json');
   protected readonly installLogPath = path.join(this.runtimeDir, 'installer.log');
   protected readonly defaultEnvPath = path.join(this.workspaceRoot, '.env');
@@ -444,7 +443,7 @@ export abstract class BaseCommand {
     };
   }
 
-  protected async loadRuntimeConfig(): Promise<VpnSaasPlatformConfig> {
+  protected async loadRuntimeConfig(): Promise<TazaxyPlatformConfig> {
     if (!(await this.fileExists(this.runtimeConfigPath))) {
       return {
         version: 1,
@@ -462,7 +461,7 @@ export abstract class BaseCommand {
     }
 
     const raw = await this.readFile(this.runtimeConfigPath);
-    const parsed = JSON.parse(raw) as VpnSaasPlatformConfig;
+    const parsed = JSON.parse(raw) as TazaxyPlatformConfig;
 
     return {
       ...parsed,
@@ -482,16 +481,16 @@ export abstract class BaseCommand {
 
   protected async saveRuntimeConfig(
     updater:
-      | VpnSaasPlatformConfig
-      | ((config: VpnSaasPlatformConfig) => VpnSaasPlatformConfig | Promise<VpnSaasPlatformConfig>),
-  ): Promise<VpnSaasPlatformConfig> {
+      | TazaxyPlatformConfig
+      | ((config: TazaxyPlatformConfig) => TazaxyPlatformConfig | Promise<TazaxyPlatformConfig>),
+  ): Promise<TazaxyPlatformConfig> {
     const current = await this.loadRuntimeConfig();
     const next =
       typeof updater === 'function'
         ? await updater(current)
         : updater;
 
-    const normalized: VpnSaasPlatformConfig = {
+    const normalized: TazaxyPlatformConfig = {
       ...next,
       version: 1,
       updatedAt: new Date().toISOString(),
@@ -504,12 +503,18 @@ export abstract class BaseCommand {
       },
     };
 
+    // Credentials are held only in memory for validation/use; installer state is sanitized.
+    if (normalized.panel) {
+      const { panelPass: _panelPass, token: _token, tokenExpiresAt: _tokenExpiresAt, ...safePanel } = normalized.panel;
+      normalized.panel = safePanel;
+    }
+
     await this.ensureDir(this.runtimeDir);
     await this.writeFile(this.runtimeConfigPath, `${JSON.stringify(normalized, null, 2)}\n`);
     return normalized;
   }
 
-  protected buildSubscriptionUrl(config: VpnSaasPanelRuntimeConfig, subId: string, html = false): string {
+  protected buildSubscriptionUrl(config: TazaxyPanelRuntimeConfig, subId: string, html = false): string {
     const base = config.subscriptionBaseUrl.replace(/\/+$/, '');
     const subPath = config.subscriptionPath.replace(/^\/+/, '').replace(/\/+$/, '');
     const url = `${base}/${subPath}/${subId}`;
@@ -577,7 +582,7 @@ export abstract class BaseCommand {
     subscriptionPath?: string;
     panelUser?: string;
     panelPass?: string;
-  }): VpnSaasPanelRuntimeConfig {
+  }): TazaxyPanelRuntimeConfig {
     const panelUrl = input.panelUrl
       ? this.normalizePanelUrl(input.panelUrl, input.tlsEnabled, input.port, input.panelPath)
       : this.buildPanelUrlFromParts({

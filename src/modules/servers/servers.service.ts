@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/common/prisma/prisma.service';
 import { BusinessException } from '@/common/exceptions/business.exception';
+import { AuditService } from '@/common/audit/audit.service';
 import {
   PaginatedDto,
   buildMeta,
@@ -41,11 +42,39 @@ export interface ServerDto {
 /**
  * ServersService - manages the geographic + physical server topology.
  * Servers belong to Cities which belong to Countries; each Server maps to
- * exactly one VpnPanel (Sanity instance) for provisioning.
+ * exactly one VpnPanel (XUI instance) for provisioning.
  */
 @Injectable()
 export class ServersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+
+  /** Idempotently binds a loopback-only test server to a local panel. */
+  async ensureLocalTestPanelServer(input: { panelId: bigint; name: string; host: string; port: number }) {
+    const existing = await this.prisma.server.findFirst({
+      where: { panelId: input.panelId, name: input.name },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (existing) return { id: existing.id, created: false };
+
+    const hostname = await this.prisma.server.findUnique({ where: { hostname: input.host } });
+    if (hostname) throw BusinessException.conflict('Local server host is already bound to another server');
+
+    const server = await this.prisma.server.create({
+      data: {
+        panelId: input.panelId,
+        name: input.name,
+        hostname: input.host,
+        ip: input.host,
+        status: 'ONLINE',
+        metadata: { port: input.port, local: true, test: true },
+      },
+    });
+    await this.audit.log({
+      action: 'CREATE', resource: 'server', resourceId: server.id.toString(),
+      after: { panelId: input.panelId.toString(), name: input.name, local: true, test: true },
+    });
+    return { id: server.id, created: true };
+  }
 
   // ---- Countries ----
   async listCountries(): Promise<CountryDto[]> {

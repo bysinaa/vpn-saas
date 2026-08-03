@@ -7,8 +7,9 @@ import {
   parsePagination,
   skipTake,
 } from '@/common/pagination/pagination.dto';
-import type { PrismaClient, SubscriptionStatus, PlanType } from '@prisma/client';
+import type { Prisma, SubscriptionStatus, PlanType } from '@prisma/client';
 import { VpnService } from '../vpn/vpn.service';
+import type { XuiProvisioningTarget } from '../vpn/vpn.service';
 import type { OrderType } from '@prisma/client';
 
 export interface SubscriptionDto {
@@ -44,19 +45,16 @@ export class SubscriptionsService {
     private readonly vpn: VpnService,
   ) {}
 
-  /**
-   * Provision a new (or renewed) subscription within an existing transaction.
-   * Safe to call inside OrdersService.completeOrder's tx.
-   */
-  async provision(params: {
+  async provisionInTransaction(params: {
     userId: bigint;
     planId: bigint;
     orderId?: bigint;
     type: OrderType;
     isTrial?: boolean;
-    tx?: PrismaClient;
-  }): Promise<SubscriptionDto> {
-    const db = params.tx ?? this.prisma;
+    provisioningTarget?: XuiProvisioningTarget;
+    tx: Prisma.TransactionClient;
+  }): Promise<any> {
+    const db = params.tx;
     const plan = await db.plan.findUnique({ where: { id: params.planId } });
     if (!plan) throw BusinessException.notFound('Plan not found');
 
@@ -64,9 +62,9 @@ export class SubscriptionsService {
     const expiresAt = plan.durationDays
       ? new Date(startsAt.getTime() + plan.durationDays * 24 * 3600 * 1000)
       : null;
-    const trafficLimitBytes = plan.trafficLimitGb
-      ? plan.trafficLimitGb * 1024n * 1024n * 1024n
-      : null;
+    const trafficLimitBytes =
+      (plan as typeof plan & { trafficLimitBytes?: bigint | null }).trafficLimitBytes ??
+      (plan.trafficLimitGb ? plan.trafficLimitGb * 1024n * 1024n * 1024n : null);
 
     // For renewals/extends, find existing active sub
     const existing = await db.subscription.findFirst({
@@ -118,6 +116,12 @@ export class SubscriptionsService {
           expiresAt,
           deviceLimit: plan.deviceLimit,
           isTrial: params.isTrial ?? plan.isTrial,
+          ...(params.provisioningTarget
+            ? {
+                provisioningPanelId: params.provisioningTarget.panelId,
+                provisioningInboundIds: params.provisioningTarget.inboundIds,
+              }
+            : {}),
         },
         include: { plan: true },
       });
@@ -130,9 +134,25 @@ export class SubscriptionsService {
       });
     }
 
-    // Provision VPN user on the 3x-UI panel.
-    // If VPN creation fails, log but don't break subscription creation.
-    // The queue worker will retry later.
+    return subscription;
+  }
+
+  async provision(params: {
+    userId: bigint;
+    planId: bigint;
+    orderId?: bigint;
+    type: OrderType;
+    isTrial?: boolean;
+    tx?: Prisma.TransactionClient;
+  }): Promise<SubscriptionDto> {
+    const subscription = params.tx
+      ? await this.provisionInTransaction({ ...params, tx: params.tx })
+      : await this.prisma.withTransaction((tx) =>
+          this.provisionInTransaction({ ...params, tx }),
+        );
+
+    if (params.tx) return this.toDto(subscription);
+
     try {
       await this.vpn.createVpnUserForSubscription(subscription.id);
     } catch (err: any) {

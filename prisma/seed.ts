@@ -61,7 +61,7 @@ async function main() {
   });
 
   // ---------- Super Admin ----------
-  const email = process.env.SUPER_ADMIN_EMAIL || 'admin@vpn-saas.local';
+  const email = process.env.SUPER_ADMIN_EMAIL || 'admin@tazaxy.local';
   const password = process.env.SUPER_ADMIN_PASSWORD || 'ChangeMe!2024';
   const passwordHash = await bcrypt.hash(password, 12);
   const telegramId = process.env.SUPER_ADMIN_TELEGRAM_ID;
@@ -127,8 +127,8 @@ async function main() {
     { key: 'gateway.default.sandbox', value: 'true', category: 'GATEWAY', type: 'BOOLEAN', isPublic: false, description: 'Sandbox mode' },
     // --- General / brand ---
     { key: 'currency.default', value: 'IRR', category: 'GENERAL', type: 'STRING', isPublic: true },
-    { key: 'brand.name', value: 'VPN SaaS', category: 'GENERAL', type: 'STRING', isPublic: true },
-    { key: 'brand.supportEmail', value: 'support@vpn-saas.local', category: 'GENERAL', type: 'STRING', isPublic: true },
+    { key: 'brand.name', value: 'TAZAXY', category: 'GENERAL', type: 'STRING', isPublic: true },
+    { key: 'brand.supportEmail', value: 'support@tazaxy.local', category: 'GENERAL', type: 'STRING', isPublic: true },
     { key: 'brand.telegramSupport', value: '', category: 'GENERAL', type: 'STRING', isPublic: true, description: 'Telegram support username' },
   ];
   for (const s of defaultSettings) {
@@ -171,7 +171,7 @@ async function main() {
   // ---------- Free Trial Plan (so the bot's "Get Trial" flow works) ----------
   // Per spec #1: 500MB traffic (0.5 GB) for 3 days. The bot reads the
   // `trial.trafficLimitGb` SystemSetting (0.5) at runtime for the exact byte
-  // budget handed to the Sanity panel; this plan record is the fallback.
+  // budget handed to the XUI panel; this plan record is the fallback.
   await prisma.plan.upsert({
     where: { slug: 'free-trial' },
     update: {},
@@ -199,8 +199,8 @@ async function main() {
   // ---------- Bank Cards (spec #3) ----------
   // Admin-managed card-to-card deposit cards. Users always see the active card.
   const bankCards = [
-    { cardNumber: '6037-9911-2345-6789', cardHolder: 'VPN SaaS Co.', bankName: 'Bank Melli', shebaNumber: 'IR000170000000000000000001', label: 'Primary', isActive: true, isDefault: true, sortOrder: 0 },
-    { cardNumber: '5892-1022-3344-5566', cardHolder: 'VPN SaaS Co.', bankName: 'Bank Saderat', shebaNumber: 'IR000190000000000000000002', label: 'Secondary', isActive: true, isDefault: false, sortOrder: 1 },
+    { cardNumber: '6037-9911-2345-6789', cardHolder: 'TAZAXY Co.', bankName: 'Bank Melli', shebaNumber: 'IR000170000000000000000001', label: 'Primary', isActive: true, isDefault: true, sortOrder: 0 },
+    { cardNumber: '5892-1022-3344-5566', cardHolder: 'TAZAXY Co.', bankName: 'Bank Saderat', shebaNumber: 'IR000190000000000000000002', label: 'Secondary', isActive: true, isDefault: false, sortOrder: 1 },
   ];
   for (const card of bankCards) {
     const existing = await prisma.bankCard.findFirst({

@@ -166,7 +166,7 @@ export class AdminCommand extends BaseCommand {
     const config = await this.loadRuntimeConfig();
     const envPath = config.paths.envFile;
     const existing = (await this.fileExists(envPath)) ? await this.readFile(envPath) : '';
-    const updated = this.upsertEnvValue(existing || '# VPN SaaS environment\n', 'TELEGRAM_ADMIN_IDS', config.superAdmins.join(','));
+    const updated = this.upsertEnvValue(existing || '# TAZAXY environment\n', 'TELEGRAM_ADMIN_IDS', config.superAdmins.join(','));
     await this.writeFile(envPath, updated);
   }
 

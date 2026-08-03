@@ -390,6 +390,10 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
       const m = (ctx.callbackQuery as any)?.data?.match(/aset:(edit|toggle|delete|new)(?::(.+))?/);
       return this.admin.onSettingAction(ctx, m![1], m![2] ?? '');
     });
+    this.bot.action(/acard:(toggle|default|delete):([0-9a-f-]+)/, (ctx) => {
+      const m = (ctx.callbackQuery as any)?.data?.match(/acard:(toggle|default|delete):([0-9a-f-]+)/);
+      return this.admin.onCardAction(ctx, m![1], m![2]);
+    });
     this.bot.action(/apnl:(detail|health|toggle|new)(?::(.+))?/, (ctx) => {
       const m = (ctx.callbackQuery as any)?.data?.match(
         /apnl:(detail|health|toggle|new)(?::(.+))?/,

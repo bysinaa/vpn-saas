@@ -23,12 +23,16 @@ export const PlansSchemas = {
     durationDays: z.number().int().positive().nullable().optional(),
     deviceLimit: z.number().int().positive().default(1),
     serverLimit: z.number().int().positive().default(1),
-    price: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Invalid price'),
+    price: z.string().regex(/^\d+$/, 'Price must be integer toman'),
     originalPrice: z.string().optional(),
     discountPercent: z.number().min(0).max(100).optional(),
-    currency: z.string().default('USD'),
+    currency: z.literal('IRT').default('IRT'),
+    panelId: z.string().regex(/^\d+$/).optional(),
+    inboundConfigId: z.string().regex(/^\d+$/).optional(),
+    inboundPolicy: z.enum(['ALL_ACTIVE', 'SELECTED']).default('ALL_ACTIVE'),
     priority: z.number().int().default(0),
     isVisible: z.boolean().default(true),
+    isEnabled: z.boolean().default(true),
     countries: z.array(z.string()).default([]),
     isTrial: z.boolean().default(false),
     isRenewable: z.boolean().default(true),
@@ -43,12 +47,13 @@ export const PlansSchemas = {
     description: z.string().optional(),
     price: z
       .string()
-      .regex(/^\d+(\.\d{1,2})?$/)
+      .regex(/^\d+$/)
       .optional(),
     originalPrice: z.string().optional(),
     discountPercent: z.number().min(0).max(100).optional(),
     priority: z.number().int().optional(),
     isVisible: z.boolean().optional(),
+    isEnabled: z.boolean().optional(),
     status: z.string().optional(),
     durationDays: z.number().int().positive().nullable().optional(),
     trafficLimitGb: z.number().nonnegative().nullable().optional(),
@@ -59,6 +64,9 @@ export const PlansSchemas = {
     isRenewable: z.boolean().optional(),
     isTransferable: z.boolean().optional(),
     allowPause: z.boolean().optional(),
+    panelId: z.string().regex(/^\d+$/).nullable().optional(),
+    inboundConfigId: z.string().regex(/^\d+$/).nullable().optional(),
+    inboundPolicy: z.enum(['ALL_ACTIVE', 'SELECTED']).optional(),
   }),
 
   createCategory: z.object({

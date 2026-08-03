@@ -4,7 +4,7 @@ import { config } from '@/config';
 const ALGO = 'aes-256-gcm';
 
 function deriveKey(): Buffer {
-  return scryptSync(config.security.encryptionKey, 'vpn-saas-salt', 32);
+  return scryptSync(config.security.encryptionKey, 'tazaxy-salt', 32);
 }
 
 /** Encrypt arbitrary string -> returns base64 "iv:tag:ciphertext". */

@@ -1,5 +1,10 @@
 import * as path from 'path';
+import * as fs from 'fs';
 import { BaseCommand } from './install.interface';
+const installerDir = fs.existsSync(path.resolve(__dirname, '..', 'installer'))
+  ? path.resolve(__dirname, '..', 'installer')
+  : path.resolve(__dirname, '..', '..', 'installer');
+const { createPostgresDetector } = require(path.join(installerDir, 'postgres-detector'));
 
 export interface InfrastructureOptions {
   detect?: boolean;
@@ -25,8 +30,10 @@ type InfraAction =
   | 'show';
 
 interface DetectionResult {
-  source: 'database_url' | 'local_postgres' | 'docker_postgres' | 'none';
-  databaseUrl?: string;
+  source: string;
+  host?: string;
+  port?: number;
+  database?: string;
   details: string;
 }
 
@@ -36,7 +43,7 @@ export class InfrastructureCommand extends BaseCommand {
   private readonly postgresEnvFile = '/opt/postgres/.env';
   private readonly sharedEnvFile = '/opt/shared/.env';
   private readonly backupDir = '/opt/backups/postgres';
-  private readonly vpnDatabase = 'vpn_saas';
+  private readonly vpnDatabase = 'tazaxy';
 
   async execute(options: InfrastructureOptions): Promise<void> {
     this.setExecutionMode(options);
@@ -91,63 +98,10 @@ export class InfrastructureCommand extends BaseCommand {
   }
 
   private async detectPostgreSQL(): Promise<DetectionResult> {
-    const env = await this.readMergedEnv();
-    const databaseUrl = env.DATABASE_URL;
-
-    if (databaseUrl) {
-      const ok = await this.checkDatabaseUrl(databaseUrl);
-      if (ok) {
-        this.log(`Detected configured DATABASE_URL`, 'success');
-        console.log(databaseUrl);
-        return {
-          source: 'database_url',
-          databaseUrl,
-          details: 'Using DATABASE_URL from project/shared environment',
-        };
-      }
-    }
-
-    const localUrl = this.buildDatabaseUrl({
-      host: 'localhost',
-      port: env.POSTGRES_PORT || '5432',
-      user: env.POSTGRES_USER || 'postgres',
-      password: env.POSTGRES_PASSWORD || 'postgres',
-      database: env.VPN_DATABASE || this.vpnDatabase,
-    });
-
-    if (await this.checkDatabaseUrl(localUrl, 'postgres')) {
-      this.log('Detected local PostgreSQL on localhost:5432', 'success');
-      console.log(localUrl);
-      return {
-        source: 'local_postgres',
-        databaseUrl: localUrl,
-        details: 'Detected existing host PostgreSQL service',
-      };
-    }
-
-    if (await this.detectDockerPostgres(env)) {
-      const dockerUrl = this.buildDatabaseUrl({
-        host: env.POSTGRES_HOST || 'postgres',
-        port: env.POSTGRES_PORT || '5432',
-        user: env.POSTGRES_USER || 'postgres',
-        password: env.POSTGRES_PASSWORD || 'postgres',
-        database: env.VPN_DATABASE || this.vpnDatabase,
-      });
-
-      this.log('Detected standalone Docker PostgreSQL', 'success');
-      console.log(dockerUrl);
-      return {
-        source: 'docker_postgres',
-        databaseUrl: dockerUrl,
-        details: 'Detected Docker PostgreSQL service managed independently',
-      };
-    }
-
-    this.log('No PostgreSQL instance detected', 'warn');
-    return {
-      source: 'none',
-      details: 'No DATABASE_URL, local PostgreSQL, or Docker PostgreSQL detected',
-    };
+    const result = await createPostgresDetector().discover();
+    const connection = result.connection;
+    this.log(result.status === 'FOUND' ? `Detected PostgreSQL via ${result.source}` : 'No ready PostgreSQL instance detected', result.status === 'FOUND' ? 'success' : 'warn');
+    return { source: result.source, host: connection?.host, port: connection?.port, database: connection?.database, details: result.recommendedAction };
   }
 
   private async connectExistingPostgreSQL(url?: string): Promise<void> {
@@ -201,7 +155,7 @@ export class InfrastructureCommand extends BaseCommand {
 
     const databaseName = env.VPN_DATABASE || this.vpnDatabase;
     const confirmed = await this.confirm(
-      `Recreate database "${databaseName}"? This drops and recreates only the VPN SaaS database, not the PostgreSQL service.`,
+      `Recreate database "${databaseName}"? This drops and recreates only the TAZAXY database, not the PostgreSQL service.`,
       false,
     );
 
@@ -225,7 +179,7 @@ export class InfrastructureCommand extends BaseCommand {
     await this.ensureDir(this.backupDir);
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupPath = path.join(this.backupDir, `vpn_saas_${timestamp}.sql`);
+    const backupPath = path.join(this.backupDir, `tazaxy_${timestamp}.sql`);
 
     await this.execOrThrow(`pg_dump "${databaseUrl}" > "${backupPath}"`, {
       allowFailure: false,
@@ -264,9 +218,7 @@ export class InfrastructureCommand extends BaseCommand {
     console.log('');
     console.log(`Source: ${detection.source}`);
     console.log(`Details: ${detection.details}`);
-    if (detection.databaseUrl) {
-      console.log(`DATABASE_URL: ${detection.databaseUrl}`);
-    }
+    if (detection.host) console.log(`Connection: ${detection.host}:${detection.port}/${detection.database}`);
   }
 
   private async readMergedEnv(): Promise<Record<string, string>> {

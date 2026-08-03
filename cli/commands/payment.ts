@@ -57,7 +57,7 @@ export class PaymentCommand extends BaseCommand {
     const runtime = await this.loadRuntimeConfig();
     let envContent = (await this.fileExists(runtime.paths.envFile))
       ? await this.readFile(runtime.paths.envFile)
-      : '# VPN SaaS environment\n';
+      : '# TAZAXY environment\n';
 
     const gatewayCode = (options.gateway || (await this.prompt('Online gateway code', 'zarinpal'))).trim() || 'zarinpal';
     envContent = this.upsertEnvValue(envContent, 'PAYMENT_DEFAULT_GATEWAY', gatewayCode);

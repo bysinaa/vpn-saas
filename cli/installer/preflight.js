@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Improved Preflight checks script for vpn-saas installer.
+ * Improved Preflight checks script for tazaxy installer.
  *
  * Improvements:
  *  - Provides remediation guidance for common failures (missing tools, permissions).
@@ -155,7 +155,7 @@ async function checkPorts(result) {
 async function detectExistingInstallations(result) {
   result.existing = {};
   // Best-effort: these commands may return empty on Windows
-  result.existing.vpn_saas = await runCmd(process.platform === 'win32' ? 'tasklist | findstr /I vpn-saas || true' : 'ps aux | grep -i "vpn-saas" | grep -v grep || true', { timeout: 3000 });
+  result.existing.tazaxy = await runCmd(process.platform === 'win32' ? 'tasklist | findstr /I tazaxy || true' : 'ps aux | grep -i "tazaxy" | grep -v grep || true', { timeout: 3000 });
   result.existing.docker_containers = await runCmd('docker ps --format "{{.Names}} {{.Image}} {{.Ports}}"', { timeout: 5000 });
   // look for container names containing xui or 3x
   try {

@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const createPanelSchema = z.object({
   name: z.string().min(2).max(128),
-  type: z.enum(['SANITY', 'MARZBAN', 'THREE_X_UI', 'CUSTOM']).default('SANITY'),
+  type: z.enum(['XUI', 'MARZBAN', 'CUSTOM']).default('XUI'),
   baseUrl: z.string().url(),
   apiKey: z.string().min(8),
   isActive: z.boolean().optional(),

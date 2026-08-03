@@ -1,5 +1,5 @@
 {
-  "name": "vpn-saas",
+  "name": "tazaxy",
   "version": "1.0.0",
   "description": "Production-ready scalable Telegram VPN selling platform (SaaS)",
   "license": "MIT",
@@ -111,6 +111,7 @@
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
     "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/$1",
       "^src/(.*)$": "<rootDir>/$1"
     }
   },

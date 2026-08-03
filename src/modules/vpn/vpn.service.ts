@@ -1,12 +1,30 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@/common/prisma/prisma.service';
 import { BusinessException } from '@/common/exceptions/business.exception';
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import { PanelsService } from '../panels/panels.service';
+import { PanelInboundsService } from '../panels/panel-inbounds.service';
+
+type ProvisioningPlan = {
+  panelId?: bigint | null;
+  inboundConfigId?: bigint | null;
+  inboundPolicy?: 'ALL_ACTIVE' | 'SELECTED';
+};
+
+export interface XuiProvisioningTarget {
+  panelId: bigint;
+  inboundIds: number[];
+}
+
+export interface ProvisionedXuiClient {
+  subscriptionUrl: string;
+  clientLinks: string[];
+  subscriptionLinks: string[];
+}
 
 /**
  * VpnService - facade over the VPN panel integration.
- * Uses PanelsService + SanityPanelClient to manage 3x-UI users.
+ * Uses PanelsService + XUIPanelClient to manage 3x-UI users.
  */
 @Injectable()
 export class VpnService {
@@ -15,159 +33,182 @@ export class VpnService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly panels: PanelsService,
+    private readonly inbounds: PanelInboundsService,
   ) {}
 
   /**
    * Create a 3x-UI client for a subscription.
    * Called by SubscriptionsService.provision() after the subscription row is created.
    */
-  async createVpnUserForSubscription(subscriptionId: bigint): Promise<void> {
+  async createVpnUserForSubscription(subscriptionId: bigint): Promise<ProvisionedXuiClient | null> {
     // Load subscription with user + plan
-    const sub = await this.prisma.subscription.findUnique({
+    const sub = (await this.prisma.subscription.findUnique({
       where: { id: subscriptionId },
       include: { plan: true, user: true },
-    });
+    })) as unknown as {
+      id: bigint;
+      userId: bigint;
+      trafficLimitBytes: bigint | null;
+      expiresAt: Date | null;
+      deviceLimit: number;
+      provisioningPanelId?: bigint | null;
+      provisioningInboundIds?: unknown;
+      plan: ProvisioningPlan;
+      user: { telegramId?: string | null; username?: string | null; firstName?: string | null };
+    } | null;
     if (!sub) {
       this.logger.warn(`Subscription ${subscriptionId} not found — skipping VPN creation`);
-      return;
+      return null;
     }
 
-    // Find an active panel (prefer the first ACTIVE one)
-    const panelRow = await this.prisma.vpnPanel.findFirst({ where: { status: 'ACTIVE' } });
-    if (!panelRow) {
-      this.logger.warn('No active VPN panel found — skipping VPN user creation');
-      return;
-    }
+    return this.provisionFirstClassClient(sub);
+
+  }
+
+  private async provisionFirstClassClient(sub: {
+    id: bigint;
+    userId: bigint;
+    trafficLimitBytes: bigint | null;
+    expiresAt: Date | null;
+    deviceLimit: number;
+    provisioningPanelId?: bigint | null;
+    provisioningInboundIds?: unknown;
+    plan: ProvisioningPlan;
+    user: { telegramId?: string | null };
+  }): Promise<ProvisionedXuiClient> {
+    const target = this.snapshotTarget(sub) ?? await this.selectProvisioningTarget(sub.plan);
+    await this.updateSubscriptionProvisioning(sub.id, target);
+    const panelRow = await this.prisma.vpnPanel.findFirst({
+      where: { id: target.panelId, status: 'ACTIVE', type: 'XUI' as never },
+    });
+    if (!panelRow) throw BusinessException.conflict('Configured XUI panel is not active');
 
     const connection = await this.panels.getConnection(panelRow.id);
     const client = this.panels.getClient(panelRow.type);
-
-    // Generate a unique email for the 3x-UI client
-    const trafficLimitBytes = sub.trafficLimitBytes ?? undefined;
-    const expireMs = sub.expiresAt ? sub.expiresAt.getTime() : null;
-    const username = this.generateUsername(sub.user, sub.plan, trafficLimitBytes, expireMs);
-
-    // Create the user on the 3x-UI panel
+    const username = this.generateClientEmail(sub.id);
+    const subId = crypto.randomUUID();
+    const createInput = {
+      username,
+      dataLimitBytes: sub.trafficLimitBytes,
+      expireMs: sub.expiresAt?.getTime() ?? null,
+      deviceLimit: sub.deviceLimit,
+      inboundIds: target.inboundIds,
+      subId,
+      telegramId: sub.user.telegramId ?? undefined,
+    };
     let panelUser;
     try {
-      panelUser = await client.createUser(connection, {
-        username,
-        dataLimitBytes: trafficLimitBytes ?? null,
-        expireMs,
-        deviceLimit: sub.deviceLimit,
-        protocols: undefined, // undefined = all inbounds
-      });
-    } catch (err: any) {
-      // Fail gracefully: log the error but don't break the subscription flow.
-      // The admin can manually fix the panel issue and sync later.
-      const errorMsg = `Failed to create 3x-UI client for sub ${subscriptionId} (${username}): ${err?.message ?? err}`;
-      this.logger.error(errorMsg, err?.stack);
-      // Record a "pending" mapping with error details so we can retry later
-      // without breaking the subscription flow.
-      await this.recordVpnUserMapping({
-        subscriptionId: sub.id,
-        userId: sub.userId,
-        panelId: panelRow.id,
-        panelUserId: username,
-        subLink: undefined,
-        trafficLimitBytes,
-        expiryAt: sub.expiresAt ?? undefined,
-        syncError: errorMsg,
-      });
-      return; // Don't throw — subscription is already created and working.
+      panelUser = await client.createUser(connection, createInput);
+    } catch (err: unknown) {
+      if (!this.isAmbiguousCreateError(err)) throw err;
+      panelUser = await client.getUser(connection, username);
+      if (!panelUser) panelUser = await client.createUser(connection, createInput);
     }
+    if (!panelUser) throw BusinessException.conflict('XUI did not create the requested client');
 
-    if (!panelUser) {
-      const errorMsg = `createUser returned null for sub ${subscriptionId} (${username})`;
-      this.logger.error(errorMsg);
-      // Record a "pending" mapping with error details so we can retry later.
-      await this.recordVpnUserMapping({
-        subscriptionId: sub.id,
-        userId: sub.userId,
-        panelId: panelRow.id,
-        panelUserId: username,
-        subLink: undefined,
-        trafficLimitBytes,
-        expiryAt: sub.expiresAt ?? undefined,
-        syncError: errorMsg,
-      });
-      return; // Don't throw — subscription is already created and working.
-    }
-
-    // Record the mapping in our DB.
-    // Store the email (username) as panelUserId since the SanityPanelClient
-    // getUser() endpoint uses email as the lookup key (/panel/api/clients/get/{email}).
+    const subscriptionUrl = this.subscriptionUrl(connection, subId);
+    const deliveryClient = client as typeof client & {
+      clientLinks?: (panel: typeof connection, email: string) => Promise<string[]>;
+      subscriptionLinks?: (panel: typeof connection, id: string) => Promise<string[]>;
+    };
+    const [clientLinks, subscriptionLinks] = await Promise.all([
+      deliveryClient.clientLinks?.(connection, username) ?? Promise.resolve([]),
+      deliveryClient.subscriptionLinks?.(connection, subId) ?? Promise.resolve([]),
+    ]);
+    await this.updateSubscriptionDelivery(sub.id, subscriptionUrl);
     await this.recordVpnUserMapping({
       subscriptionId: sub.id,
       userId: sub.userId,
       panelId: panelRow.id,
-      panelUserId: username, // email is the lookup key for 3x-ui
-      subLink: panelUser.subLink,
-      trafficLimitBytes,
+      panelUserId: username,
+      subLink: subscriptionUrl,
+      trafficLimitBytes: sub.trafficLimitBytes ?? undefined,
       expiryAt: sub.expiresAt ?? undefined,
     });
-
-    this.logger.log(
-      `VPN user created for sub ${subscriptionId}: uuid=${panelUser.uuid} email=${username}`,
-    );
+    this.logger.log(`XUI client created for subscription ${sub.id}`);
+    return { subscriptionUrl, clientLinks, subscriptionLinks };
   }
 
-  /**
-   * Generate a unique email (username) for 3x-UI from user info + plan details.
-   * Each subscription gets its own client in 3x-UI, so the email must be unique.
-   *
-   * Format examples:
-   *   "Taza_50GB_31d"      — with username, traffic + days
-   *   "Taza_50GB_unlim"    — with username, traffic, no expiry
-   *   "Taza_31d"           — with username, no traffic limit, has days
-   *   "Taza_unlim"         — with username, no limits
-   *   "tg_123456_50GB"     — fallback with telegramId
-   */
-  private generateUsername(
-    user: { username?: string | null; firstName?: string | null; telegramId?: string | null },
-    plan: {
-      name?: string | null;
-      trafficLimitGb?: number | bigint | null;
-      durationDays?: number | null;
-    } | null,
-    trafficLimitBytes?: bigint,
-    expireMs?: number | null,
-  ): string {
-    // Get a clean base name from the user
-    let base = '';
-    if (user.username) {
-      base = user.username.replace(/[^a-zA-Z0-9]/g, '').substring(0, 16);
-    }
-    if (!base && user.firstName) {
-      base = user.firstName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 16);
-    }
-    if (!base && user.telegramId) {
-      base = `tg${user.telegramId}`;
-    }
-    if (!base) {
-      base = `user${Date.now().toString(36)}`;
-    }
+  /** Database-only target selection used before canonical order completion. */
+  async selectProvisioningTarget(
+    plan: ProvisioningPlan,
+    db: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<XuiProvisioningTarget> {
+    const store = db as unknown as {
+      vpnPanel: { findFirst(args: Record<string, unknown>): Promise<{ id: bigint } | null> };
+    };
+    const panel = await store.vpnPanel.findFirst({
+      where: plan.panelId
+        ? { id: plan.panelId, status: 'ACTIVE', type: 'XUI' as never }
+        : { status: 'ACTIVE', type: 'XUI' as never },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (!panel) throw BusinessException.conflict('No enabled XUI panel is available for this plan');
+    const eligible = await this.inbounds.eligibleInbounds(panel.id, db);
+    const inboundIds = eligible
+      .filter((inbound) => plan.inboundPolicy !== 'SELECTED' || inbound.id === plan.inboundConfigId)
+      .map((inbound) => Number(inbound.inboundId));
+    if (!inboundIds.length) throw BusinessException.conflict('No eligible active XUI inbound is available for this plan');
+    return { panelId: panel.id, inboundIds };
+  }
 
-    // Build traffic suffix
-    let trafficTag = '';
-    if (trafficLimitBytes && trafficLimitBytes > 0n) {
-      const gb = Math.round(Number(trafficLimitBytes) / (1024 * 1024 * 1024));
-      trafficTag = gb > 0 ? `_${gb}GB` : '';
-    }
+  /** Explicit admin action; existing subscriptions never auto-attach new inbounds. */
+  async reconcileSubscriptionInbounds(subscriptionId: bigint): Promise<void> {
+    const sub = (await this.prisma.subscription.findUnique({
+      where: { id: subscriptionId },
+      include: { plan: true, vpnUser: true },
+    })) as unknown as { plan: ProvisioningPlan; vpnUser: { panelUserId: string } | null } | null;
+    if (!sub?.vpnUser) throw BusinessException.notFound('VPN user not provisioned yet');
+    const target = await this.selectProvisioningTarget(sub.plan);
+    const connection = await this.panels.getConnection(target.panelId);
+    const client = this.panels.getClient(connection.type ?? 'XUI') as {
+      attachClient?: (panel: typeof connection, email: string, inboundIds: number[]) => Promise<void>;
+    };
+    if (!client.attachClient) throw BusinessException.conflict('Selected panel does not support inbound reconciliation');
+    await client.attachClient(connection, sub.vpnUser.panelUserId, target.inboundIds);
+    await this.updateSubscriptionProvisioning(subscriptionId, target);
+  }
 
-    // Build duration suffix
-    const days = plan?.durationDays;
-    let durationTag = '';
-    if (days && days > 0) {
-      durationTag = `_${days}d`;
-    } else if (!expireMs) {
-      durationTag = '_unlim';
-    }
+  private generateClientEmail(subscriptionId: bigint): string {
+    return `tazaxy_sub_${subscriptionId}_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
+  }
 
-    // Add a unique short suffix to prevent duplicates (first 8 chars of UUID without dashes)
-    const uid = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
+  private snapshotTarget(sub: { provisioningPanelId?: bigint | null; provisioningInboundIds?: unknown }): XuiProvisioningTarget | null {
+    if (!sub.provisioningPanelId || !Array.isArray(sub.provisioningInboundIds)) return null;
+    const inboundIds = sub.provisioningInboundIds.filter((id): id is number =>
+      typeof id === 'number' && Number.isSafeInteger(id) && id > 0,
+    );
+    return inboundIds.length ? { panelId: sub.provisioningPanelId, inboundIds } : null;
+  }
 
-    return `${base}${trafficTag}${durationTag}_${uid}`;
+  private subscriptionUrl(connection: { baseUrl: string; subPort?: number; subPath?: string }, subId: string): string {
+    const url = new URL(connection.baseUrl);
+    if (connection.subPort) url.port = String(connection.subPort);
+    url.pathname = `/${(connection.subPath ?? 'sub').replace(/^\/+|\/+$/g, '')}/${subId}`;
+    url.search = '';
+    url.hash = '';
+    return url.toString();
+  }
+
+  private isAmbiguousCreateError(error: unknown): boolean {
+    return /timeout|abort|request error/i.test(error instanceof Error ? error.message : String(error));
+  }
+
+  private async updateSubscriptionProvisioning(subscriptionId: bigint, target: XuiProvisioningTarget): Promise<void> {
+    const subscriptions = this.prisma.subscription as unknown as {
+      update(args: { where: { id: bigint }; data: { provisioningPanelId: bigint; provisioningInboundIds: number[] } }): Promise<unknown>;
+    };
+    await subscriptions.update({
+      where: { id: subscriptionId },
+      data: { provisioningPanelId: target.panelId, provisioningInboundIds: target.inboundIds },
+    });
+  }
+
+  private async updateSubscriptionDelivery(subscriptionId: bigint, subscriptionLink: string): Promise<void> {
+    const subscriptions = this.prisma.subscription as unknown as {
+      update(args: { where: { id: bigint }; data: { subscriptionLink: string } }): Promise<unknown>;
+    };
+    await subscriptions.update({ where: { id: subscriptionId }, data: { subscriptionLink } });
   }
 
   /** Fetch real-time usage from 3x-UI panel for a subscription. */

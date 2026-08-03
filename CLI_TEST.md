@@ -53,12 +53,12 @@ From project root (works in PowerShell or WSL)
    npm run cli:start -- help   # if you've already built the CLI
 
 If you prefer to run everything from Windows PowerShell but invoke the WSL environment:
-- Replace paths with WSL mount paths or use wsl -e bash -lc "cd /mnt/c/Users/TAZA/Desktop/vpn-saas && npm install && npm run cli:build && npm run cli:start -- help"
+- Replace paths with WSL mount paths or use wsl -e bash -lc "cd /mnt/c/Users/TAZA/Desktop/tazaxy && npm install && npm run cli:build && npm run cli:start -- help"
   Example:
-  wsl -- bash -lc "cd /mnt/c/Users/TAZA/Desktop/vpn-saas && npm install && npm run cli:build && npm run cli:start -- help"
+  wsl -- bash -lc "cd /mnt/c/Users/TAZA/Desktop/tazaxy && npm install && npm run cli:build && npm run cli:start -- help"
 
 If you prefer to run entirely in WSL (recommended when testing installer flows)
-- Open your WSL distro shell, cd to the repo (if on Windows filesystem: /mnt/c/Users/TAZA/Desktop/vpn-saas)
+- Open your WSL distro shell, cd to the repo (if on Windows filesystem: /mnt/c/Users/TAZA/Desktop/tazaxy)
 - Run the same commands above (npm install, npm run cli:build, npm run cli:start -- help)
 
 Troubleshooting

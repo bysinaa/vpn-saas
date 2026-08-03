@@ -85,7 +85,7 @@ export class XuiAuthService {
       lastLoginAt: new Date(),
     };
 
-    this.logger.log(`Authenticated to 3X-UI panel ${this.maskUrl(config.xui.panelUrl)}`);
+    this.logger.log(`Authenticated to 3X-UI panel ${this.maskUrl(config.xui.baseUrl)}`);
     return this.getSession();
   }
 

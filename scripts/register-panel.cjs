@@ -1,7 +1,7 @@
 /* one-off: register the running 3x-ui (mhsanaei/Sanaei) panel at 127.0.0.1:2053
- * as a VpnPanel row so the SanityPanelClient integration is actually live.
+ * as a VpnPanel row so the XUIPanelClient integration is actually live.
  *
- * Why this script? The SanityPanelClient code is fully wired, but VpnService →
+ * Why this script? The XUIPanelClient code is fully wired, but VpnService →
  * PanelsService.getConnection() needs a VpnPanel DB row to dispatch to. With no
  * row present (PANELS: []), provisioning silently has no target panel.
  *
@@ -9,7 +9,7 @@
  * apiKey column is NOT NULL in the schema and PanelsService.getConnection()
  * calls decrypt(panel.apiKey), so we store an encrypted placeholder. The real
  * credentials live in metadata (extraConfig) and/or fall back to env
- * (SANITY_PANEL_USERNAME / SANITY_PANEL_PASSWORD).
+ * (XUI_PANEL_USERNAME / XUI_PANEL_PASSWORD).
  */
 const crypto = require('node:crypto');
 
@@ -18,7 +18,7 @@ const ENCRYPTION_KEY =
   process.env.ENCRYPTION_KEY || 'local-encryption-key-32byte!!2024';
 
 function deriveKey() {
-  return crypto.scryptSync(ENCRYPTION_KEY, 'vpn-saas-salt', 32);
+  return crypto.scryptSync(ENCRYPTION_KEY, 'tazaxy-salt', 32);
 }
 
 function encrypt(plain) {
@@ -30,17 +30,17 @@ function encrypt(plain) {
   return [iv.toString('base64'), tag.toString('base64'), enc.toString('base64')].join(':');
 }
 
-// ---- Panel connection details (match .env SANITY_PANEL_*) ----
-const BASE_URL = process.env.SANITY_PANEL_BASE_URL || 'http://127.0.0.1:2053';
-const USERNAME = process.env.SANITY_PANEL_USERNAME || 'admin';
-const PASSWORD = process.env.SANITY_PANEL_PASSWORD || 'adminadmin';
+// ---- Panel connection details (match .env XUI_PANEL_*) ----
+const BASE_URL = process.env.XUI_PANEL_BASE_URL || 'http://127.0.0.1:2053';
+const USERNAME = process.env.XUI_PANEL_USERNAME || 'admin';
+const PASSWORD = process.env.XUI_PANEL_PASSWORD || 'adminadmin';
 
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 (async () => {
   const existing = await prisma.vpnPanel.findFirst({
-    where: { baseUrl: BASE_URL, type: 'SANITY' },
+    where: { baseUrl: BASE_URL, type: 'XUI' },
   });
   if (existing) {
     console.log('PANEL_ALREADY_REGISTERED:', JSON.stringify({
@@ -56,17 +56,17 @@ const prisma = new PrismaClient();
   const panel = await prisma.vpnPanel.create({
     data: {
       name: '3x-ui (mhsanaei) local',
-      type: 'SANITY',
+      type: 'XUI',
       baseUrl: BASE_URL,
       // Required by schema + decrypted by getConnection() at runtime; the
       // session-cookie client never uses it, so store an encrypted placeholder.
-      apiKey: encrypt('sanity-session-auth'),
+      apiKey: encrypt('xui-session-auth'),
       status: 'ACTIVE',
       healthStatus: 'UNKNOWN',
       metadata: {
         username: USERNAME,
         password: PASSWORD,
-        timeoutMs: Number(process.env.SANITY_PANEL_TIMEOUT_MS || 15000),
+        timeoutMs: Number(process.env.XUI_PANEL_TIMEOUT_MS || 15000),
       },
     },
   });

@@ -32,6 +32,6 @@ export class XuiClient {
 
   buildUrl(path: string): string {
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-    return `${config.xui.panelUrl.replace(/\/$/, '')}${normalizedPath}`;
+    return `${config.xui.baseUrl.replace(/\/$/, '')}${normalizedPath}`;
   }
 }

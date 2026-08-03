@@ -1,4 +1,4 @@
-# 🛡️ VPN SaaS Platform
+# 🛡️ TAZAXY Platform
 
 A production-ready, scalable Telegram VPN selling platform built as a complete SaaS backend. Powers multiple clients: **Telegram Bot**, **Mini App**, **Web Dashboard**, **Mobile App**, and **Public API**.
 
@@ -14,7 +14,7 @@ A production-ready, scalable Telegram VPN selling platform built as a complete S
 - **20+ Feature Modules** — Auth, Users, Wallet, Orders, VPN, Subscriptions, Payments, Servers, Panels, Telegram, Notifications, Admin, Affiliate, Tickets, Education, Analytics, Reports, Settings, API, Mini App
 - **Multiple Payment Methods** — Online gateway (Zarinpal), Card-to-Card, Crypto, Wallet, Vouchers
 - **Telegram Bot + Mini App** — Full inline keyboard flow + Web App backend
-- **VPN Panel Integration** — Pluggable interface for Sanity/3X-UI/Marzban panels
+- **VPN Panel Integration** — Pluggable interface for XUI/3X-UI/Marzban panels
 - **Affiliate & Referral System** — Commission tracking, automated payouts
 - **RBAC** — Roles (SUPER_ADMIN, ADMIN, OPERATOR, SUPPORT) with granular permissions
 - **Background Jobs** — BullMQ queues for async processing
@@ -57,7 +57,7 @@ A production-ready, scalable Telegram VPN selling platform built as a complete S
 ```bash
 # 1. Clone & configure
 git clone <repository-url>
-cd vpn-saas
+cd tazaxy
 cp .env.example .env
 # Edit .env with your values
 
@@ -94,7 +94,7 @@ npm run start:dev
 ## 📁 Project Structure
 
 ```
-vpn-saas/
+tazaxy/
 ├── src/
 │   ├── common/                    # Cross-cutting infrastructure
 │   │   ├── audit/                 # Audit logging
@@ -154,7 +154,7 @@ The platform uses dependency injection with symbol tokens for swappable provider
 |-----------|--------|-----------------|
 | `IStorage` | `STORAGE` | S3StorageService (default), extend for GCS/Azure |
 | `IPaymentGateway` | `PAYMENT_GATEWAYS` | ZarinpalGateway (default), extend for Stripe/PayPal |
-| `IPanelClient` | `PANEL_CLIENTS` | SanityPanelClient (default), extend for Marzban/3X-UI |
+| `IPanelClient` | `PANEL_CLIENTS` | XUIPanelClient (default), extend for Marzban/3X-UI |
 
 **Adding a new payment gateway requires zero changes to existing code** (Open/Closed Principle).
 
@@ -181,7 +181,7 @@ All configuration is via environment variables. See [`.env.example`](.env.exampl
 ```env
 NODE_ENV=production
 APP_URL=https://your-domain.com
-DATABASE_URL=postgresql://user:pass@localhost:5432/vpn_saas
+DATABASE_URL=postgresql://user:pass@localhost:5432/tazaxy
 REDIS_HOST=localhost
 JWT_ACCESS_SECRET=<openssl rand -hex 32>
 JWT_REFRESH_SECRET=<openssl rand -hex 32>

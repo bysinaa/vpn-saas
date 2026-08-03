@@ -1,9 +1,9 @@
 # =============================================================================
 # Standalone PostgreSQL infrastructure service (3X-UI style persistence)
 #
-# This is an INDEPENDENT service. VPN SaaS NEVER owns or destroys PostgreSQL.
-# Removing or reinstalling VPN SaaS must never remove this data.
-# Reinstalling 3X-UI must never affect VPN SaaS data.
+# This is an INDEPENDENT service. TAZAXY NEVER owns or destroys PostgreSQL.
+# Removing or reinstalling TAZAXY must never remove this data.
+# Reinstalling 3X-UI must never affect TAZAXY data.
 # Both apps share the SAME PostgreSQL server but use SEPARATE databases.
 #
 # IMPORTANT:

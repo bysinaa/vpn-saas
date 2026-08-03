@@ -1,7 +1,7 @@
 /**
  * Panel client abstraction.
  *
- * Each VPN panel provider (Sanity, Marzban, 3X-UI, ...) implements this
+ * Each VPN panel provider (XUI, Marzban, 3X-UI, ...) implements this
  * interface so the core never depends on a specific panel's API shape.
  * The active implementation is selected via the VpnPanel.type field stored
  * per-panel in the database.
@@ -31,6 +31,12 @@ export interface CreatePanelUserInput {
   group?: string;
   /** If true, attach ALL inbounds to the client. Default true. */
   attachAllInbounds?: boolean;
+  /** Exact synchronized inbound IDs selected by TAZAXY. */
+  inboundIds?: number[];
+  /** Stable subscription identifier used by XUI's subscription endpoints. */
+  subId?: string;
+  /** Optional Telegram reference stored only in XUI client metadata. */
+  telegramId?: string;
 }
 
 export interface UpdatePanelUserInput {

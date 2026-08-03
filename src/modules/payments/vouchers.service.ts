@@ -67,7 +67,7 @@ const CACHE_KEY = 'vouchers:active';
  *   2. Opens a DB transaction (rollback on any failure)
  *   3. Provisions a VPN subscription via SubscriptionsService.provision(tx)
  *   4. Marks the voucher USED (stores redeemer id / telegramId / ip / time)
- *   5. After commit, enqueues Sanity panel user creation via VpnService
+ *   5. After commit, enqueues XUI panel user creation via VpnService
  *   6. Audit-logs the REDEEM action
  *
  * A redeemed voucher is NEVER reusable.
@@ -283,7 +283,7 @@ export class VouchersService {
       return { subscription: sub, updatedVoucher: updated };
     });
 
-    // After commit: enqueue Sanity panel user creation (async, resilient).
+    // After commit: enqueue XUI panel user creation (async, resilient).
     try {
       await this.vpn.createVpnUserForSubscription(BigInt(subscription.id));
     } catch (err) {

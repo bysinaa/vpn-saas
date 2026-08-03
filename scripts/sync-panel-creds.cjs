@@ -1,5 +1,5 @@
 /* one-off: sync the VpnPanel DB row's metadata.password with the new 3x-ui
- * admin credentials (admin/admin). SanityPanelClient.login() reads
+ * admin credentials (admin/admin). XUIPanelClient.login() reads
  * panel.extraConfig.username/password FIRST and only falls back to .env, so
  * the metadata JSON must stay in sync whenever the panel password changes.
  */
@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 
 (async () => {
   const panel = await prisma.vpnPanel.findFirst({
-    where: { type: 'SANITY', baseUrl: 'http://127.0.0.1:2053' },
+    where: { type: 'XUI', baseUrl: 'http://127.0.0.1:2053' },
   });
   if (!panel) {
     console.log('NO_PANEL_FOUND');

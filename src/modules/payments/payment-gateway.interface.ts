@@ -15,7 +15,7 @@ export interface InitiateResult {
 export interface VerifyResult {
   status: 'CONFIRMED' | 'PENDING' | 'FAILED';
   reference?: string;
-  paidAmountMinor?: string;
+  verificationCode?: number;
 }
 
 export interface IPaymentGateway {
@@ -28,7 +28,7 @@ export interface IPaymentGateway {
    */
   initiate(params: {
     paymentId: bigint;
-    amountMinor: bigint;
+    amountToman: bigint;
     currency: string;
     description: string;
     callbackUrl: string;
@@ -38,7 +38,7 @@ export interface IPaymentGateway {
   /**
    * Verify a payment after the user is redirected back / a webhook fires.
    */
-  verify(params: { gatewayTransactionId: string; paymentId: bigint }): Promise<VerifyResult>;
+  verify(params: { gatewayTransactionId: string; paymentId: bigint; amountToman: bigint }): Promise<VerifyResult>;
 }
 
 export const PAYMENT_GATEWAYS = Symbol('PAYMENT_GATEWAYS');

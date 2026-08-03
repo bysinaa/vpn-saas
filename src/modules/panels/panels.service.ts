@@ -58,6 +58,8 @@ export class PanelsService {
       type: panel.type,
       baseUrl: panel.baseUrl,
       apiKey: decrypt(panel.apiKey),
+      subPort: panel.subPort ?? undefined,
+      subPath: panel.subPath ?? undefined,
       extraConfig: (panel.metadata as Record<string, unknown>) ?? undefined,
     };
   }
@@ -121,7 +123,7 @@ export class PanelsService {
   /** Probe panel health and persist the result. */
   async checkHealth(id: bigint): Promise<PanelHealth> {
     const connection = await this.getConnection(id);
-    const client = this.getClient(connection.type ?? 'SANITY');
+    const client = this.getClient(connection.type ?? 'XUI');
     const health = await client.health(connection);
     await this.prisma.vpnPanel.update({
       where: { id },

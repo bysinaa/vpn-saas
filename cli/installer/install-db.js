@@ -114,7 +114,7 @@ async function prompt(question) {
 }
 
 async function main() {
-  console.log('=== VPN SaaS adaptive database installer ===');
+  console.log('=== TAZAXY adaptive database installer ===');
 
   // Step 1: Run discovery and validation using centralized DatabaseManager
   const dbm = require('./database-manager');
@@ -152,7 +152,7 @@ async function main() {
       if (!dbUrl) {
         const u = c.credentials.POSTGRES_USER || c.credentials.PGUSER;
         const p = c.credentials.POSTGRES_PASSWORD || c.credentials.PGPASSWORD;
-        const db = c.credentials.POSTGRES_DB || c.credentials.PGDATABASE || c.database || 'vpn_saas';
+        const db = c.credentials.POSTGRES_DB || c.credentials.PGDATABASE || c.database || 'tazaxy';
         dbUrl = `postgresql://${encodeURIComponent(u)}:${encodeURIComponent(p)}@${c.host}:${c.port}/${db}`;
       }
       console.log('This candidate contains credentials and passed validation. Will persist selection and write DATABASE_URL to .env if none exists.');
@@ -169,7 +169,7 @@ async function main() {
     } else {
       // Candidate lacks credentials - require user action
       console.log('Candidate lacks discoverable credentials. The installer cannot modify this existing instance.');
-      console.log('You can either provide credentials manually or create an isolated Postgres instance for VPN SaaS.');
+      console.log('You can either provide credentials manually or create an isolated Postgres instance for TAZAXY.');
       const ans = (await prompt('Do you want to (p)rovide credentials, (g)enerate isolated Postgres, or (c)ancel? (p/g/c): ')).toLowerCase();
       if (ans === 'p') {
         console.log('Launching interactive DB decision helper to collect credentials...');

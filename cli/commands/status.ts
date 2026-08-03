@@ -17,7 +17,7 @@ interface ServiceStatus {
 export class StatusCommand extends BaseCommand {
   async execute(options: StatusOptions): Promise<void> {
     this.setExecutionMode(options);
-    this.section('VPN SaaS Health Status');
+    this.section('TAZAXY Health Status');
 
     const runtime = await this.loadRuntimeConfig();
     const services = await Promise.all([
@@ -133,7 +133,7 @@ export class StatusCommand extends BaseCommand {
     const running = /Up|running|node|nest/i.test(output);
 
     return {
-      name: 'VPN SaaS Application',
+      name: 'TAZAXY Application',
       status: running ? 'online' : processResult.ok ? 'offline' : 'unknown',
       summary: running ? 'Application process/container detected' : 'Application process not detected',
       details: output || undefined,

@@ -55,7 +55,7 @@ function runResolveDbValidate() {
 }
 
 async function main() {
-  console.log('DB Decision helper: this tool will help you pick or create a PostgreSQL instance for VPN SaaS.');
+  console.log('DB Decision helper: this tool will help you pick or create a PostgreSQL instance for TAZAXY.');
 
   // Load state via CLI state-manager
   let state = {};
@@ -99,7 +99,7 @@ async function main() {
       if (c === 'a') {
         const dbUrl = await prompt('Enter DATABASE_URL (leave empty to provide user/password instead): ');
         if (dbUrl) {
-          const entry = { type: 'postgres', host: chosen.host, port: chosen.port, database: chosen.database || 'vpn_saas', owner: chosen.owner || 'unknown', managed: false, source: `manual:provided-dburl`, credentials: { DATABASE_URL: dbUrl } };
+          const entry = { type: 'postgres', host: chosen.host, port: chosen.port, database: chosen.database || 'tazaxy', owner: chosen.owner || 'unknown', managed: false, source: `manual:provided-dburl`, credentials: { DATABASE_URL: dbUrl } };
           await dbm.persist(entry);
           console.log('Saved manual DATABASE_URL to installer-state.json as selected database.');
           console.log('Validating selection using DatabaseManager.validate()...');
@@ -108,12 +108,12 @@ async function main() {
         } else {
           const user = await prompt('POSTGRES_USER: ');
           const pass = await prompt('POSTGRES_PASSWORD: ');
-          const db = await prompt('POSTGRES_DB (default vpn_saas): ');
+          const db = await prompt('POSTGRES_DB (default tazaxy): ');
           if (!user || !pass) {
             console.error('Incomplete credentials provided.');
             process.exit(4);
           }
-          const entry = { type: 'postgres', host: chosen.host, port: chosen.port, database: db || 'vpn_saas', owner: chosen.owner || 'unknown', managed: false, source: `manual:provided-userpass`, credentials: { POSTGRES_USER: user, POSTGRES_PASSWORD: pass, POSTGRES_DB: db || 'vpn_saas' } };
+          const entry = { type: 'postgres', host: chosen.host, port: chosen.port, database: db || 'tazaxy', owner: chosen.owner || 'unknown', managed: false, source: `manual:provided-userpass`, credentials: { POSTGRES_USER: user, POSTGRES_PASSWORD: pass, POSTGRES_DB: db || 'tazaxy' } };
           await dbm.persist(entry);
           console.log('Saved manual credentials to installer-state.json as selected database.');
           console.log('Validating selection using DatabaseManager.validate()...');
@@ -154,12 +154,12 @@ async function main() {
       const port = await prompt('Port (default 5432): ');
       const user = await prompt('POSTGRES_USER: ');
       const pass = await prompt('POSTGRES_PASSWORD: ');
-      const db = await prompt('POSTGRES_DB (default vpn_saas): ');
+      const db = await prompt('POSTGRES_DB (default tazaxy): ');
       if (!user || !pass) {
         console.error('Incomplete credentials provided.');
         process.exit(7);
       }
-      const entry = { type: 'postgres', host: host || 'localhost', port: port ? parseInt(port, 10) : 5432, database: db || 'vpn_saas', owner: 'manual', managed: false, source: `manual:provided-userpass`, credentials: { POSTGRES_USER: user, POSTGRES_PASSWORD: pass, POSTGRES_DB: db || 'vpn_saas' } };
+      const entry = { type: 'postgres', host: host || 'localhost', port: port ? parseInt(port, 10) : 5432, database: db || 'tazaxy', owner: 'manual', managed: false, source: `manual:provided-userpass`, credentials: { POSTGRES_USER: user, POSTGRES_PASSWORD: pass, POSTGRES_DB: db || 'tazaxy' } };
       await dbm.persist(entry);
       console.log('Saved manual credentials to installer-state.json as selected database. Validating now...');
       await dbm.validate({ registry: [entry], generateIsolated: false });

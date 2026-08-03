@@ -13,7 +13,7 @@ import {
 } from '@/common/pagination/pagination.dto';
 import { VpnService } from '../vpn/vpn.service';
 import { randomUUID } from 'node:crypto';
-import type { OrderStatus, OrderType, PaymentMethod } from '@prisma/client';
+import type { OrderStatus, OrderType, PaymentMethod, Prisma } from '@prisma/client';
 
 export interface OrderDto {
   id: string;
@@ -97,6 +97,7 @@ export class OrdersService {
   ): Promise<{ order: OrderDto; subscription: any }> {
     const order = await this.getOwnedOrder(orderPublicId, userId);
     if (order.status !== 'PENDING') throw BusinessException.conflict('Order is not payable');
+    await this.vpn.selectProvisioningTarget(order.plan);
 
     // Debit wallet (throws on insufficient funds)
     await this.wallet.debit(userId, order.totalAmount, 'PURCHASE', {
@@ -122,47 +123,96 @@ export class OrdersService {
     return this.completeOrder(order.id, userId);
   }
 
-  /**
-   * Called by payment callbacks/jobs once a payment is confirmed.
-   * Marks order completed and provisions the subscription.
-   */
-  async completeOrder(
+  async completeOrderInTransaction(
+    tx: Prisma.TransactionClient,
     orderId: bigint,
     userId: bigint,
-  ): Promise<{ order: OrderDto; subscription: any }> {
-    const order = await this.prisma.order.findUnique({
+  ): Promise<{ order: OrderDto; subscription: any; provisioningRequired: boolean }> {
+    const order = await tx.order.findUnique({
       where: { id: orderId },
       include: { plan: true },
     });
     if (!order) throw BusinessException.notFound('Order not found');
     if (order.status === 'COMPLETED') {
-      // idempotent: return existing subscription
-      const sub = order.subscriptionId
-        ? await this.subscriptions.getById(order.subscriptionId)
-        : null;
-      return { order: this.toDto(order), subscription: sub };
-    }
-
-    const result = await this.prisma.withTransaction(async (tx) => {
-      const updated = await tx.order.update({
-        where: { id: orderId },
-        data: { status: 'COMPLETED', completedAt: new Date() },
+      const subscription = await tx.subscription.findUnique({
+        where: { orderId: order.id },
         include: { plan: true },
       });
+      return {
+        order: this.toDto(order),
+        subscription,
+        provisioningRequired: false,
+      };
+    }
 
-      const sub = await this.subscriptions.provision({
-        userId,
-        planId: order.planId,
-        orderId: order.id,
-        type: order.type,
-        isTrial: order.plan.isTrial,
-        tx,
+    const claim = await tx.order.updateMany({
+      where: { id: orderId, status: 'PENDING' },
+      data: { status: 'COMPLETED', completedAt: new Date() },
+    });
+    if (claim.count === 0) {
+      const completed = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { plan: true },
       });
+      if (!completed) throw BusinessException.notFound('Order not found');
+      const subscription =
+        completed.status === 'COMPLETED'
+          ? await tx.subscription.findUnique({
+              where: { orderId: completed.id },
+              include: { plan: true },
+            })
+          : null;
+      return {
+        order: this.toDto(completed),
+        subscription,
+        provisioningRequired: false,
+      };
+    }
 
-      return { order: this.toDto(updated), subscription: sub };
+    const updated = await tx.order.findUnique({
+      where: { id: orderId },
+      include: { plan: true },
+    });
+    if (!updated) throw BusinessException.notFound('Order not found');
+    const provisioningTarget = await this.vpn.selectProvisioningTarget(updated.plan, tx);
+    const subscription = await this.subscriptions.provisionInTransaction({
+      userId,
+      planId: order.planId,
+      orderId: order.id,
+      type: order.type,
+      isTrial: order.plan.isTrial,
+      provisioningTarget,
+      tx,
     });
 
-    return result;
+    return {
+      order: this.toDto(updated),
+      subscription,
+      provisioningRequired: true,
+    };
+  }
+
+  /** Called by payment callbacks/jobs once a payment is confirmed. */
+  async completeOrder(
+    orderId: bigint,
+    userId: bigint,
+  ): Promise<{ order: OrderDto; subscription: any }> {
+    const result = await this.prisma.withTransaction((tx) =>
+      this.completeOrderInTransaction(tx, orderId, userId),
+    );
+
+    if (result.provisioningRequired && result.subscription) {
+      try {
+        await this.vpn.createVpnUserForSubscription(result.subscription.id);
+      } catch (err: any) {
+        this.logger.error(
+          `VPN provisioning failed for sub ${result.subscription.id}: ${err?.message ?? err}`,
+          err?.stack,
+        );
+      }
+    }
+
+    return { order: result.order, subscription: result.subscription };
   }
 
   async cancel(orderPublicId: string, userId: bigint): Promise<OrderDto> {

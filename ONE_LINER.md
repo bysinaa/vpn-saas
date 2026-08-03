@@ -1,13 +1,13 @@
 Copy-paste one-liner to run inside WSL (Ubuntu)
 
 Unsafe-but-common one-liner (executes remote script immediately):
-curl -Ls https://raw.githubusercontent.com/bysinaa/vpn-saas/main/scripts/install.sh | sudo bash -s --
+curl -Ls https://raw.githubusercontent.com/bysinaa/tazaxy/main/scripts/install.sh | sudo bash -s --
 
 One-liner with environment overrides:
-curl -Ls https://raw.githubusercontent.com/bysinaa/vpn-saas/main/scripts/install.sh | sudo VPN_SAAS_BRANCH=main VPN_SAAS_INSTALL_DIR=/opt/vpn-saas VPN_SAAS_REPO_URL=https://github.com/bysinaa/vpn-saas.git bash -s --
+curl -Ls https://raw.githubusercontent.com/bysinaa/tazaxy/main/scripts/install.sh | sudo TAZAXY_BRANCH=main TAZAXY_INSTALL_DIR=/opt/tazaxy TAZAXY_REPO_URL=https://github.com/bysinaa/tazaxy.git bash -s --
 
 Safer: download, inspect, then run
-curl -Ls https://raw.githubusercontent.com/bysinaa/vpn-saas/main/scripts/install.sh -o /tmp/vpn-install.sh
+curl -Ls https://raw.githubusercontent.com/bysinaa/tazaxy/main/scripts/install.sh -o /tmp/vpn-install.sh
 less /tmp/vpn-install.sh    # inspect
 sudo bash /tmp/vpn-install.sh
 

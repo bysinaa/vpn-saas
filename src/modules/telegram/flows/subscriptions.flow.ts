@@ -187,7 +187,7 @@ export class SubscriptionsFlow {
     const link = sub.subscriptionLink ?? sub.vpnUser?.subLink ?? null;
     if (!link) {
       await this.runtime.alert(ctx);
-      await this.runtime.render(ctx, t(locale, 'error.sanity'), mainMenuKeyboard(locale));
+      await this.runtime.render(ctx, t(locale, 'error.xui'), mainMenuKeyboard(locale));
       return;
     }
     await this.runtime.alert(ctx);

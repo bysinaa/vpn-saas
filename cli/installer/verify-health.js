@@ -2,7 +2,7 @@
 /**
  * verify-health.js
  *
- * Comprehensive health verification for the VPN SaaS installation.
+ * Comprehensive health verification for the TAZAXY installation.
  * Verifies ALL required services are actually working, not just docker compose.
  *
  * Checks performed:
@@ -161,7 +161,7 @@ function httpProbe(urlString, opts = {}) {
       hostname: urlObj.hostname,
       port: urlObj.port || (isHttps ? 443 : 80),
       path: urlObj.pathname + (urlObj.search || ''),
-      headers: { 'User-Agent': 'vpn-saas-health-check/1.0', Accept: 'application/json,text/html,*/*', ...headers },
+      headers: { 'User-Agent': 'tazaxy-health-check/1.0', Accept: 'application/json,text/html,*/*', ...headers },
       timeout,
       rejectUnauthorized: !insecure,
     };
@@ -250,8 +250,7 @@ function getXuiUrl() {
     if (state.xui && state.xui.selected && state.xui.selected.url) return state.xui.selected.url;
   } catch (e) { /* non-fatal */ }
   // From .env
-  if (ENV.XUI_PANEL_URL) return ENV.XUI_PANEL_URL;
-  if (ENV.SANITY_PANEL_BASE_URL) return ENV.SANITY_PANEL_BASE_URL;
+  if (ENV.XUI_PANEL_BASE_URL) return ENV.XUI_PANEL_BASE_URL;
   return 'http://127.0.0.1:2053';
 }
 
@@ -279,7 +278,7 @@ async function checkDockerContainers() {
     const name = parts[0] || '';
     const status = parts[1] || '';
     const health = parts[2] || '';
-    // Extract service name from container name (e.g. "vpn-saas-app-1" → "app")
+    // Extract service name from container name (e.g. "tazaxy-app-1" → "app")
     for (const svc of expected) {
       if (name.includes(svc)) {
         found[svc] = { name, status, health };
@@ -538,8 +537,8 @@ async function checkXuiLogin(xuiUrl) {
   const start = Date.now();
 
   // Get credentials from env
-  const username = ENV.XUI_PANEL_USERNAME || ENV.SANITY_PANEL_USERNAME || '';
-  const password = ENV.XUI_PANEL_PASSWORD || ENV.SANITY_PANEL_PASSWORD || '';
+  const username = ENV.XUI_PANEL_USERNAME || '';
+  const password = ENV.XUI_PANEL_PASSWORD || '';
 
   if (!username || !password) {
     return { name: 'xui-login', required: true, status: 'warn', detail: 'XUI_PANEL_USERNAME/PASSWORD not set in .env — cannot verify login', durationMs: Date.now() - start };
@@ -641,7 +640,7 @@ async function main() {
   const xuiUrl = getXuiUrl();
 
   if (!CLI.json) {
-    console.log('=== VPN SaaS Health Verification ===');
+    console.log('=== TAZAXY Health Verification ===');
     console.log(`App URL:  ${appUrl}`);
     console.log(`XUI URL:  ${xuiUrl}`);
     console.log(`Insecure: ${CLI.insecure}`);

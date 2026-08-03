@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: vpn-saas-app:latest
+    image: tazaxy-app:latest
     restart: unless-stopped
     env_file:
       - .env
@@ -22,7 +22,7 @@ services:
     ports:
       - '3001:3000'
     networks:
-      - vpn-saas-network
+      - tazaxy-network
     healthcheck:
       test: ['CMD-SHELL', 'wget --quiet --tries=1 --spider http://127.0.0.1:3000/health || exit 1']
       interval: 30s
@@ -39,7 +39,7 @@ services:
     ports:
       - '3002:6379'
     networks:
-      - vpn-saas-network
+      - tazaxy-network
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
@@ -62,7 +62,7 @@ services:
       - '9000:9000'
       - '9001:9001'
     networks:
-      - vpn-saas-network
+      - tazaxy-network
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://127.0.0.1:9000/minio/health/live']
       interval: 30s
@@ -84,7 +84,7 @@ services:
       - '30003:80'
       - '30004:443'
     networks:
-      - vpn-saas-network
+      - tazaxy-network
     healthcheck:
       test: ['CMD-SHELL', 'wget --quiet --tries=1 --spider http://127.0.0.1/health || exit 1']
       interval: 30s
@@ -93,14 +93,14 @@ services:
       start_period: 10s
 
 networks:
-  vpn-saas-network:
-    name: vpn-saas-network
+  tazaxy-network:
+    name: tazaxy-network
     driver: bridge
 
 volumes:
   redis-data:
-    name: vpn-saas-redis-data
+    name: tazaxy-redis-data
   minio-data:
-    name: vpn-saas-minio-data
+    name: tazaxy-minio-data
   nginx-certs:
-    name: vpn-saas-nginx-certs
+    name: tazaxy-nginx-certs

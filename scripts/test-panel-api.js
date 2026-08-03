@@ -25,12 +25,12 @@ async function main() {
   const panel = panels[0];
   const baseUrl = panel.baseUrl.replace(/\/$/, '');
   
-  // Get credentials from environment variables (SANITY_PANEL_USERNAME / SANITY_PANEL_PASSWORD)
-  const username = process.env.SANITY_PANEL_USERNAME;
-  const password = process.env.SANITY_PANEL_PASSWORD;
+  // Get credentials from environment variables (XUI_PANEL_USERNAME / XUI_PANEL_PASSWORD)
+  const username = process.env.XUI_PANEL_USERNAME;
+  const password = process.env.XUI_PANEL_PASSWORD;
   
   if (!username || !password) {
-    console.log('No credentials found! Set SANITY_PANEL_USERNAME and SANITY_PANEL_PASSWORD env vars.');
+    console.log('No credentials found! Set XUI_PANEL_USERNAME and XUI_PANEL_PASSWORD env vars.');
     await prisma.$disconnect();
     return;
   }

@@ -3,12 +3,12 @@
   "updatedAt": "2026-07-31T17:44:36.925Z",
   "superAdmins": [],
   "backup": {
-    "directory": "C:\\Users\\TAZA\\Desktop\\vpn-saas\\backups"
+    "directory": "C:\\Users\\TAZA\\Desktop\\tazaxy\\backups"
   },
   "paths": {
-    "envFile": "C:\\Users\\TAZA\\Desktop\\vpn-saas\\.env",
-    "installLogFile": "C:\\Users\\TAZA\\Desktop\\vpn-saas\\.vpn-saas\\installer.log",
-    "stateFile": "C:\\Users\\TAZA\\Desktop\\vpn-saas\\.vpn-saas\\config.json"
+    "envFile": "C:\\Users\\TAZA\\Desktop\\tazaxy\\.env",
+    "installLogFile": "C:\\Users\\TAZA\\Desktop\\tazaxy\\.tazaxy\\installer.log",
+    "stateFile": "C:\\Users\\TAZA\\Desktop\\tazaxy\\.tazaxy\\config.json"
   },
   "panel": {
     "panelUrl": "http://127.0.0.1:2053",

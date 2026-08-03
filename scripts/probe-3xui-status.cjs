@@ -1,4 +1,4 @@
-/* Diagnostic: replicate the SanityPanelClient auth flow against 3x-ui
+/* Diagnostic: replicate the XUIPanelClient auth flow against 3x-ui
  * directly in Node, then probe /panel/api/server/status with BOTH GET and POST
  * to determine which HTTP method the Sanaei build expects.
  */

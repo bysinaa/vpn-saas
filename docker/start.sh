@@ -6,7 +6,7 @@ MIGRATIONS_DIR="prisma/migrations"
 SHARED_ENV_FILE="${SHARED_ENV_FILE:-/opt/shared/.env}"
 POSTGRES_ENV_FILE="${POSTGRES_ENV_FILE:-/opt/postgres/.env}"
 POSTGRES_COMPOSE_FILE="${POSTGRES_COMPOSE_FILE:-/opt/postgres/docker-compose.yml}"
-VPN_DATABASE_NAME="${VPN_DATABASE_NAME:-vpn_saas}"
+VPN_DATABASE_NAME="${VPN_DATABASE_NAME:-tazaxy}"
 
 log() {
   echo "[startup] $1"

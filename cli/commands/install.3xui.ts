@@ -1,15 +1,21 @@
 /**
- * Production installer for VPN SaaS and 3X-UI integration.
+ * Production installer for TAZAXY and 3X-UI integration.
  */
-import { BaseCommand, type InstallOptions, type VpnSaasPanelRuntimeConfig } from './install.interface';
+import { BaseCommand, type InstallOptions, type TazaxyPanelRuntimeConfig } from './install.interface';
 export type { InstallOptions };
+
+const { createXuiCredentialValidator } = require('../../installer/xui-credential-validator') as {
+  createXuiCredentialValidator: () => {
+    validate(input: { connection: { url: string }; username: string; password: string }): Promise<{ status: string }>;
+  };
+};
 
 export class InstallCommand extends BaseCommand {
   private readonly xuiInstallUrl = 'https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh';
 
   async execute(options: InstallOptions): Promise<void> {
     this.setExecutionMode(options);
-    this.section('VPN SaaS Production Installer');
+    this.section('TAZAXY Production Installer');
 
     const platform = await this.detectLinuxPlatform();
     await this.validatePlatform(platform);
@@ -155,7 +161,7 @@ export class InstallCommand extends BaseCommand {
     this.log('No supported firewall tool detected; firewall step skipped.', 'warn');
   }
 
-  private async ensure3xuiRuntime(options: InstallOptions, publicIp: string): Promise<VpnSaasPanelRuntimeConfig> {
+  private async ensure3xuiRuntime(options: InstallOptions, publicIp: string): Promise<TazaxyPanelRuntimeConfig> {
     this.section('Preparing 3X-UI runtime');
 
     const installed = await this.execCommand('which x-ui || test -x /usr/local/x-ui/x-ui', { allowFailure: true });
@@ -184,7 +190,7 @@ export class InstallCommand extends BaseCommand {
       panelPort,
     );
     const panelUser = options.panelUser || (await this.prompt('3X-UI admin username', 'admin'));
-    const panelPass = options.panelPass || (await this.promptSecret('3X-UI admin password', this.generatePassword(16)));
+    const panelPass = await this.promptSecret('3X-UI admin password', this.generatePassword(16));
     const runtimePreview = this.buildPanelRuntimePreview({
       panelUrl,
       panelUser,
@@ -194,10 +200,18 @@ export class InstallCommand extends BaseCommand {
       subscriptionPath,
     });
 
+    const validation = await createXuiCredentialValidator().validate({
+      connection: { url: runtimePreview.panelUrl },
+      username: panelUser,
+      password: panelPass,
+    });
+    if (validation.status !== 'FOUND') throw new Error('Unable to authenticate to 3X-UI');
+
     await this.saveRuntimeConfig((config) => ({
       ...config,
       panel: {
         ...runtimePreview,
+        panelPass: undefined,
         installationDirectory: '/usr/local/x-ui',
       },
     }));
@@ -210,25 +224,25 @@ export class InstallCommand extends BaseCommand {
     options: InstallOptions,
     publicIp: string,
     apiPort: number,
-    panel: VpnSaasPanelRuntimeConfig,
+    panel: TazaxyPanelRuntimeConfig,
   ): Promise<void> {
     this.section('Step 1/4 - Application and bot configuration');
     const appUrl = options.domain ? `https://${options.domain}` : `http://${publicIp}:${apiPort}`;
     const botToken = await this.promptForValidTelegramBotToken();
     const primarySuperAdminTelegramId = await this.promptRequired('Primary super admin Telegram ID');
-    const superAdminEmail = (await this.prompt('Super admin email', 'admin@vpn-saas.local')).trim() || 'admin@vpn-saas.local';
+    const superAdminEmail = (await this.prompt('Super admin email', 'admin@tazaxy.local')).trim() || 'admin@tazaxy.local';
     const superAdminPassword = await this.promptSecret('Super admin password', this.generatePassword(16));
     const webhookSecret = this.generateSecret(40);
 
     this.section('Step 2/4 - Database configuration');
-    const postgresDb = (await this.prompt('PostgreSQL database name', 'vpn_saas')).trim() || 'vpn_saas';
+    const postgresDb = (await this.prompt('PostgreSQL database name', 'tazaxy')).trim() || 'tazaxy';
     const postgresUser = (await this.prompt('PostgreSQL username', 'postgres')).trim() || 'postgres';
     const postgresPassword = await this.promptSecret('PostgreSQL password', this.generatePassword(20));
 
     this.section('Step 3/4 - Object storage configuration');
     const s3AccessKey = (await this.prompt('S3 access key', 'minioadmin')).trim() || 'minioadmin';
     const s3SecretKey = await this.promptSecret('S3 secret key', this.generatePassword(20));
-    const s3PublicUrl = `http://${publicIp}:9000/vpn-saas`;
+    const s3PublicUrl = `http://${publicIp}:9000/tazaxy`;
 
     this.section('Step 4/4 - Writing environment and validating');
     const runtime = await this.loadRuntimeConfig();
@@ -255,7 +269,7 @@ export class InstallCommand extends BaseCommand {
     envContent = this.upsertEnvValue(envContent, 'JWT_REFRESH_SECRET', jwtRefreshSecret);
     envContent = this.upsertEnvValue(envContent, 'WEBHOOK_SECRET', webhookSecret);
     envContent = this.upsertEnvValue(envContent, 'ENCRYPTION_KEY', encryptionKey);
-    envContent = this.upsertEnvValue(envContent, 'S3_BUCKET', 'vpn-saas');
+    envContent = this.upsertEnvValue(envContent, 'S3_BUCKET', 'tazaxy');
     envContent = this.upsertEnvValue(envContent, 'S3_ACCESS_KEY', s3AccessKey);
     envContent = this.upsertEnvValue(envContent, 'S3_SECRET_KEY', s3SecretKey);
     envContent = this.upsertEnvValue(envContent, 'S3_PUBLIC_URL', s3PublicUrl);
@@ -264,15 +278,11 @@ export class InstallCommand extends BaseCommand {
     if (primarySuperAdminTelegramId) {
       envContent = this.upsertEnvValue(envContent, 'SUPER_ADMIN_TELEGRAM_ID', primarySuperAdminTelegramId);
     }
-     envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_BASE_URL', panel.panelUrl);
-     envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_USERNAME', panel.panelUser);
-     envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_PASSWORD', panel.panelPass);
-     envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_SUB_PORT', String(panel.subscriptionPort));
-     envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_SUB_PATH', panel.subscriptionPath);
-     envContent = this.upsertEnvValue(envContent, 'SANITY_PANEL_TLS_ENABLED', String(panel.tlsEnabled));
-     envContent = this.upsertEnvValue(envContent, 'XUI_PANEL_URL', panel.panelUrl);
-     envContent = this.upsertEnvValue(envContent, 'XUI_USERNAME', panel.panelUser);
-     envContent = this.upsertEnvValue(envContent, 'XUI_PASSWORD', panel.panelPass);
+     envContent = this.upsertEnvValue(envContent, 'XUI_PANEL_BASE_URL', panel.panelUrl);
+     envContent = this.upsertEnvValue(envContent, 'XUI_PANEL_USERNAME', panel.panelUser);
+     envContent = this.upsertEnvValue(envContent, 'XUI_PANEL_SUB_PORT', String(panel.subscriptionPort));
+     envContent = this.upsertEnvValue(envContent, 'XUI_PANEL_SUB_PATH', panel.subscriptionPath);
+     envContent = this.upsertEnvValue(envContent, 'XUI_PANEL_TLS_ENABLED', String(panel.tlsEnabled));
     envContent = this.upsertEnvValue(envContent, 'ONLINE_GATEWAY_CALLBACK_URL', `${appUrl}/api/v1/payments/online/callback`);
 
     this.assertEnvHasValues(envContent, [
@@ -285,7 +295,7 @@ export class InstallCommand extends BaseCommand {
       'S3_SECRET_KEY',
       'S3_PUBLIC_URL',
       'TELEGRAM_BOT_TOKEN',
-      'SANITY_PANEL_BASE_URL',
+      'XUI_PANEL_BASE_URL',
       'WEBHOOK_SECRET',
       'ENCRYPTION_KEY',
       'SUPER_ADMIN_EMAIL',
@@ -305,7 +315,7 @@ export class InstallCommand extends BaseCommand {
         ? {
             ...config.panel,
             panelUser: panel.panelUser,
-            panelPass: panel.panelPass,
+            panelPass: undefined,
           }
         : config.panel,
       superAdmins: primarySuperAdminTelegramId
@@ -365,17 +375,17 @@ export class InstallCommand extends BaseCommand {
     this.log(`Primary super admin configured: ${telegramId}`, 'success');
   }
 
-  private async validateInstallation(panel: VpnSaasPanelRuntimeConfig): Promise<void> {
+  private async validateInstallation(panel: TazaxyPanelRuntimeConfig): Promise<void> {
     this.section('Validating installation');
     await this.execCommand(`docker compose --env-file "${this.defaultEnvPath}" ps`, { allowFailure: true });
     await this.execCommand(
-      `docker compose --env-file "${this.defaultEnvPath}" exec -T app node -e "console.log('runtime-subscription-endpoint:', process.env.SANITY_PANEL_BASE_URL || '')"`,
+      `docker compose --env-file "${this.defaultEnvPath}" exec -T app node -e "console.log('runtime-subscription-endpoint:', process.env.XUI_PANEL_BASE_URL || '')"`,
       { allowFailure: true },
     );
     this.log(`Resolved subscription endpoint: ${this.buildSubscriptionUrl(panel, '<subscription_id>')}`, 'info');
   }
 
-  private async showFinalSummary(panel: VpnSaasPanelRuntimeConfig): Promise<void> {
+  private async showFinalSummary(panel: TazaxyPanelRuntimeConfig): Promise<void> {
     const runtime = await this.loadRuntimeConfig();
     console.log('\nInstallation summary');
     console.log('--------------------');

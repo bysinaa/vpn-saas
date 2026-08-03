@@ -1,10 +1,14 @@
 /**
  * Panel Command - Manage 3X-UI panel connections and runtime discovery.
  */
-import { BaseCommand, type VpnSaasPanelRuntimeConfig } from './install.interface';
-import * as https from 'https';
-import * as http from 'http';
+import { BaseCommand, type TazaxyPanelRuntimeConfig } from './install.interface';
 import { URL } from 'url';
+
+const { createXuiCredentialValidator } = require('../../installer/xui-credential-validator') as {
+  createXuiCredentialValidator: () => {
+    validate(input: { connection: { url: string }; username: string; password: string }): Promise<{ status: string }>;
+  };
+};
 
 export interface PanelOptions {
   add?: boolean;
@@ -14,16 +18,9 @@ export interface PanelOptions {
   sync?: boolean;
   url?: string;
   user?: string;
-  pass?: string;
   subPort?: number;
   subPath?: string;
   discover?: boolean;
-}
-
-interface HttpResponse {
-  statusCode: number;
-  body: string;
-  headers: http.IncomingHttpHeaders;
 }
 
 export class PanelCommand extends BaseCommand {
@@ -93,7 +90,7 @@ export class PanelCommand extends BaseCommand {
       2053,
     );
     const panelUser = options.user || (await this.prompt('Panel username', 'admin'));
-    const panelPass = options.pass || (await this.promptSecret('Panel password'));
+    const panelPass = await this.promptSecret('Panel password');
     const runtimePreview = this.buildPanelRuntimePreview({
       panelUrl,
       tlsEnabled,
@@ -115,8 +112,6 @@ export class PanelCommand extends BaseCommand {
       ...config,
       panel: discovered,
     }));
-
-    await this.persistPanelEnv(discovered);
 
     this.log('Panel runtime configuration saved.', 'success');
     this.log(`Subscription endpoint: ${this.buildSubscriptionUrl(discovered, '<subscription_id>')}`, 'info');
@@ -156,7 +151,7 @@ export class PanelCommand extends BaseCommand {
     const runtime = await this.discoverPanelRuntime({
       panelUrl: this.normalizePanelUrl(options.url || existing!.panelUrl),
       panelUser: options.user || existing!.panelUser,
-      panelPass: options.pass || existing!.panelPass,
+      panelPass: existing?.panelPass || await this.promptSecret('Panel password'),
       requestedSubPort: options.subPort || existing?.subscriptionPort,
       requestedSubPath: options.subPath || existing?.subscriptionPath,
     });
@@ -183,7 +178,7 @@ export class PanelCommand extends BaseCommand {
     const runtime = await this.discoverPanelRuntime({
       panelUrl: this.normalizePanelUrl(options.url || 'https://127.0.0.1:2053/', tlsEnabled, 2053),
       panelUser: options.user || 'admin',
-      panelPass: options.pass || '',
+      panelPass: await this.promptSecret('Panel password'),
       requestedSubPort: options.subPort,
       requestedSubPath: options.subPath,
     });
@@ -192,8 +187,6 @@ export class PanelCommand extends BaseCommand {
       ...config,
       panel: runtime,
     }));
-
-    await this.persistPanelEnv(runtime);
 
     this.log('3X-UI runtime configuration discovered and saved.', 'success');
   }
@@ -248,24 +241,26 @@ export class PanelCommand extends BaseCommand {
     panelPass: string;
     requestedSubPort?: number;
     requestedSubPath?: string;
-  }): Promise<VpnSaasPanelRuntimeConfig> {
+  }): Promise<TazaxyPanelRuntimeConfig> {
     const normalizedPanelUrl = this.normalizePanelUrl(input.panelUrl);
-    const loginResponse = await this.login(normalizedPanelUrl, input.panelUser, input.panelPass);
-    if (loginResponse.statusCode >= 400) {
-      throw new Error(`Unable to authenticate to 3X-UI (${loginResponse.statusCode})`);
-    }
+    const validation = await createXuiCredentialValidator().validate({
+      connection: { url: normalizedPanelUrl },
+      username: input.panelUser,
+      password: input.panelPass,
+    });
+    if (validation.status !== 'FOUND') throw new Error('Unable to authenticate to 3X-UI');
 
     const panelUrlObject = new URL(normalizedPanelUrl);
     const tlsEnabled = panelUrlObject.protocol === 'https:';
     const subscriptionPort = input.requestedSubPort || Number(panelUrlObject.port || (tlsEnabled ? 443 : 80));
-    const discoveredSubscriptionPath = input.requestedSubPath ?? this.extractSubscriptionPath(loginResponse.body) ?? 'sub';
+    const discoveredSubscriptionPath = input.requestedSubPath ?? 'sub';
     const subscriptionPath = this.normalizePathSegment(discoveredSubscriptionPath, 'sub');
     const subscriptionBaseUrl = `${panelUrlObject.protocol}//${panelUrlObject.hostname}:${subscriptionPort}`;
 
     return {
       panelUrl: normalizedPanelUrl,
       panelUser: input.panelUser,
-      panelPass: input.panelPass,
+      panelPass: undefined,
       apiUrl: `${normalizedPanelUrl}/panel/api`,
       subscriptionBaseUrl,
       subscriptionPath,
@@ -276,26 +271,9 @@ export class PanelCommand extends BaseCommand {
       reverseProxy: await this.detectReverseProxy(),
       webRoot: panelUrlObject.pathname || '/',
       metadata: {
-        loginStatusCode: loginResponse.statusCode,
+        credentialsValidated: true,
       },
     };
-  }
-
-  private extractSubscriptionPath(payload: string): string | undefined {
-    const patterns = [
-      /subPath["']?\s*[:=]\s*["']([^"'\\/\s]+)["']/i,
-      /subscription[_-]?path["']?\s*[:=]\s*["']([^"'\\/\s]+)["']/i,
-      /\/([a-zA-Z0-9_-]{2,32})\/\$\{?sub/i,
-    ];
-
-    for (const pattern of patterns) {
-      const match = payload.match(pattern);
-      if (match?.[1]) {
-        return match[1];
-      }
-    }
-
-    return undefined;
   }
 
   private async detectInstallationDirectory(): Promise<string | undefined> {
@@ -322,105 +300,4 @@ export class PanelCommand extends BaseCommand {
     return undefined;
   }
 
-  private async login(panelUrl: string, username: string, password: string): Promise<HttpResponse> {
-    const csrfResponse = await this.httpRequest({
-      url: `${panelUrl.replace(/\/+$/, '')}/csrf-token`,
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
-    });
-
-    let csrfToken = '';
-    const csrfCookieHeader = csrfResponse.headers['set-cookie'];
-    const csrfCookieValue = Array.isArray(csrfCookieHeader)
-      ? csrfCookieHeader[0]
-      : typeof csrfCookieHeader === 'string'
-        ? csrfCookieHeader
-        : '';
-    const csrfCookie = csrfCookieValue ? csrfCookieValue.split(';')[0] : '';
-
-    try {
-      const payload = JSON.parse(csrfResponse.body || '{}');
-      csrfToken = payload?.obj || payload?.token || '';
-    } catch {
-      csrfToken = '';
-    }
-
-    const body = new URLSearchParams({ username, password }).toString();
-    return this.httpRequest({
-      url: `${panelUrl.replace(/\/+$/, '')}/login`,
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Content-Length': Buffer.byteLength(body).toString(),
-        ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
-        ...(csrfCookie ? { Cookie: csrfCookie } : {}),
-      },
-      body,
-    });
-  }
-
-  private async persistPanelEnv(config: VpnSaasPanelRuntimeConfig): Promise<void> {
-    const runtime = await this.loadRuntimeConfig();
-    const envPath = runtime.paths.envFile;
-    const existing = (await this.fileExists(envPath)) ? await this.readFile(envPath) : '';
-
-    let updated = existing || '# VPN SaaS environment\n';
-    updated = this.upsertEnvValue(updated, 'VPN_PANEL_URL', config.panelUrl);
-    updated = this.upsertEnvValue(updated, 'VPN_PANEL_USERNAME', config.panelUser);
-    updated = this.upsertEnvValue(updated, 'VPN_PANEL_PASSWORD', config.panelPass);
-    updated = this.upsertEnvValue(updated, 'VPN_PANEL_API_URL', config.apiUrl);
-    updated = this.upsertEnvValue(updated, 'VPN_PANEL_SUBSCRIPTION_BASE_URL', config.subscriptionBaseUrl);
-    updated = this.upsertEnvValue(updated, 'VPN_PANEL_SUBSCRIPTION_PATH', config.subscriptionPath);
-    updated = this.upsertEnvValue(updated, 'VPN_PANEL_SUBSCRIPTION_PORT', String(config.subscriptionPort));
-    updated = this.upsertEnvValue(updated, 'VPN_PANEL_TLS_ENABLED', String(config.tlsEnabled));
-
-    await this.writeFile(envPath, updated);
-  }
-
-  private async httpRequest(options: {
-    url: string;
-    method: string;
-    headers: Record<string, string>;
-    body?: string;
-  }): Promise<HttpResponse> {
-    return new Promise((resolve, reject) => {
-      const urlObject = new URL(options.url);
-      const isHttps = urlObject.protocol === 'https:';
-      const protocol = isHttps ? https : http;
-
-      const request = protocol.request(
-        {
-          hostname: urlObject.hostname,
-          port: urlObject.port || (isHttps ? 443 : 80),
-          path: `${urlObject.pathname}${urlObject.search}`,
-          method: options.method,
-          headers: options.headers,
-          ...(isHttps ? { agent: new https.Agent({ rejectUnauthorized: false }) } : {}),
-        },
-        (response) => {
-          let responseBody = '';
-          response.on('data', (chunk) => {
-            responseBody += chunk;
-          });
-          response.on('end', () => {
-            resolve({
-              statusCode: response.statusCode || 0,
-              body: responseBody,
-              headers: response.headers,
-            });
-          });
-          response.on('error', reject);
-        },
-      );
-
-      request.on('error', reject);
-      if (options.body) {
-        request.write(options.body);
-      }
-      request.end();
-    });
-  }
 }

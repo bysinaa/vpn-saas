@@ -5,12 +5,12 @@ import * as path from 'node:path';
 /**
  * Hierarchical config resolution order (highest priority first):
  *   1. Database (settings table) — runtime-mutable
- *   2. Project .env (process.env / vpn-saas/.env)
+ *   2. Project .env (process.env / tazaxy/.env)
  *   3. Shared env (/opt/shared/.env or deploy/infrastructure/shared/.env)
  *   4. Hard-coded defaults
  *
  * Usage:
- *   const value = configService.get('XUI_PANEL_URL');
+ *   const value = configService.get('XUI_PANEL_BASE_URL');
  *   const dbUrl = configService.get('DATABASE_URL');
  *
  * The application should prefer ConfigService over direct process.env access.
@@ -38,7 +38,7 @@ export class ConfigService implements OnModuleInit {
       return this.dbCache.get(key);
     }
 
-    // 2. Project env (process.env — loaded by NestJS / dotenv from vpn-saas/.env)
+    // 2. Project env (process.env — loaded by NestJS / dotenv from tazaxy/.env)
     const projectVal = process.env[key];
     if (projectVal !== undefined && projectVal !== '') {
       return projectVal;

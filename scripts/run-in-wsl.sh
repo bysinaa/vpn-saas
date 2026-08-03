@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-INSTALLER_URL="https://raw.githubusercontent.com/bysinaa/vpn-saas/main/scripts/install.sh"
+INSTALLER_URL="https://raw.githubusercontent.com/bysinaa/tazaxy/main/scripts/install.sh"
 TMP="/tmp/vpn-install.sh"
 
 echo "Installer helper for WSL"

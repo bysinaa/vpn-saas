@@ -82,9 +82,6 @@ export class PaymentsController {
   @Public()
   @Get('online/callback')
   onlineCallback(@Query('Authority') authority: string, @Query('Status') status: string) {
-    if (status !== 'OK') {
-      return { success: false, message: 'Payment cancelled' };
-    }
-    return this.payments.verifyOnlinePayment(authority, 'zarinpal');
+    return this.payments.handleOnlineCallback(authority, status);
   }
 }

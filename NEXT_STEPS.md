@@ -6,22 +6,22 @@ What you can do locally (pick one)
 
 1) Run the one-liner on a Linux host (recommended)
    - SSH to a Linux VPS or use a Linux VM / WSL shell, then run:
-     bash <(curl -Ls https://raw.githubusercontent.com/bysinaa/vpn-saas/main/scripts/install.sh)
+     bash <(curl -Ls https://raw.githubusercontent.com/bysinaa/tazaxy/main/scripts/install.sh)
    - Runs as root. Inspect the script before running (see below).
 
 2) Run safely from Windows (WSL) — recommended if you want to run locally on your PC
    - Install WSL (if not installed): open PowerShell as Administrator and run:
      wsl --install
    - Reboot, open your WSL distro (e.g., Ubuntu), then run the one-liner in the WSL shell:
-     bash <(curl -Ls https://raw.githubusercontent.com/bysinaa/vpn-saas/main/scripts/install.sh)
+     bash <(curl -Ls https://raw.githubusercontent.com/bysinaa/tazaxy/main/scripts/install.sh)
    - Or clone repo in WSL and run:
-     git clone https://github.com/bysinaa/vpn-saas.git
-     cd vpn-saas
+     git clone https://github.com/bysinaa/tazaxy.git
+     cd tazaxy
      bash scripts/install.sh
 
 3) Inspect (and optionally run) the installer from PowerShell without piping remote code
    - Download the installer and review it first:
-     Invoke-WebRequest -Uri "https://raw.githubusercontent.com/bysinaa/vpn-saas/main/scripts/install.sh" -OutFile .\install.sh
+     Invoke-WebRequest -Uri "https://raw.githubusercontent.com/bysinaa/tazaxy/main/scripts/install.sh" -OutFile .\install.sh
      notepad .\install.sh
    - If you have WSL installed, run it via wsl:
      wsl bash ./install.sh
@@ -41,7 +41,7 @@ What you can do locally (pick one)
 
 PowerShell helpers (if you want a more explicit flow)
 - Download & inspect then run in WSL:
-  Invoke-WebRequest -Uri "https://raw.githubusercontent.com/bysinaa/vpn-saas/main/scripts/install.sh" -OutFile .\install.sh
+  Invoke-WebRequest -Uri "https://raw.githubusercontent.com/bysinaa/tazaxy/main/scripts/install.sh" -OutFile .\install.sh
   notepad .\install.sh
   wsl bash ./install.sh
 

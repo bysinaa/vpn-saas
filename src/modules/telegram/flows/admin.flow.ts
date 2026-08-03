@@ -14,6 +14,7 @@ import { SettingsService } from '../../settings/settings.service';
 import { PanelsService } from '../../panels/panels.service';
 import { BroadcastService } from '../../notifications/broadcast.service';
 import { VpnService } from '../../vpn/vpn.service';
+import { OrdersService } from '../../orders/orders.service';
 import { config } from '@/config';
 
 /**
@@ -40,6 +41,7 @@ export class AdminFlow {
     private readonly panels: PanelsService,
     private readonly broadcast: BroadcastService,
     private readonly vpn: VpnService,
+    private readonly orders: OrdersService,
   ) {}
 
   // small helper: safely extract telegram id string or null (avoid non-null asserted optional chains)
@@ -173,6 +175,31 @@ export class AdminFlow {
         this.runtime.translateError(locale, err),
         this.backHomeKeyboard(locale),
       );
+    }
+  }
+
+  /** Card administration callbacks are role-checked again at execution time. */
+  async onCardAction(ctx: Context, verb: string, publicId: string): Promise<void> {
+    const locale = await this.guard(ctx);
+    if (!locale) return;
+    await this.runtime.alert(ctx);
+    const adminId = this.getTelegramId(ctx);
+    if (!adminId || !/^\d+$/.test(adminId)) return;
+    try {
+      const id = BigInt(adminId);
+      if (verb === 'toggle' || verb === 'default' || verb === 'delete') {
+        if (verb === 'toggle') {
+          const current = await this.bankCards.findOne(publicId);
+          await this.bankCards.setActive(publicId, !current.isActive, id);
+        } else if (verb === 'default') {
+          await this.bankCards.setDefault(publicId, id);
+        } else {
+          await this.bankCards.remove(publicId, id);
+        }
+      }
+      await this.viewBankCards(ctx);
+    } catch (err: any) {
+      await this.runtime.editOrSend(ctx, this.runtime.translateError(locale, err), this.backHomeKeyboard(locale));
     }
   }
 
@@ -552,29 +579,43 @@ export class AdminFlow {
     const rcpt = (payment as any).receipt;
     const user = (payment as any).user;
 
-    // Credit the user's wallet
-    try {
-      await this.prisma.$transaction(async (tx) => {
-        await tx.payment.update({ where: { id: payment.id }, data: { status: 'CONFIRMED' } });
-        if (rcpt) await tx.receipt.update({ where: { id: rcpt.id }, data: { status: 'APPROVED' } });
-        // Credit wallet
-        if (user?.id) {
-          const wallet = await tx.wallet.findFirst({ where: { userId: user.id } });
-          if (wallet) {
-            await tx.wallet.update({
-              where: { id: wallet.id },
-              data: { balance: { increment: amount } },
-            });
-          }
-        }
-      });
-    } catch {
-      // Fallback: just mark confirmed
-      await this.prisma.payment.update({
-        where: { id: payment.id },
+    const approval = await this.prisma.$transaction(async (tx) => {
+      if (!rcpt) return { claimed: false, subscription: null };
+
+      const claim = await tx.payment.updateMany({
+        where: {
+          id: payment.id,
+          publicId: paymentPublicId,
+          orderId: payment.orderId,
+          status: 'AWAITING_VERIFY',
+          receipt: { is: { id: rcpt.id, paymentId: payment.id, status: 'PENDING' } },
+        },
         data: { status: 'CONFIRMED' },
       });
-    }
+      if (claim.count === 0) return { claimed: false, subscription: null };
+
+      await tx.receipt.update({ where: { id: rcpt.id }, data: { status: 'APPROVED' } });
+      if (user?.id) {
+        const wallet = await tx.wallet.findFirst({ where: { userId: user.id } });
+        if (wallet) {
+          await tx.wallet.update({
+            where: { id: wallet.id },
+            data: { balance: { increment: amount } },
+          });
+        }
+      }
+      if (!payment.orderId || !user?.id) {
+        return { claimed: true, subscription: null, provisioningRequired: false };
+      }
+
+      const completion = await this.orders.completeOrderInTransaction(
+        tx,
+        payment.orderId,
+        user.id,
+      );
+      return { claimed: true, ...completion };
+    });
+    if (!approval.claimed) return;
 
     const adminTelegramId = this.getTelegramId(ctx);
     if (adminTelegramId) {
@@ -588,49 +629,13 @@ export class AdminFlow {
       }
     }
 
-    // If this payment is for an ORDER, complete the order and provision the subscription
-    let orderCompleted = false;
+    // Provision after the transaction commits because this is external I/O.
+    const orderCompleted = !!approval.subscription;
     let subscriptionInfo = '';
-    if (payment.orderId && user?.id) {
+    if (approval.subscription && approval.provisioningRequired) {
       try {
-        const order = await this.prisma.order.findUnique({
-          where: { id: payment.orderId },
-          include: { plan: true },
-        });
-        if (order && order.status === 'PENDING') {
-          // Mark order as completed
-          await this.prisma.order.update({
-            where: { id: order.id },
-            data: { status: 'COMPLETED', completedAt: new Date() },
-          });
-          // Create subscription
-          const plan = order.plan;
-          if (plan) {
-            const trafficLimitBytes = plan.trafficLimitGb
-              ? BigInt(plan.trafficLimitGb) * 1024n * 1024n * 1024n
-              : null;
-            const expiresAt = plan.durationDays
-              ? new Date(Date.now() + plan.durationDays * 24 * 3600 * 1000)
-              : null;
-            const sub = await this.prisma.subscription.create({
-              data: {
-                publicId: crypto.randomUUID(),
-                userId: user.id,
-                planId: plan.id,
-                orderId: order.id,
-                status: 'ACTIVE',
-                type: plan.type,
-                trafficLimitBytes,
-                usedTrafficBytes: 0n,
-                durationDays: plan.durationDays,
-                startsAt: new Date(),
-                expiresAt,
-                deviceLimit: plan.deviceLimit,
-                isTrial: plan.isTrial,
-              },
-              include: { plan: true },
-            });
-            orderCompleted = true;
+        const sub = approval.subscription;
+        const plan = sub.plan;
             subscriptionInfo = `\n\n🎉 اشتراک فعال شد!\n📦 پلن: ${plan.name}\n📅 مدت: ${plan.durationDays ?? 0} روز`;
 
             // Provision VPN client on the 3x-ui panel
@@ -666,8 +671,6 @@ export class AdminFlow {
                 /* ignore */
               }
             }
-          }
-        }
       } catch (err: any) {
         console.error('Failed to complete order after receipt approval:', err?.message ?? err);
       }
@@ -752,10 +755,17 @@ export class AdminFlow {
     const lines = cards.map((c) => {
       const star = c.isDefault ? '⭐ ' : '';
       const st = c.isActive ? '✅' : '⛔';
-      return `${star}${st} ${c.cardNumber}\n   ${c.cardHolder} · ${c.bankName ?? ''}`;
+      const masked = c.cardNumber.length > 4 ? `•••• ${c.cardNumber.slice(-4)}` : '••••';
+      return `${star}${st} ${masked}\n   ${c.cardHolder} · ${c.bankName ?? ''}`;
     });
     const msg = `🏦 کارت‌های بانکی (${cards.length}):\n\n${lines.join('\n\n') || '—'}`;
-    await this.runtime.editOrSend(ctx, msg, this.backHomeKeyboard(locale));
+    const rows = cards.flatMap((c) => [[
+      Markup.button.callback(`${c.isActive ? '⏸' : '▶️'} ${c.cardNumber.slice(-4)}`, `acard:toggle:${c.publicId}`),
+      Markup.button.callback(c.isDefault ? '⭐' : '☆', `acard:default:${c.publicId}`),
+      Markup.button.callback('🗑', `acard:delete:${c.publicId}`),
+    ]]);
+    rows.push([Markup.button.callback(`◀️ ${t(locale, 'menu.back')}`, 'adm:dash')]);
+    await this.runtime.editOrSend(ctx, msg, Markup.inlineKeyboard(rows));
   }
 
   /** WALLET OPS — recent wallet transactions + balances overview. */
@@ -827,8 +837,12 @@ export class AdminFlow {
     const locale = await this.guard(ctx);
     if (!locale) return;
     const plan = await this.plans.getRaw(publicId);
-    const price = fromMinor(plan.price);
-    const orig = plan.originalPrice ? fromMinor(plan.originalPrice) : null;
+    const price = plan.price.toString();
+    const orig = plan.originalPrice ? plan.originalPrice.toString() : null;
+    const eligibleInboundCount = await this.vpn
+      .selectProvisioningTarget(plan as never)
+      .then((target) => target.inboundIds.length)
+      .catch(() => 0);
     const msg =
       `📋 ${plan.name}\n\n` +
       `🆔 ${plan.slug}\n` +
@@ -837,7 +851,8 @@ export class AdminFlow {
       `📅 مدت: ${plan.durationDays ?? 0} روز\n` +
       `📱 دستگاه‌ها: ${plan.deviceLimit} · سرورها: ${plan.serverLimit}\n` +
       `🔄 تمدید: ${plan.isRenewable ? 'بله' : 'خیر'} · توقف: ${plan.allowPause ? 'بله' : 'خیر'}\n` +
-      `⚡ اولویت: ${plan.priority} · وضعیت: ${plan.isEnabled ? 'فعال' : 'غیرفعال'}`;
+      `⚡ اولویت: ${plan.priority} · وضعیت: ${plan.isEnabled ? 'فعال' : 'غیرفعال'}\n` +
+      `XUI ALL_ACTIVE: ${eligibleInboundCount}`;
     const kb = Markup.inlineKeyboard([
       [
         Markup.button.callback(`✏️ ویرایش`, `aplan:edit:${publicId}`),
@@ -859,7 +874,10 @@ export class AdminFlow {
     const plan = await this.plans.getRaw(publicId);
     // Use isVisible (the field PlansService.update exposes); isEnabled tracks
     // purchase-eligibility and is mirrored here so the toggle feels atomic.
-    await this.plans.update(publicId, { isVisible: !plan.isVisible });
+    await this.plans.update(publicId, {
+      isVisible: !plan.isVisible,
+      isEnabled: !plan.isEnabled,
+    });
     await this.viewPlanDetail(ctx, publicId);
   }
 
@@ -929,7 +947,7 @@ export class AdminFlow {
     const plan = await this.plans.getRaw(publicId);
     const current =
       field === 'price'
-        ? fromMinor(plan.price)
+        ? plan.price.toString()
         : field === 'trafficLimitGb'
           ? (plan.trafficLimitGb?.toString() ?? 'نامحدود')
           : ((plan as any)[field] ?? '—');
@@ -1614,7 +1632,7 @@ export class AdminFlow {
     }
     if (field === 'price') {
       const n = Number(value);
-      if (!Number.isFinite(n) || n < 0) {
+      if (!Number.isInteger(n) || n < 0) {
         await this.runtime.editOrSend(
           ctx,
           '❌ قیمت نامعتبر است. عدد وارد کنید:',
@@ -1667,7 +1685,7 @@ export class AdminFlow {
         durationDays: draft.durationDays as number,
         trafficLimitGb: gb,
         type: 'TRAFFIC',
-        currency: 'USD',
+        currency: 'IRT',
         isVisible: true,
         isRenewable: true,
       });
@@ -1703,7 +1721,7 @@ export class AdminFlow {
     const update: Record<string, unknown> = {};
     if (field === 'price') {
       const n = Number(value);
-      if (!Number.isFinite(n) || n < 0) {
+      if (!Number.isInteger(n) || n < 0) {
         await this.runtime.editOrSend(
           ctx,
           '❌ قیمت نامعتبر. عدد وارد کنید:',
@@ -1853,9 +1871,9 @@ export class AdminFlow {
         draft.password = value;
         const created = await this.panels.create({
           name: draft.name as string,
-          type: 'SANITY',
+          type: 'XUI',
           baseUrl: draft.baseUrl as string,
-          apiKey: 'sanity-session-auth',
+          apiKey: 'xui-session-auth',
           isActive: true,
           extraConfig: {
             username: draft.username,

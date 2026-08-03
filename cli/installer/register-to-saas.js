@@ -51,7 +51,7 @@ function httpPostJson(urlString, body, insecure = false) {
         headers: {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(payload),
-          'User-Agent': 'vpn-saas-installer/1.0',
+          'User-Agent': 'tazaxy-installer/1.0',
         },
         timeout: 15000,
       };

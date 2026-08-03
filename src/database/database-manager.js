@@ -17,6 +17,7 @@ const path = require('path');
 const net = require('net');
 const dns = require('dns').promises;
 const { Client: PgClient } = require('pg');
+const { createPostgresDetector } = require('../../cli/installer/postgres-detector');
 
 // helper to load/save installer-state.json using same shape as CLI state-manager
 function loadState(statePath) {
@@ -59,93 +60,12 @@ async function tcpProbe(host, port, timeoutMs = 1500) {
   });
 }
 
-/**
- * Lightweight command executor used for discovery. Uses spawnSync so discovery
- * remains synchronous-friendly and fails fast when docker/psql are absent.
- */
-const { spawnSync } = require('child_process');
-function execCmd(cmd, args = [], timeout = 2000) {
-  try {
-    const res = spawnSync(cmd, args, { encoding: 'utf8', timeout });
-    return { stdout: (res.stdout || '').toString(), stderr: (res.stderr || '').toString(), status: res.status };
-  } catch (e) {
-    return { error: String(e) };
-  }
-}
-
-/**
- * detectDockerPostgresContainers()
- * - Calls `docker ps --format` and parses output for containers whose image name includes "postgres".
- * - Returns an array of candidate objects: { source: 'docker:container', containerId, name, image, host, port, managed:true }
- * - Non-fatal: if docker CLI is not available or returns error, returns [].
- */
-function detectDockerPostgresContainers() {
-  try {
-    const out = execCmd('docker', ['ps', '--format', '{{.ID}}||{{.Image}}||{{.Names}}||{{.Ports}}'], 2500);
-    if (out.error || out.status !== 0) return [];
-    const lines = out.stdout.split(/\r?\n/).filter((l) => l.trim());
-    const candidates = [];
-    for (const l of lines) {
-      const parts = l.split('||');
-      const id = parts[0] || '';
-      const image = parts[1] || '';
-      const name = parts[2] || '';
-      const ports = parts[3] || '';
-      if (!/postgres/i.test(image)) continue;
-      // try to extract host port mapping like "0.0.0.0:5433->5432/tcp"
-      let hostPort = null;
-      const m = ports.match(/0\.0\.0\.0:(\d+)->\d+\/tcp/);
-      if (m) hostPort = Number(m[1]);
-      // fallback: look for any :<port>/tcp pattern
-      if (!hostPort) {
-        const m2 = ports.match(/:(\d+)->\d+\/tcp/);
-        if (m2) hostPort = Number(m2[1]);
-      }
-      candidates.push({
-        source: `docker:container:${id}`,
-        containerId: id,
-        name,
-        image,
-        host: hostPort ? '127.0.0.1' : 'localhost',
-        port: hostPort || 5432,
-        managed: true,
-      });
-    }
-    return candidates;
-  } catch (e) {
-    return [];
-  }
-}
-
-/**
- * detectDockerVolumes()
- * - Returns volumes that look like postgres volumes. Non-fatal.
- */
-function detectDockerVolumes() {
-  try {
-    const out = execCmd('docker', ['volume', 'ls', '--format', '{{.Name}}||{{.Driver}}'], 2000);
-    if (out.error || out.status !== 0) return [];
-    const lines = out.stdout.split(/\r?\n/).filter((l) => l.trim());
-    const vols = [];
-    for (const l of lines) {
-      const [name, driver] = l.split('||');
-      if (!name) continue;
-      if (/pgdata|postgres|vpn_saas/i.test(name)) {
-        vols.push({ name, driver });
-      }
-    }
-    return vols;
-  } catch (e) {
-    return [];
-  }
-}
-
 function generateDatabaseUrl(entry) {
   if (!entry) return null;
   if (entry.credentials && entry.credentials.DATABASE_URL) return entry.credentials.DATABASE_URL;
   const user = entry.credentials && (entry.credentials.POSTGRES_USER || entry.credentials.PGUSER);
   const pass = entry.credentials && (entry.credentials.POSTGRES_PASSWORD || entry.credentials.PGPASSWORD);
-  const db = (entry.credentials && (entry.credentials.POSTGRES_DB || entry.credentials.PGDATABASE)) || entry.database || 'vpn_saas';
+  const db = (entry.credentials && (entry.credentials.POSTGRES_DB || entry.credentials.PGDATABASE)) || entry.database || 'tazaxy';
   const host = entry.host || 'localhost';
   const port = entry.port || 5432;
   if (user && pass) {
@@ -183,10 +103,6 @@ async function attemptAuth(entry, timeoutMs = 2000) {
   return res;
 }
 
-function makeRegistryNote(type, info) {
-  return Object.assign({ type }, info || {});
-}
-
 /**
  * writeEnvDatabaseUrl(url)
  * Writes a DATABASE_URL line to the project's .env file if none exists.
@@ -222,81 +138,16 @@ function writeEnvDatabaseUrl(url) {
  * Does NOT start/stop containers. Returns a structured result with discovered array and registrySuggested.
  */
 async function discover(opts = {}) {
-  const statePath = path.resolve(process.cwd(), 'installer-state.json');
-  const state = loadState(statePath) || {};
-  const discovered = [];
-  const notes = [];
+  // Centralized, read-only discovery. Legacy management helpers below are only
+  // used by explicit install/restore commands and are not detection paths.
+  const result = await createPostgresDetector({ runtime: opts.runtime }).discover(opts);
+  return {
+    discovered: result.candidates.map((candidate) => ({ source: candidate.source, type: 'postgres', host: candidate.connection.host, port: candidate.connection.port, database: candidate.connection.database, ready: candidate.ready })),
+    registrySuggested: { databases: [] },
+    notes: result.diagnostics,
+    result,
+  };
 
-  // 1) If installer-state.json already contains discovered entries, surface them
-  if (state.databases && state.databases.discovered && Array.isArray(state.databases.discovered)) {
-    discovered.push(...state.databases.discovered);
-    notes.push(makeRegistryNote('info', { path: 'installer-state.json', name: 'existing-discovered', message: 'Loaded discovered entries from installer-state.json' }));
-  }
-
-  // 2) Look for existing .env or process.env.DATABASE_URL
-  const envDbUrl = process.env.DATABASE_URL || null;
-  if (envDbUrl) {
-    discovered.push({ source: 'env:DATABASE_URL', type: 'postgres', credentials: { DATABASE_URL: envDbUrl }, managed: false });
-    notes.push(makeRegistryNote('info', { name: '.env', message: 'DATABASE_URL found in environment' }));
-  }
-
-  // 3) Look for deploy/infrastructure/postgres/docker-compose.yml and .env to detect managed instance
-  try {
-    const deployCompose = path.resolve(process.cwd(), 'deploy', 'infrastructure', 'postgres', 'docker-compose.yml');
-    const deployEnv = path.resolve(process.cwd(), 'deploy', 'infrastructure', 'postgres', '.env');
-    if (fs.existsSync(deployCompose)) {
-      discovered.push({ source: deployCompose, type: 'postgres', managed: true, container: 'generated-postgres', owner: 'vpn-saas' });
-      notes.push(makeRegistryNote('info', { path: deployCompose, message: 'Found postgres compose under deploy/infrastructure/postgres' }));
-    }
-    if (fs.existsSync(deployEnv)) {
-      // attempt to parse common keys
-      try {
-        const raw = fs.readFileSync(deployEnv, 'utf8');
-        const kv = {};
-        raw.split(/\r?\n/).forEach((l) => {
-          const m = l.match(/^([^=]+)=(.*)$/);
-          if (m) kv[m[1]] = m[2];
-        });
-        if (kv.POSTGRES_PASSWORD || kv.POSTGRES_USER || kv.DATABASE_URL) {
-          discovered.push({ source: deployEnv, type: 'postgres', managed: true, credentials: kv });
-          notes.push(makeRegistryNote('info', { path: deployEnv, message: 'Found credentials in deploy/infrastructure/postgres/.env' }));
-        }
-      } catch (e) {}
-    }
-  } catch (e) {}
-
-  // 4) Basic probe: if any entries with host/port present, perform TCP & optional auth probe
-  const probeCandidates = (state.databases && state.databases.registrySuggested && state.databases.registrySuggested.databases) || [];
-  for (const c of probeCandidates) {
-    const host = c.host || 'localhost';
-    const port = c.port || 5432;
-    const tcp = await tcpProbe(host, port, 1000);
-    const p = Object.assign({ source: 'installer-state.registrySuggested', tcp: tcp }, c);
-    discovered.push(p);
-  }
-
-  // update installer-state.json where sensible (non-destructive)
-  state.databases = state.databases || {};
-  state.databases.discovered = state.databases.discovered || [];
-  // merge discovered without removing existing discovered entries
-  for (const d of discovered) {
-    // avoid duplicates by source
-    if (!state.databases.discovered.find((x) => x.source && d.source && x.source === d.source)) {
-      state.databases.discovered.push(d);
-    }
-  }
-  state.databases.notes = (state.databases.notes || []).concat(notes).slice(-200);
-
-  // Persist best-effort
-  try {
-    saveState(statePath, state);
-  } catch (e) {
-    // ignore persist failures - CLI will handle persistence via state-manager if needed
-  }
-
-  const registrySuggested = { databases: (state.databases.registrySuggested && state.databases.registrySuggested.databases) || [] };
-
-  return { discovered, registrySuggested, state, notes };
 }
 
 /**
@@ -355,9 +206,9 @@ async function validate(opts = {}) {
       const generatedCompose = path.join(destDir, 'docker-compose.generated.yml');
       const generatedEnv = path.join(destDir, 'docker-compose.generated.env');
       const creds = {
-        POSTGRES_USER: 'vpn_saas',
+        POSTGRES_USER: 'tazaxy',
         POSTGRES_PASSWORD: Math.random().toString(36).slice(2, 14),
-        POSTGRES_DB: 'vpn_saas',
+        POSTGRES_DB: 'tazaxy',
       };
       const compose = `version: '3.8'
 services:
@@ -369,10 +220,10 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - vpn_saas_pgdata:/var/lib/postgresql/data
+      - tazaxy_pgdata:/var/lib/postgresql/data
 
 volumes:
-  vpn_saas_pgdata:
+  tazaxy_pgdata:
 `;
       fs.writeFileSync(generatedCompose, compose, 'utf8');
       const envText = Object.entries(creds).map(([k, v]) => `${k}=${v}`).join('\\n') + '\\n';
@@ -385,7 +236,7 @@ volumes:
         host: 'localhost',
         port: 5432,
         database: creds.POSTGRES_DB,
-        owner: 'vpn-saas',
+        owner: 'tazaxy',
         managed: true,
         credentials: creds,
       };

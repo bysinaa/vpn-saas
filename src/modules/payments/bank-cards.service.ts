@@ -26,6 +26,27 @@ export interface BankCardDto {
   updatedAt: Date;
 }
 
+export function normalizeCardNumber(value: string): string {
+  return value.replace(/[\s-]/g, '');
+}
+
+export function isValidCardNumber(value: string): boolean {
+  const card = normalizeCardNumber(value);
+  if (!/^\d{16}$/.test(card) || /^0+$/.test(card)) return false;
+  let sum = 0;
+  for (let i = 0; i < card.length; i += 1) {
+    let digit = Number(card[card.length - 1 - i]);
+    if (i % 2 === 1) { digit *= 2; if (digit > 9) digit -= 9; }
+    sum += digit;
+  }
+  return sum % 10 === 0;
+}
+
+export function maskCardNumber(value: string): string {
+  const card = normalizeCardNumber(value);
+  return card.length <= 4 ? '••••' : `${'•'.repeat(Math.max(0, card.length - 4))}${card.slice(-4)}`;
+}
+
 const CACHE_KEY = 'bank-cards:active';
 
 /**
@@ -108,7 +129,7 @@ export class BankCardsService {
     if (input.isDefault) await this.clearDefault();
     const card = await this.prisma.bankCard.create({
       data: {
-        cardNumber: input.cardNumber.replace(/\s+/g, ''),
+        cardNumber: this.checkedCardNumber(input.cardNumber),
         cardHolder: input.cardHolder,
         bankName: input.bankName,
         shebaNumber: input.shebaNumber ?? null,
@@ -148,7 +169,7 @@ export class BankCardsService {
     if (!existing) throw BusinessException.notFound('Bank card not found');
     if (input.isDefault) await this.clearDefault();
     const data: Record<string, unknown> = {};
-    if (input.cardNumber !== undefined) data.cardNumber = input.cardNumber.replace(/\s+/g, '');
+    if (input.cardNumber !== undefined) data.cardNumber = this.checkedCardNumber(input.cardNumber);
     if (input.cardHolder !== undefined) data.cardHolder = input.cardHolder;
     if (input.bankName !== undefined) data.bankName = input.bankName;
     if (input.shebaNumber !== undefined) data.shebaNumber = input.shebaNumber;
@@ -172,15 +193,34 @@ export class BankCardsService {
   async remove(publicId: string, adminId?: bigint): Promise<void> {
     const existing = await this.prisma.bankCard.findUnique({ where: { publicId } });
     if (!existing) throw BusinessException.notFound('Bank card not found');
-    await this.prisma.bankCard.delete({ where: { publicId } });
+    // Preserve payment history: card removal is a soft disable.
+    await this.prisma.bankCard.update({ where: { publicId }, data: { isActive: false, isDefault: false } });
     await this.invalidate();
     await this.audit.log({
       userId: adminId,
-      action: 'DELETE',
+      action: 'UPDATE',
       resource: 'bank_cards',
       resourceId: publicId,
       before: this.toDto(existing),
     });
+  }
+
+  async setActive(publicId: string, isActive: boolean, adminId?: bigint): Promise<BankCardDto> {
+    return this.update(publicId, { isActive, ...(isActive ? {} : { isDefault: false }) }, adminId);
+  }
+
+  async setDefault(publicId: string, adminId?: bigint): Promise<BankCardDto> {
+    const card = await this.prisma.bankCard.findUnique({ where: { publicId } });
+    if (!card) throw BusinessException.notFound('Bank card not found');
+    if (!card.isActive) throw BusinessException.conflict('Only an active card can be default');
+    await this.clearDefault();
+    return this.update(publicId, { isDefault: true }, adminId);
+  }
+
+  private checkedCardNumber(value: string): string {
+    const card = normalizeCardNumber(value);
+    if (!isValidCardNumber(card)) throw new BusinessException('VALIDATION_ERROR', 'Invalid card number');
+    return card;
   }
 
   private async clearDefault(): Promise<void> {

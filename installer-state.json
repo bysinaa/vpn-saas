@@ -905,5 +905,128 @@
       "expiresAt": "2026-08-02T11:21:43.458Z",
       "validationStatus": "valid"
     }
+  },
+  "detections": {
+    "xui": {
+      "status": "PARTIAL",
+      "source": "docker",
+      "connection": {
+        "url": "http://127.0.0.1:2053",
+        "scheme": "http",
+        "host": "127.0.0.1",
+        "port": 2053,
+        "webBasePath": ""
+      },
+      "confidence": 5,
+      "candidates": [
+        {
+          "connection": {
+            "url": "http://127.0.0.1:2053",
+            "scheme": "http",
+            "host": "127.0.0.1",
+            "port": 2053,
+            "webBasePath": ""
+          },
+          "source": "docker",
+          "confidence": 5,
+          "recognized": false,
+          "authenticationRequired": false,
+          "diagnostics": [
+            {
+              "code": "HTTP_STATUS",
+              "statusCode": 404
+            }
+          ]
+        },
+        {
+          "connection": {
+            "url": "https://panel.example.com",
+            "scheme": "https",
+            "host": "panel.example.com",
+            "port": 443,
+            "webBasePath": ""
+          },
+          "source": "config:.env.example",
+          "confidence": 0,
+          "recognized": false,
+          "authenticationRequired": false,
+          "diagnostics": [
+            {
+              "code": "HTTP_ERROR",
+              "detail": "getaddrinfo ENOTFOUND panel.example.com"
+            }
+          ]
+        },
+        {
+          "connection": {
+            "url": "http://127.0.0.1:2052",
+            "scheme": "http",
+            "host": "127.0.0.1",
+            "port": 2052,
+            "webBasePath": ""
+          },
+          "source": "wsl",
+          "confidence": 0,
+          "recognized": false,
+          "authenticationRequired": false,
+          "diagnostics": [
+            {
+              "code": "HTTP_ERROR",
+              "detail": "connect ECONNREFUSED 127.0.0.1:2052"
+            }
+          ]
+        },
+        {
+          "connection": {
+            "url": "http://127.0.0.1:8080",
+            "scheme": "http",
+            "host": "127.0.0.1",
+            "port": 8080,
+            "webBasePath": ""
+          },
+          "source": "wsl",
+          "confidence": 0,
+          "recognized": false,
+          "authenticationRequired": false,
+          "diagnostics": [
+            {
+              "code": "HTTP_ERROR",
+              "detail": "connect ECONNREFUSED 127.0.0.1:8080"
+            }
+          ]
+        },
+        {
+          "connection": {
+            "url": "http://127.0.0.1:3000",
+            "scheme": "http",
+            "host": "127.0.0.1",
+            "port": 3000,
+            "webBasePath": ""
+          },
+          "source": "wsl",
+          "confidence": 0,
+          "recognized": false,
+          "authenticationRequired": false,
+          "diagnostics": [
+            {
+              "code": "HTTP_ERROR",
+              "detail": "connect ECONNREFUSED 127.0.0.1:3000"
+            }
+          ]
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "DISCOVERED_SOURCE",
+          "source": "docker"
+        },
+        {
+          "code": "DISCOVERED_SOURCE",
+          "source": "wsl"
+        }
+      ],
+      "observedAt": "2026-08-03T14:12:33.605Z",
+      "recommendedAction": "Review candidate connectivity or provide --base-url."
+    }
   }
 }

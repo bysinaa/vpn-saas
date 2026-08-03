@@ -2,7 +2,7 @@
 /**
  * installer.js
  *
- * Production-grade CLI installer for VPN SaaS.
+ * Production-grade CLI installer for TAZAXY.
  *
  * Design principles:
  *  - Discovery-first: never ask before auto-detection is complete.
@@ -82,7 +82,7 @@ async function main() {
   };
 
   if (!cmd || cmd === 'help') {
-    console.log(`${C.bold}VPN SaaS Installer${C.reset}`);
+    console.log(`${C.bold}TAZAXY Installer${C.reset}`);
     console.log('');
     console.log('Usage: node cli/installer/installer.js <command> [--flags]');
     console.log('');
@@ -197,7 +197,7 @@ async function main() {
 
       ok(`Registering panel: ${baseUrl}`);
       const childEnv = Object.assign({}, process.env);
-      childEnv.SANITY_PANEL_BASE_URL = baseUrl;
+      childEnv.XUI_PANEL_BASE_URL = baseUrl;
 
       const registerCmd = `node ${path.join('scripts', 'register-panel.cjs')}`;
       const child = exec(registerCmd, { cwd: process.cwd(), env: childEnv, timeout: 0 }, (err, stdout, stderr) => {
@@ -344,7 +344,7 @@ async function main() {
       } else {
         ok(`Registering: ${baseUrl}`);
         const childEnv = Object.assign({}, process.env);
-        childEnv.SANITY_PANEL_BASE_URL = baseUrl;
+        childEnv.XUI_PANEL_BASE_URL = baseUrl;
 
         const registerCmd = `node ${path.join('scripts', 'register-panel.cjs')}`;
         const regResult = await new Promise((resolve) => {
@@ -378,7 +378,7 @@ async function main() {
     // Step 7: Final Report
     stepTitle(7, TOTAL_STEPS, 'Installation Report');
     console.log(`${C.bold}${C.green}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C.reset}`);
-    console.log(`${C.bold}  VPN SaaS Installation Complete${C.reset}`);
+    console.log(`${C.bold}  TAZAXY Installation Complete${C.reset}`);
     console.log(`${C.bold}${C.green}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C.reset}`);
     console.log('');
     info('Stages: preflight → detect → confirm → auto-config → register → health');

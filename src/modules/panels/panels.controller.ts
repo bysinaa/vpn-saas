@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UsePipes } from '@nestjs/common';
 import { PanelsService } from './panels.service';
+import { PanelInboundsService } from './panel-inbounds.service';
 import {
   CreatePanelInput,
   createPanelSchema,
@@ -11,7 +12,10 @@ import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 
 @Controller('panels')
 export class PanelsController {
-  constructor(private readonly panels: PanelsService) {}
+  constructor(
+    private readonly panels: PanelsService,
+    private readonly inbounds: PanelInboundsService,
+  ) {}
 
   @Get()
   @RequirePermissions(['read:panels'])
@@ -43,5 +47,11 @@ export class PanelsController {
   @RequirePermissions(['manage:panels'])
   checkHealth(@Param('id') id: string) {
     return this.panels.checkHealth(BigInt(id));
+  }
+
+  @Post(':id/inbounds/sync')
+  @RequirePermissions(['manage:panels'])
+  syncInbounds(@Param('id') id: string) {
+    return this.inbounds.syncPanelInbounds(id);
   }
 }

@@ -7,7 +7,6 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { BusinessException } from '@/common/exceptions/business.exception';
 import { config } from '@/config';
 import { hashToken } from '@/common/utils/crypto.util';
-import { fromMinor } from '@/common/utils/money.util';
 import {
   PaginatedDto,
   buildMeta,
@@ -116,6 +115,9 @@ export class PaymentsService {
     if (input.method === 'VOUCHER') {
       return this.payWithVoucher(input.orderPublicId, input.userId, input.voucherCode!);
     }
+    if (input.method === 'ONLINE' && order.currency !== 'IRT') {
+      throw BusinessException.conflict('Online payments require IRT toman orders');
+    }
 
     const payment = await this.prisma.payment.create({
       data: {
@@ -125,7 +127,7 @@ export class PaymentsService {
         method: input.method,
         status: 'PENDING',
         amount: BigInt(order.totalAmount.replace(/[^0-9]/g, '')) || 0n,
-        currency: order.currency,
+        currency: input.method === 'ONLINE' ? 'IRT' : order.currency,
       },
     });
 
@@ -135,10 +137,10 @@ export class PaymentsService {
       if (!gateway) throw BusinessException.conflict(`Gateway '${gatewayCode}' not configured`);
       const result = await gateway.initiate({
         paymentId: payment.id,
-        amountMinor: payment.amount,
-        currency: payment.currency,
+        amountToman: payment.amount,
+        currency: 'IRT',
         description: `Order ${order.publicId}`,
-        callbackUrl: `${config.app.url}/payments/online/callback`,
+        callbackUrl: config.payments.online.callbackUrl || `${config.app.url}/payments/online/callback`,
         userPublicId: order.publicId,
       });
       await this.prisma.payment.update({
@@ -146,6 +148,8 @@ export class PaymentsService {
         data: {
           gateway: gateway.code,
           gatewayRef: result.gatewayTransactionId,
+          gatewayStatus: 'REQUESTED',
+          gatewayResponse: { requestCode: 100 } as any,
           metadata: { redirectUrl: result.redirectUrl } as any,
         },
       });
@@ -237,7 +241,7 @@ export class PaymentsService {
   /**
    * Admin verifies or rejects a receipt (spec #3 + #13).
    *
-   * APPROVED → confirm payment, complete order (creates subscription + Sanity
+   * APPROVED → confirm payment, complete order (creates subscription + XUI
    *   panel user), notify the user that their payment was accepted.
    * REJECTED → mark payment REJECTED, notify the user with the admin's reason.
    *
@@ -325,10 +329,20 @@ export class PaymentsService {
   }
 
   /** Online gateway callback verification. */
-  async verifyOnlinePayment(
-    gatewayTransactionId: string,
-    gatewayCode: string,
-  ): Promise<PaymentDto> {
+  async handleOnlineCallback(authority: string, status: string): Promise<PaymentDto> {
+    const payment = await this.prisma.payment.findFirst({ where: { gatewayRef: authority, gateway: DEFAULT_ONLINE_GATEWAY_CODE } });
+    if (!payment) throw BusinessException.notFound('Payment not found');
+    if (status !== 'OK') {
+      await this.prisma.payment.updateMany({
+        where: { id: payment.id, status: { in: ['INITIATED', 'PENDING', 'AWAITING_VERIFY'] } },
+        data: { status: 'CANCELLED', gatewayStatus: status },
+      });
+      return this.toDto(await this.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } }));
+    }
+    return this.verifyOnlinePayment(authority, DEFAULT_ONLINE_GATEWAY_CODE);
+  }
+
+  async verifyOnlinePayment(gatewayTransactionId: string, gatewayCode: string): Promise<PaymentDto> {
     const payment = await this.prisma.payment.findFirst({
       where: { gatewayRef: gatewayTransactionId, gateway: gatewayCode },
     });
@@ -336,9 +350,9 @@ export class PaymentsService {
     const gateway = this.gateways.get(gatewayCode);
     if (!gateway) throw BusinessException.conflict('Unknown gateway');
 
-    const result = await gateway.verify({ gatewayTransactionId, paymentId: payment.id });
+    const result = await gateway.verify({ gatewayTransactionId, paymentId: payment.id, amountToman: payment.amount });
     if (result.status === 'CONFIRMED') {
-      await this.confirmPayment(payment.id);
+      await this.confirmPayment(payment.id, result);
     } else if (result.status === 'FAILED') {
       // PaymentStatus has no FAILED; map gateway FAILED -> REJECTED.
       await this.prisma.payment.update({ where: { id: payment.id }, data: { status: 'REJECTED' } });
@@ -350,16 +364,32 @@ export class PaymentsService {
    * Confirm a payment and complete the associated order (spec #12 transaction).
    * Idempotent — safe to call multiple times. Audit-logs the confirmation.
    */
-  async confirmPayment(paymentId: bigint): Promise<void> {
+  async confirmPayment(paymentId: bigint, gatewayResult?: { verificationCode?: number; reference?: string }): Promise<void> {
     const payment = await this.prisma.payment.findUniqueOrThrow({
       where: { id: paymentId },
       include: { order: true },
     });
-    if (payment.status === 'CONFIRMED') return; // idempotent
-    await this.prisma.payment.update({
-      where: { id: paymentId },
-      data: { status: 'CONFIRMED', confirmedAt: new Date() },
-    });
+    if (payment.status === 'CONFIRMED') {
+      if (gatewayResult) {
+        await this.prisma.payment.update({
+          where: { id: paymentId },
+          data: { gatewayStatus: 'VERIFIED', gatewayVerifyCode: gatewayResult.verificationCode, gatewayRefId: gatewayResult.reference },
+        });
+      }
+      return;
+    }
+    const claim = await this.prisma.withTransaction<{ count: number }>((tx) => tx.payment.updateMany({
+      where: { id: paymentId, status: { in: ['INITIATED', 'PENDING', 'AWAITING_VERIFY'] } },
+      data: {
+        status: 'CONFIRMED',
+        confirmedAt: new Date(),
+        gatewayStatus: gatewayResult ? 'VERIFIED' : undefined,
+        gatewayVerifyCode: gatewayResult?.verificationCode,
+        gatewayRefId: gatewayResult?.reference,
+        gatewayResponse: gatewayResult ? { verificationCode: gatewayResult.verificationCode, refId: gatewayResult.reference ?? null } : undefined,
+      },
+    }));
+    if (claim.count !== 1) return;
     if (payment.orderId) {
       // Plan purchase: complete the order (provisions the subscription).
       await this.orders.completeOrder(payment.orderId, payment.userId);
@@ -378,7 +408,7 @@ export class PaymentsService {
       resourceId: payment.publicId,
       after: {
         status: 'CONFIRMED',
-        amount: fromMinor(payment.amount),
+        amount: payment.amount.toString(),
         currency: payment.currency,
         orderId: payment.order?.publicId ?? null,
         walletTopUp: !payment.orderId,
@@ -496,10 +526,10 @@ export class PaymentsService {
       orderId: p.orderId?.toString() ?? null,
       method: p.method,
       status: p.status,
-      amount: fromMinor(p.amount),
+      amount: p.amount.toString(),
       currency: p.currency,
       gateway: (p as any).gateway ?? null,
-      gatewayTransactionId: (p as any).gatewayRef ?? null,
+      gatewayTransactionId: null,
       redirectUrl: p.metadata?.redirectUrl ?? null,
       confirmedAt: p.confirmedAt ?? null,
       createdAt: p.createdAt,
@@ -515,7 +545,7 @@ export class PaymentsService {
       payerName: r.payerName,
       cardNumber: r.cardNumber,
       fileKey: r.fileKey,
-      amount: r.amount ? fromMinor(r.amount) : null,
+      amount: r.amount?.toString() ?? null,
       verifiedBy: r.verifiedById?.toString() ?? null,
       verifiedAt: r.verifiedAt,
       rejectionReason: r.rejectionReason,

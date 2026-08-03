@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="${VPN_SAAS_REPO_URL:-https://github.com/bysinaa/vpn-saas.git}"
-INSTALL_DIR="${VPN_SAAS_INSTALL_DIR:-/opt/vpn-saas}"
-BRANCH="${VPN_SAAS_BRANCH:-main}"
+REPO_URL="${TAZAXY_REPO_URL:-https://github.com/bysinaa/tazaxy.git}"
+INSTALL_DIR="${TAZAXY_INSTALL_DIR:-/opt/tazaxy}"
+BRANCH="${TAZAXY_BRANCH:-main}"
 
 log() {
-  printf '\n[%s] %s\n' "vpn-saas-installer" "$1"
+  printf '\n[%s] %s\n' "tazaxy-installer" "$1"
 }
 
 require_root() {
@@ -123,36 +123,36 @@ EOF
 }
 
 run_cli_installer() {
-  log "Starting interactive VPN SaaS installation"
+  log "Starting interactive TAZAXY installation"
   cd "$INSTALL_DIR"
   node cli/dist-cli/index.js install "$@"
 }
 
 show_management_menu() {
-  log "Opening VPN SaaS management menu"
+  log "Opening TAZAXY management menu"
   cd "$INSTALL_DIR"
   node cli/dist-cli/index.js menu
 }
 
 uninstall_everything() {
-  log "Uninstalling VPN SaaS and cleaning up all files"
+  log "Uninstalling TAZAXY and cleaning up all files"
 
-  # Stop and remove vpn-saas containers
+  # Stop and remove tazaxy containers
   if docker compose -f "$INSTALL_DIR/docker-compose.yml" ps >/dev/null 2>&1; then
     docker compose -f "$INSTALL_DIR/docker-compose.yml" down --remove-orphans
-    log "Stopped and removed vpn-saas containers"
+    log "Stopped and removed tazaxy containers"
   fi
 
-  # Remove vpn-saas named volumes
-  if docker volume ls -q | grep -q "^vpn_saas_"; then
-    docker volume rm $(docker volume ls -q | grep "^vpn_saas_")
-    log "Removed vpn-saas named volumes"
+  # Remove tazaxy named volumes
+  if docker volume ls -q | grep -q "^tazaxy_"; then
+    docker volume rm $(docker volume ls -q | grep "^tazaxy_")
+    log "Removed tazaxy named volumes"
   fi
 
-  # Remove vpn-saas networks
-  if docker network ls -q | grep -q "^vpn_saas_"; then
-    docker network rm $(docker network ls -q | grep "^vpn_saas_")
-    log "Removed vpn-saas networks"
+  # Remove tazaxy networks
+  if docker network ls -q | grep -q "^tazaxy_"; then
+    docker network rm $(docker network ls -q | grep "^tazaxy_")
+    log "Removed tazaxy networks"
   fi
 
   # Remove installation directory
@@ -174,10 +174,10 @@ uninstall_everything() {
 
   # Optionally remove database and user
   if [ "${REMOVE_DB:-false}" = "true" ]; then
-    log "Removing vpn_saas database and user"
-    psql -U postgres -c "DROP DATABASE IF EXISTS vpn_saas;"
+    log "Removing tazaxy database and user"
+    psql -U postgres -c "DROP DATABASE IF EXISTS tazaxy;"
     psql -U postgres -c "DROP ROLE IF EXISTS vpn_user;"
-    log "Removed vpn_saas database and user"
+    log "Removed tazaxy database and user"
   fi
 
   log "Uninstallation complete. System is clean."

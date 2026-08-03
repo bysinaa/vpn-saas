@@ -415,7 +415,7 @@ export class BotRuntime {
         return t(locale, 'error.expired.sub');
       case 'SERVER_MAINTENANCE':
       case 'PANEL_API_ERROR':
-        return t(locale, 'error.sanity');
+        return t(locale, 'error.xui');
       case 'PAYMENT_REJECTED':
       case 'RECEIPT_REJECTED':
         return t(locale, 'error.payment.failed');

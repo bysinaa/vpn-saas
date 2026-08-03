@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { PanelsService } from './panels.service';
 import { PanelsController } from './panels.controller';
-import { ThreeXuiPanelClient } from './sanity-panel.client';
+import { XuiPanelClient } from './xui-panel.client';
+import { PanelInboundsService } from './panel-inbounds.service';
 import { PANEL_CLIENTS, type IPanelClient } from './panel-client.interface';
 
 /**
@@ -16,14 +17,15 @@ function buildPanelClientMap(clients: IPanelClient[]): Map<string, IPanelClient>
 @Module({
   controllers: [PanelsController],
   providers: [
-    ThreeXuiPanelClient,
+    XuiPanelClient,
     {
       provide: PANEL_CLIENTS,
-      inject: [ThreeXuiPanelClient],
-      useFactory: (threeXui: ThreeXuiPanelClient) => buildPanelClientMap([threeXui]),
+      inject: [XuiPanelClient],
+      useFactory: (xui: XuiPanelClient) => buildPanelClientMap([xui]),
     },
     PanelsService,
+    PanelInboundsService,
   ],
-  exports: [PanelsService],
+  exports: [PanelsService, PanelInboundsService],
 })
 export class PanelsModule {}

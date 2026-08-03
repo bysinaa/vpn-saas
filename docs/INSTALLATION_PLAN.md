@@ -1,10 +1,10 @@
-# Installer Design & Verification Plan — vpn-saas + 3x-ui
+# Installer Design & Verification Plan — tazaxy + 3x-ui
 
 Version: 1.0
 Date: 2026-07-31
 
 Purpose
-- Produce a complete, repeatable, idempotent, testable CLI installer and diagnostic process that installs, detects and connects the vpn-saas management panel to 3x-ui across all common server/deployment topologies.
+- Produce a complete, repeatable, idempotent, testable CLI installer and diagnostic process that installs, detects and connects the tazaxy management panel to 3x-ui across all common server/deployment topologies.
 - This document is a step-by-step plan and verification checklist. It does not modify code; it instructs what to implement and how to test.
 
 Contents (deliverables)
@@ -55,7 +55,7 @@ Short list (to be tested with independent checks):
 -------------------------
 3) Service map
 -------------------------
-- vpn-saas (panel)
+- tazaxy (panel)
   - Purpose: management backend + static dashboard
   - Transport: HTTP API, static assets
   - Persistent data: Postgres (via Prisma), files in /public/uploads?, configured volumes
@@ -118,7 +118,7 @@ Rules:
 -------------------------
 We will generate a dynamic port table during preflight. Example template (installer fills real values):
 
-- Service: vpn-saas (backend API)
+- Service: tazaxy (backend API)
   - Purpose: API / admin
   - Internal port: 3000
   - External port: 3000
@@ -180,8 +180,8 @@ Principles:
 
 Panel-specific:
 - DB: Postgres (Prisma)
-  - Location: external Postgres instance or docker volume `vpn-saas_postgres_data` or host path (e.g. /opt/vpn-saas/postgres)
-  - Backups: pg_dump (regular), store in /opt/vpn-saas/backups/postgres
+  - Location: external Postgres instance or docker volume `tazaxy_postgres_data` or host path (e.g. /opt/tazaxy/postgres)
+  - Backups: pg_dump (regular), store in /opt/tazaxy/backups/postgres
   - Migration: run prisma migrate after backup
 - 3x-ui:
   - Likely uses SQLite by default or offers internal DB; installer must detect type and data path.
@@ -189,7 +189,7 @@ Panel-specific:
   - Data path: detect via service config or inspect container volume mounts.
 
 Data categories mapping and ownership:
-- Panel-specific data: owned by vpn-saas; stored in Postgres named volume.
+- Panel-specific data: owned by tazaxy; stored in Postgres named volume.
 - 3x-ui-specific data: owned by 3x-ui; stored in its volume; do not mix.
 - Synchronized data: handled via API only; the panel may store derived/cache but not the source-of-truth unless explicitly syncing.
 - Backups, logs, uploaded files: separate directories and backup policy.
@@ -214,8 +214,8 @@ High level:
   - installer healthcheck
   - installer diagnose xui
   - installer rollback <stage>
-- State file: `/opt/vpn-saas/installer-state.json` (or configurable) — structured, encrypted fields for secrets or keep secrets only in environment file. The state file must NOT store raw secrets (store hashed or reference).
-- Logging: structured JSON logs to `/var/log/vpn-saas-installer.log` with log levels.
+- State file: `/opt/tazaxy/installer-state.json` (or configurable) — structured, encrypted fields for secrets or keep secrets only in environment file. The state file must NOT store raw secrets (store hashed or reference).
+- Logging: structured JSON logs to `/var/log/tazaxy-installer.log` with log levels.
 - Idempotency: every action detects existing state and health; skip or reconcile if correct.
 
 Implementation details:
@@ -330,11 +330,11 @@ STAGE 1 — PREFLIGHT CHECKS
   9. Success criteria: allocator chooses non-conflicting ports or user agrees to changes.
 
 - Step 1.6 — Existing installation detection (light)
-  1. Purpose: detect existing vpn-saas or 3x-ui instances before any action.
+  1. Purpose: detect existing tazaxy or 3x-ui instances before any action.
   2. Prereqs: none
   3. Commands:
-     - ps aux | grep vpn-saas
-     - docker ps --filter name=vpn-saas
+     - ps aux | grep tazaxy
+     - docker ps --filter name=tazaxy
      - grep -R "3x-ui" /etc /opt  (careful — limited search)
   4. Expected: installer reports existing installations and their state.
   5. Test: parse results.
@@ -383,7 +383,7 @@ STAGE 3 — BACKUPS
   3. Files:
      - .env where DB credentials live
   4. Commands:
-     - PGPASSWORD="$PASS" pg_dump -Fc -h $PGHOST -U $PGUSER $PGDATABASE -f /opt/vpn-saas/backups/panel-YYYYMMDD.dump
+     - PGPASSWORD="$PASS" pg_dump -Fc -h $PGHOST -U $PGUSER $PGDATABASE -f /opt/tazaxy/backups/panel-YYYYMMDD.dump
   5. Expected: non-empty dump file, return code 0.
   6. Test: restore into temporary DB to validate (pg_restore --list)
   7. Error detection: pg_dump exit code non-zero, file missing
@@ -401,7 +401,7 @@ STAGE 4 — PORT PLANNING
   1. Purpose: finalize ports to be used by services (no conflicts).
   2. Prereqs: results from Stage 1.5
   3. Files:
-     - Save `/opt/vpn-saas/installer-state.json` selectedPorts
+     - Save `/opt/tazaxy/installer-state.json` selectedPorts
   4. Commands:
      - ss -tulpn (re-check)
   5. Expected: confirmed list of free ports
@@ -416,10 +416,10 @@ STAGE 5 — NETWORK PREPARATION
   1. Purpose: create a dedicated docker network used by both panel and 3x-ui when possible.
   2. Prereqs: docker running
   3. Commands:
-     - docker network ls | grep vpn-saas-net
-     - docker network create --driver bridge vpn-saas-net
+     - docker network ls | grep tazaxy-net
+     - docker network create --driver bridge tazaxy-net
   4. Expected: network exists
-  5. Test: docker network inspect vpn-saas-net
+  5. Test: docker network inspect tazaxy-net
   6. Error detection: name conflict or create failure
   7. Solutions: pick different network name or reuse existing network after admin confirmation
   8. Rollback: remove created network if nothing attached
@@ -431,7 +431,7 @@ STAGE 5 — NETWORK PREPARATION
 
 STAGE 6 — DATABASE & STORAGE PREPARATION
 - Step 6.1 — Create persistent volumes and directories
-  - Purpose: create directories like /opt/vpn-saas/postgres_data, /opt/vpn-saas/backups
+  - Purpose: create directories like /opt/tazaxy/postgres_data, /opt/tazaxy/backups
   - Commands: mkdir -p, chown to service user
   - Tests: write and read small file, verify permission.
 
@@ -483,7 +483,7 @@ STAGE 12 — END-TO-END TESTS
 -------------------------
 9) Diagnostics & test CLI commands (examples)
 -------------------------
-- installer preflight --output /opt/vpn-saas/installer-state.json
+- installer preflight --output /opt/tazaxy/installer-state.json
   - Runs Stage 1 checks and saves findings.
 
 - installer detect-xui --auto
@@ -499,8 +499,8 @@ STAGE 12 — END-TO-END TESTS
     [PASS] Authentication successful (cookie: sessionid)
     [FAIL] Protected endpoint /api/clients returned 403 — reason: user lacks permission
 
-- installer backup panel-db --out /opt/vpn-saas/backups/panel.dump
-- installer create-network --name vpn-saas-net
+- installer backup panel-db --out /opt/tazaxy/backups/panel.dump
+- installer create-network --name tazaxy-net
 - installer plan-ports --interactive
 
 Return codes:
@@ -514,8 +514,8 @@ Return codes:
 -------------------------
 10) Logging & state
 -------------------------
-- Logs: /var/log/vpn-saas-installer.log (JSON lines)
-- State: /opt/vpn-saas/installer-state.json
+- Logs: /var/log/tazaxy-installer.log (JSON lines)
+- State: /opt/tazaxy/installer-state.json
 - Masked fields: secrets not stored in plain text; store only references to env file.
 
 -------------------------
@@ -572,6 +572,6 @@ Appendix A: Quick checklist (top-level)
 -------------------------
 - [ ] Approve this installation plan
 - [ ] Approve supported OS list
-- [ ] Approve installer storage paths (/opt/vpn-saas)
+- [ ] Approve installer storage paths (/opt/tazaxy)
 - [ ] Approve logging location and retention
 - [ ] Approve default ports and fallback strategies

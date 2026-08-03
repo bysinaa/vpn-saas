@@ -1,4 +1,4 @@
-/* Diagnostic: replicate SanityPanelClient auth flow using node-fetch v2
+/* Diagnostic: replicate XUIPanelClient auth flow using node-fetch v2
  * (the SAME library the app uses) to determine which HTTP method and path
  * the Sanaei 3x-ui build expects for /panel/api/server/status.
  */

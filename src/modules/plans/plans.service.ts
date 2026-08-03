@@ -19,6 +19,7 @@ export interface PlanDto {
   description: string | null;
   type: PlanType;
   trafficLimitGb: string | null;
+  trafficLimitBytes: string | null;
   durationDays: number | null;
   deviceLimit: number;
   serverLimit: number;
@@ -27,6 +28,8 @@ export interface PlanDto {
   discountPercent: string | null;
   currency: string;
   priority: number;
+  inboundPolicy: 'ALL_ACTIVE' | 'SELECTED';
+  panelId: string | null;
   isVisible: boolean;
   countries: string[];
   isTrial: boolean;
@@ -138,8 +141,12 @@ export class PlansService {
     originalPrice?: string;
     discountPercent?: number;
     currency?: string;
+    panelId?: string;
+    inboundConfigId?: string;
+    inboundPolicy?: 'ALL_ACTIVE' | 'SELECTED';
     priority?: number;
     isVisible?: boolean;
+    isEnabled?: boolean;
     countries?: string[];
     isTrial?: boolean;
     isRenewable?: boolean;
@@ -148,6 +155,9 @@ export class PlansService {
     categoryId?: string;
     status?: string;
   }): Promise<PlanDto> {
+    if (!/^\d+$/.test(input.price)) {
+      throw BusinessException.conflict('Plan price must be an integer toman amount');
+    }
     let slug = this.slugify(input.name);
 
     // Handle duplicate slugs by appending a numeric suffix
@@ -159,6 +169,9 @@ export class PlansService {
       existingSlug = await this.prisma.plan.findUnique({ where: { slug } });
     }
 
+    const trafficLimitBytes = input.trafficLimitGb == null
+      ? null
+      : BigInt(input.trafficLimitGb) * 1024n * 1024n * 1024n;
     const plan = await this.prisma.plan.create({
       data: {
         name: input.name,
@@ -166,23 +179,28 @@ export class PlansService {
         description: input.description,
         type: input.type,
         trafficLimitGb: input.trafficLimitGb != null ? BigInt(input.trafficLimitGb) : null,
+        trafficLimitBytes,
         durationDays: input.durationDays ?? null,
         deviceLimit: input.deviceLimit ?? 1,
         serverLimit: input.serverLimit ?? 1,
-        price: toMinor(input.price),
-        originalPrice: input.originalPrice ? toMinor(input.originalPrice) : null,
+        price: BigInt(input.price),
+        originalPrice: input.originalPrice ? BigInt(input.originalPrice) : null,
         discountPercent: input.discountPercent ?? null,
-        currency: input.currency ?? 'USD',
+        currency: 'IRT',
         priority: input.priority ?? 0,
         isVisible: input.isVisible ?? true,
+        isEnabled: input.isEnabled ?? true,
         countries: input.countries ?? [],
         isTrial: input.isTrial ?? false,
         isRenewable: input.isRenewable ?? true,
         isTransferable: input.isTransferable ?? false,
         allowPause: input.allowPause ?? false,
         categoryId: input.categoryId ? BigInt(input.categoryId) : null,
+        panelId: input.panelId ? BigInt(input.panelId) : null,
+        inboundConfigId: input.inboundConfigId ? BigInt(input.inboundConfigId) : null,
+        inboundPolicy: input.inboundPolicy ?? 'ALL_ACTIVE',
         status: input.status ?? 'ACTIVE',
-      },
+      } as any,
     });
     await this.invalidateCache();
     return this.toDto(plan);
@@ -198,6 +216,7 @@ export class PlansService {
       discountPercent: number;
       priority: number;
       isVisible: boolean;
+      isEnabled: boolean;
       status: string;
       durationDays: number;
       trafficLimitGb: number;
@@ -208,6 +227,9 @@ export class PlansService {
       isRenewable: boolean;
       isTransferable: boolean;
       allowPause: boolean;
+      panelId: string | null;
+      inboundConfigId: string | null;
+      inboundPolicy: 'ALL_ACTIVE' | 'SELECTED';
     }>,
   ): Promise<PlanDto> {
     const existing = await this.prisma.plan.findUnique({ where: { publicId } });
@@ -216,15 +238,23 @@ export class PlansService {
     const data: Record<string, unknown> = {};
     if (input.name) ((data.name = input.name), ((data as any).slug = this.slugify(input.name)));
     if (input.description !== undefined) data.description = input.description;
-    if (input.price) data.price = toMinor(input.price);
-    if (input.originalPrice) data.originalPrice = toMinor(input.originalPrice);
+    if (input.price) {
+      if (!/^\d+$/.test(input.price)) throw BusinessException.conflict('Plan price must be an integer toman amount');
+      data.price = BigInt(input.price);
+    }
+    if (input.originalPrice) data.originalPrice = BigInt(input.originalPrice);
     if (input.discountPercent !== undefined) data.discountPercent = input.discountPercent;
     if (input.priority !== undefined) data.priority = input.priority;
     if (input.isVisible !== undefined) data.isVisible = input.isVisible;
+    if (input.isEnabled !== undefined) data.isEnabled = input.isEnabled;
     if (input.status) data.status = input.status;
     if (input.durationDays !== undefined) data.durationDays = input.durationDays;
-    if (input.trafficLimitGb !== undefined)
+    if (input.trafficLimitGb !== undefined) {
       data.trafficLimitGb = input.trafficLimitGb != null ? BigInt(input.trafficLimitGb) : null;
+      data.trafficLimitBytes = input.trafficLimitGb != null
+        ? BigInt(input.trafficLimitGb) * 1024n * 1024n * 1024n
+        : null;
+    }
     if (input.deviceLimit !== undefined) data.deviceLimit = input.deviceLimit;
     if (input.serverLimit !== undefined) data.serverLimit = input.serverLimit;
     if (input.countries) data.countries = input.countries;
@@ -232,8 +262,11 @@ export class PlansService {
     if (input.isRenewable !== undefined) data.isRenewable = input.isRenewable;
     if (input.isTransferable !== undefined) data.isTransferable = input.isTransferable;
     if (input.allowPause !== undefined) data.allowPause = input.allowPause;
+    if (input.panelId !== undefined) data.panelId = input.panelId ? BigInt(input.panelId) : null;
+    if (input.inboundConfigId !== undefined) data.inboundConfigId = input.inboundConfigId ? BigInt(input.inboundConfigId) : null;
+    if (input.inboundPolicy !== undefined) data.inboundPolicy = input.inboundPolicy;
 
-    const plan = await this.prisma.plan.update({ where: { publicId }, data });
+    const plan = await this.prisma.plan.update({ where: { publicId }, data: data as any });
     await this.invalidateCache();
     return this.toDto(plan);
   }
@@ -279,14 +312,21 @@ export class PlansService {
     description: p.description ?? null,
     type: p.type,
     trafficLimitGb: p.trafficLimitGb != null ? p.trafficLimitGb.toString() : null,
+    trafficLimitBytes: p.trafficLimitBytes != null
+      ? p.trafficLimitBytes.toString()
+      : p.trafficLimitGb != null
+        ? (p.trafficLimitGb * 1024n * 1024n * 1024n).toString()
+        : null,
     durationDays: p.durationDays,
     deviceLimit: p.deviceLimit,
     serverLimit: p.serverLimit,
-    price: fromMinor(p.price),
-    originalPrice: p.originalPrice ? fromMinor(p.originalPrice) : null,
+    price: p.price.toString(),
+    originalPrice: p.originalPrice ? p.originalPrice.toString() : null,
     discountPercent: p.discountPercent ? p.discountPercent.toString() : null,
     currency: p.currency,
     priority: p.priority,
+    inboundPolicy: p.inboundPolicy ?? 'ALL_ACTIVE',
+    panelId: p.panelId != null ? p.panelId.toString() : null,
     isVisible: p.isVisible,
     countries: p.countries ?? [],
     isTrial: p.isTrial,
