@@ -1,5 +1,70 @@
 # HANDOFF
 
+## Installer Fix: Wrong Repository Clone & Missing package.json Guard
+
+### Problem
+
+`scripts/install.sh` cloned `https://github.com/bysinaa/tazaxy.git` — a repository that does not contain `package.json`.  The `build_cli()` function then ran `npm install` in the install directory, which failed with ENOENT because `package.json` was missing.  No validation existed before the `npm` invocation.
+
+### Changes (only `scripts/install.sh` was touched)
+
+1. **REPO_URL default** changed from `tazaxy.git` to `vpn-saas.git` (line 4).
+2. **install directory guard** added before any npm work — if `$INSTALL_DIR` does not exist `build_cli` prints a clear error including `$REPO_URL` and exits 1.
+3. **package.json guard** added — if `$INSTALL_DIR/package.json` is missing, prints the expected repository name (`vpn-saas`), the fix instructions, and exits 1.
+4. **`cd` ordered after guards** so the script never emits a raw `cd:` shell error.
+5. **`npm ci` preferred** when `package-lock.json` exists (reproducible install); falls back to `npm install`.
+
+### Tests — Linux (Alpine container, bash 5.3 + git 2.54 + Node 24)
+
+Final run: **14 assertions passed, 0 failed.**
+
+| # | Test | Result |
+|---|------|--------|
+| 1 | `bash -n` syntax check | PASS |
+| 2 | default REPO_URL = `vpn-saas.git`; no stale `tazaxy.git` anywhere in the script | PASS |
+| 3a | dir exists but has no `package.json` (reproduces the reported bug) → clear error, exit 1, npm never invoked, no ENOENT | PASS |
+| 3b | install dir absent entirely → clear error, exit 1, no raw `cd:` shell error leaked | PASS |
+| 4 | end-to-end `install_or_update_repo` → `npm ci` → `npm run cli:build`, exit 0; `cli/dist-cli/index.js` produced | PASS |
+| 5 | `node cli/dist-cli/index.js help` on the built tree, exit 0 (prints `Tazaxy CLI v2.0.0`) | PASS |
+
+Test 4 clones from a local bare repo seeded with `package.json`, `package-lock.json`, `tsconfig.json` and `cli/`, standing in for `vpn-saas.git`; it exercised the `npm ci` branch since the lockfile is present.
+
+### Commands Tested
+
+```bash
+# Full harness. npm retry settings are needed only because the Docker bridge
+# on this host intermittently resets connections to the npm registry.
+docker run --rm \
+  -v "C:/Users/TAZA/Desktop/vpn-saas:/repo:ro" \
+  -v "C:/Users/TAZA/AppData/Local/Temp/tazaxy-install-test:/test:ro" \
+  -w /tmp alpine:latest \
+  sh -c "apk add --no-cache bash git nodejs npm >/dev/null 2>&1; \
+         npm config set fetch-retries 8; \
+         npm config set fetch-retry-maxtimeout 120000; \
+         npm config set fetch-timeout 300000; \
+         bash /test/test-installer.sh"
+# => PASSED: 14   FAILED: 0
+
+# Lightweight check (syntax + stale-reference scan)
+docker run --rm -v "C:/Users/TAZA/Desktop/vpn-saas/scripts:/scripts:ro" alpine:latest \
+  sh -c "apk add --no-cache bash >/dev/null 2>&1; bash -n /scripts/install.sh \
+         && grep -q 'vpn-saas.git' /scripts/install.sh \
+         && ! grep -q 'tazaxy.git' /scripts/install.sh && echo PASS"
+```
+
+Notes on the test environment, so the next person does not chase ghosts:
+
+- Do **not** pass `--network host` to these containers; it breaks DNS in Docker Desktop's Linux VM and `apk add` then fails with `sh: bash: not found`.
+- An earlier run of test 4 failed with `npm error code ECONNRESET`. That was registry flakiness on the Docker bridge, not an installer defect; the npm retry settings above make it reliable.
+
+### Not Verified Here
+
+`install_base_dependencies`, `install_launcher`, `run_cli_installer` and `show_management_menu` were not executed: they require root, mutate `/usr/local/bin`, install system packages, or need interactive input plus a live database and 3X-UI panel. Only the clone/npm/build path in the reported failure was exercised.
+
+### No Other Files Changed
+
+Only `scripts/install.sh` was modified. A repo-wide search confirms no remaining `tazaxy.git` reference. The harness lives in `%TEMP%` and is not committed.
+
 ## Installer Integration Checkpoint
 
 ### Current Goal

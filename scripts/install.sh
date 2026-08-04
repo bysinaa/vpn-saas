@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="${TAZAXY_REPO_URL:-https://github.com/bysinaa/tazaxy.git}"
+REPO_URL="${TAZAXY_REPO_URL:-https://github.com/bysinaa/vpn-saas.git}"
 INSTALL_DIR="${TAZAXY_INSTALL_DIR:-/opt/tazaxy}"
 BRANCH="${TAZAXY_BRANCH:-main}"
 
@@ -87,9 +87,36 @@ install_or_update_repo() {
 }
 
 build_cli() {
-  log "Installing npm dependencies"
-  cd "$INSTALL_DIR"
-  npm install
+  # Verify the install directory and package.json exist before running npm.
+  # npm must run in the directory that actually contains package.json,
+  # otherwise it fails with a confusing ENOENT error.
+  if [ ! -d "$INSTALL_DIR" ]; then
+    echo "ERROR: install directory not found: $INSTALL_DIR" >&2
+    echo "The repository was not cloned successfully." >&2
+    echo "Expected repository: $REPO_URL" >&2
+    exit 1
+  fi
+
+  if [ ! -f "$INSTALL_DIR/package.json" ]; then
+    echo "ERROR: package.json not found in $INSTALL_DIR" >&2
+    echo "This usually means the wrong repository was cloned." >&2
+    echo "Expected repository: $REPO_URL (project name: vpn-saas)" >&2
+    echo "Fix the TAZAXY_REPO_URL environment variable, remove $INSTALL_DIR, and re-run this installer." >&2
+    exit 1
+  fi
+
+  log "Installing npm dependencies in $INSTALL_DIR"
+  cd "$INSTALL_DIR" || {
+    echo "ERROR: unable to enter install directory: $INSTALL_DIR" >&2
+    exit 1
+  }
+
+  # Prefer a reproducible install when a lockfile is present
+  if [ -f "$INSTALL_DIR/package-lock.json" ]; then
+    npm ci
+  else
+    npm install
+  fi
 
   log "Building Tazaxy CLI"
   if ! npm run cli:build; then
