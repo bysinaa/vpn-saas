@@ -22,6 +22,26 @@ function fixtureRuntime({ files = {}, commands = {}, request = async () => ({ st
 
 const quietCommands = { 'docker ps --format "{{.Names}}||{{.Image}}||{{.Ports}}"': { stdout: '' }, 'docker compose ps --format "{{.Name}}||{{.Image}}||{{.Publishers}}"': { stdout: '' }, 'systemctl list-units --type=service --all --no-legend': { stdout: '' }, 'ps -eo pid,args': { stdout: '' }, 'ps -eo args': { stdout: '' }, 'wsl.exe -e sh -lc "ps -eo args"': { stdout: '' } };
 
+/**
+ * Emulates 3x-ui v3.6.0 as observed on a live panel: a CSRF token must be minted
+ * and echoed on unsafe methods, and a *failed* login is HTTP 200 + {"success":false}.
+ * Returning a bare 200 here would let a broken validator pass, which is exactly
+ * how an earlier regression slipped through.
+ */
+function xuiPanelFixture({ password = 'secret', requireCsrf = true } = {}) {
+  return async (url, options = {}) => {
+    if (url.endsWith('/csrf-token')) return { statusCode: 200, headers: { 'set-cookie': ['3x-ui=session-value; Path=/'] }, body: '{"success":true,"obj":"csrf-abc"}' };
+    if (url.endsWith('/login')) {
+      if (requireCsrf && options.headers?.['X-CSRF-Token'] !== 'csrf-abc') return { statusCode: 403, headers: {}, body: '' };
+      const supplied = new URLSearchParams(options.body || '').get('password');
+      return { statusCode: 200, headers: { 'set-cookie': ['3x-ui=session-value; Path=/'] }, body: supplied === password ? '{"success":true}' : '{"success":false,"msg":"Invalid username or password"}' };
+    }
+    if (url.endsWith('/panel/api/inbounds/list')) return { statusCode: 200, headers: {}, body: '{"success":true,"obj":[]}' };
+    return { statusCode: 404, headers: {}, body: '' };
+  };
+}
+
+
 test('XUI Docker fixture discovers mhsanaei/3x-ui on port 2053 without writes', async () => {
   const runtime = fixtureRuntime({ commands: { ...quietCommands, 'docker ps --format "{{.Names}}||{{.Image}}||{{.Ports}}"': { stdout: 'xui||mhsanaei/3x-ui||0.0.0.0:2053->2053/tcp' } }, request: async () => ({ statusCode: 200, headers: {}, body: '<title>3x-ui login</title>' }) });
   const result = await createXuiDetector({ runtime }).discover();
@@ -65,13 +85,21 @@ test('XUI credential validation never exposes credentials and failed validation 
 });
 
 test('XUI validator can use an existing encrypted credential only in memory', async () => {
-  const validator = createXuiCredentialValidator({ runtime: fixtureRuntime({ request: async (url) => url.endsWith('/login') ? ({ statusCode: 200, headers: {}, body: 'ok' }) : ({ statusCode: 200, headers: {}, body: '{}' }) }) });
+  const validator = createXuiCredentialValidator({ runtime: fixtureRuntime({ request: xuiPanelFixture({ password: 'encrypted-secret' }) }) });
   const result = await validator.validateExistingEncrypted({ connection: { url: 'http://xui.test' }, loadEncryptedCredential: async () => ({ username: 'admin', password: 'encrypted-secret' }) });
   assert.equal(result.status, 'FOUND'); assert.ok(!JSON.stringify(result).includes('encrypted-secret'));
 });
 
+test('XUI validator sends a CSRF token and rejects a wrong password answered with HTTP 200', async () => {
+  const validator = createXuiCredentialValidator({ runtime: fixtureRuntime({ request: xuiPanelFixture({ password: 'right-password' }) }) });
+  assert.equal((await validator.validate({ connection: { url: 'http://xui.test' }, username: 'admin', password: 'right-password' })).status, 'FOUND');
+  // The panel answers a bad login with HTTP 200, so a status-code-only check would wrongly accept it.
+  const rejected = await validator.validate({ connection: { url: 'http://xui.test' }, username: 'admin', password: 'wrong-password' });
+  assert.equal(rejected.status, 'ERROR'); assert.equal(rejected.diagnostics[0].code, 'AUTH_FAILED');
+});
+
 test('successful XUI credential validation invokes encrypted persistence adapter and reuses binding', async () => {
-  const validator = createXuiCredentialValidator({ runtime: fixtureRuntime({ request: async (url) => url.endsWith('/login') ? ({ statusCode: 200, headers: {}, body: '{"success":true}' }) : ({ statusCode: 200, headers: {}, body: '{"success":true}' }) }) });
+  const validator = createXuiCredentialValidator({ runtime: fixtureRuntime({ request: xuiPanelFixture({ password: 'secret' }) }) });
   const writes = []; let bindings = 0; let syncs = 0;
   const adapter = createInstallerAdapter({ loadState: () => ({}), saveState: (state) => writes.push(state), encrypt: () => 'ENC:fixture' });
   const detection = { status: 'FOUND', source: 'docker', connection: { url: 'http://xui.test', scheme: 'http', host: 'xui.test', port: 80, webBasePath: '' } };

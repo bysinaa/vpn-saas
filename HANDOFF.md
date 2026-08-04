@@ -172,3 +172,69 @@ Removed the unused configurable online-gateway base URL. The gateway now selects
 ### Next Step
 
 Add mandatory-channel membership lock and a one-time 1 GB 30-day gift subscription.
+
+
+---
+
+## Session: real-panel verification of 3x-ui auto-discovery (2026-08-04)
+
+Test target: `91.107.249.248` (root/SSH). Real panel: **3x-ui v3.6.0**, port **17342**,
+web base path **/MTYFUStdaiG35FGCaU/**, TLS enabled, default creds still in place.
+
+### What was verified end-to-end against the live panel
+
+| Item | Result |
+| --- | --- |
+| Auto-discovery (`xui-detector.js`) | **FOUND @ 70%** with the correct URL incl. `webBasePath` |
+| DB read fallback chain (sqlite3 -> python3 -> binary scan) | Works; the box has **no sqlite3 CLI**, so the python3 fallback is the one that actually runs |
+| `xui-credential-validator.js` correct password | **FOUND** / `CREDENTIALS_VALIDATED` |
+| `xui-credential-validator.js` wrong password | **ERROR** / `AUTH_FAILED` (correctly rejected) |
+| Unit suite `installer-detectors.test.cjs` | **13/13 pass** |
+
+### Bug found and fixed during this session
+
+3x-ui v3.6.0 requires a CSRF token on unsafe methods: you must `GET /csrf-token` and echo
+the value back as the `X-CSRF-Token` header (carrying the session cookie) or `POST /login`
+returns **403**. The validator did not do this, so it rejected *correct* credentials.
+Fixed in `cli/installer/xui-credential-validator.js`.
+
+Two related traps this panel sets, both now covered by tests:
+
+1. A **failed** login returns **HTTP 200** with `{"success":false}`. Checking only the status
+   code accepts a wrong password. The validator must parse the JSON body.
+2. The login page is served at the **web base path root**, not at `/login`; probing `/login`
+   returns 404 and made discovery look like a miss.
+
+The old test fixtures returned a bare `{statusCode:200}` for every request, which could not
+catch either trap. They were replaced with a `xuiPanelFixture()` that emulates the real
+panel (CSRF required, 200 + `success:false` on bad password), plus a regression test.
+**Verified non-vacuous:** the new test fails against the pre-fix validator and passes after.
+
+### Installer state
+
+`installer-state.json` held a stale `127.0.0.1:2053` binding (`detections.xui` =
+`PARTIAL`, plus an expired `xui.autoConfig` pinned to `change-me`). Cleared with the
+project's own `purgeStale()` API; `xui.confirmed` / `xui.autoConfig` were dropped so the
+next run re-discovers. Note the local Windows box genuinely does run a separate 3x-ui
+container on 2053, so that entry was stale, not fabricated. Revert with
+`git checkout installer-state.json` if needed.
+
+### Commands actually run
+
+```bash
+# unit suite
+node --test cli/installer/installer-detectors.test.cjs
+
+# discovery + validator against the real panel (executed on the remote host)
+plink -ssh root@91.107.249.248 "cd /tmp/xui-e2e && node xui-e2e.js"
+plink -ssh root@91.107.249.248 "cd /tmp/xui-e2e && node xui-validator-probe.js"
+
+# state cleanup
+node -e "const sm=require('./cli/installer/state-manager.js'); const s=sm.loadState('installer-state.json'); sm.purgeStale(s); sm.saveState('installer-state.json',s);"
+```
+
+### Still open
+
+- The panel still has **default credentials** — rotate before this is treated as production.
+- Discovery caps at 70% confidence; it never reaches 100% without a successful authenticated
+  call, which discovery deliberately does not perform.

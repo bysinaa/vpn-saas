@@ -1,24 +1,24 @@
 'use strict';
 
 const { createXuiDetectorRuntime } = require('./xui-detector-runtime');
+const { createXuiDetector } = require('./xui-detector');
 
 function redactDiagnostic(error) { return String(error || 'validation-failed').replace(/(?:password|token|cookie)=[^\s&]+/ig, '$1=[REDACTED]').slice(0, 160); }
 
 function createXuiCredentialValidator({ runtime: overrides } = {}) {
   const runtime = createXuiDetectorRuntime(overrides);
+  // Auth lives in the detector: 3x-ui requires a CSRF token on unsafe methods and
+  // answers a failed login with HTTP 200 + {"success":false}, so a status code proves nothing.
+  const detector = createXuiDetector({ runtime: overrides });
 
-  async function validate({ connection, username, password, insecure = false, onValidated }) {
+  async function validate({ connection, username, password, insecure = false, timeout, onValidated }) {
     if (!connection?.url || !username || !password) return { status: 'ERROR', diagnostics: [{ code: 'MISSING_CREDENTIALS', detail: 'Username and password are required.' }], recommendedAction: 'Enter credentials through hidden interactive input.' };
-    const base = connection.url.replace(/\/$/, '');
-    const body = new URLSearchParams({ username, password }).toString();
     try {
-      const login = await runtime.request(`${base}/login`, { method: 'POST', body, insecure, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-      const success = login.statusCode >= 200 && login.statusCode < 400 && !/invalid|incorrect|failed/i.test(login.body || '');
-      if (!success) return { status: 'ERROR', diagnostics: [{ code: login.statusCode === 401 || login.statusCode === 403 ? 'AUTH_FAILED' : 'LOGIN_REJECTED', statusCode: login.statusCode || 0 }], recommendedAction: 'Verify credentials and panel URL.' };
-      const health = await runtime.request(`${base}/panel/api/inbounds/list`, { insecure, headers: { Cookie: Array.isArray(login.headers?.['set-cookie']) ? login.headers['set-cookie'][0].split(';')[0] : '' } });
-      if (health.statusCode >= 500 || health.statusCode === 0) return { status: 'PARTIAL', diagnostics: [{ code: 'READ_ONLY_HEALTH_FAILED', statusCode: health.statusCode || 0 }], recommendedAction: 'Check panel permissions before registration.' };
+      const result = await detector.validate({ connection }, { username, password }, { insecure, timeout });
+      if (!result.authenticated) return { status: 'ERROR', diagnostics: [{ code: 'AUTH_FAILED', detail: 'The panel rejected the supplied credentials.' }], recommendedAction: 'Verify credentials and panel URL.' };
+      if (!result.apiReachable) return { status: 'PARTIAL', diagnostics: [{ code: 'READ_ONLY_HEALTH_FAILED' }], recommendedAction: 'Check panel permissions before registration.' };
       if (onValidated) await onValidated({ username, password });
-      return { status: 'FOUND', diagnostics: [{ code: 'CREDENTIALS_VALIDATED', statusCode: login.statusCode }], recommendedAction: 'Credentials may now be encrypted and persisted by the installer adapter.' };
+      return { status: 'FOUND', diagnostics: [{ code: 'CREDENTIALS_VALIDATED' }], recommendedAction: 'Credentials may now be encrypted and persisted by the installer adapter.' };
     } catch (error) { return { status: 'ERROR', diagnostics: [{ code: 'VALIDATION_ERROR', detail: redactDiagnostic(error) }], recommendedAction: 'Check connectivity and TLS settings.' }; }
   }
 
