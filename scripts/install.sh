@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="${TAZAXY_REPO_URL:-https://github.com/bysinaa/tazaxy.git}"
+REPO_URL="${TAZAXY_REPO_URL:-https://github.com/bysinaa/vpn-saas.git}"
 INSTALL_DIR="${TAZAXY_INSTALL_DIR:-/opt/tazaxy}"
 BRANCH="${TAZAXY_BRANCH:-main}"
 
