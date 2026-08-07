@@ -17,7 +17,8 @@
     "start:prod": "node dist/main.js",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
-    "test:installer": "node --test cli/installer/installation-flow.test.cjs cli/installer/installer-detectors.test.cjs",
+    "test:installer": "node --test cli/installer/installation-flow.test.cjs cli/installer/installer-detectors.test.cjs cli/installer/cli-bundle.test.cjs",
+
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config ./test/jest-e2e.json",
@@ -28,7 +29,8 @@
     "prisma:studio": "prisma studio",
     "docker:start": "sh ./docker/start.sh",
     "cli": "ts-node cli/index.ts",
-    "cli:build": "tsc -p cli/tsconfig.json",
+    "cli:build": "tsc -p cli/tsconfig.json && node scripts/copy-cli-assets.cjs",
+
     "cli:start": "node cli/dist-cli/index.js"
   },
   "dependencies": {

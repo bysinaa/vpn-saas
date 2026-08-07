@@ -19,17 +19,33 @@ function isVersionRequest(argv = []) {
   return VERSION_FLAGS.has(String(argv[0] || ''));
 }
 
-/** Reads the version from package.json, falling back to a stable default. */
-function readVersion({ readFileSync = fs.readFileSync, root = path.resolve(__dirname, '..', '..') } = {}) {
-  try {
-    const parsed = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
-    const version = String(parsed.version || '').trim();
-    if (version) return version;
-  } catch {
-    /* fall through to the default below */
+/**
+ * Reads the version from the nearest package.json, walking upwards.
+ *
+ * A fixed `../..` breaks once this module ships inside the compiled bundle:
+ * from `cli/installer/` it lands on the repo root, but from
+ * `cli/dist-cli/installer/` it lands on `cli/`, where there is no
+ * package.json — so the installed CLI silently printed the `0.0.0` fallback
+ * instead of the real version. Walking up works from both layouts.
+ */
+function readVersion({ readFileSync = fs.readFileSync, root = __dirname } = {}) {
+  let current = path.resolve(root);
+
+  for (;;) {
+    try {
+      const parsed = JSON.parse(readFileSync(path.join(current, 'package.json'), 'utf8'));
+      const version = String(parsed.version || '').trim();
+      if (version) return version;
+    } catch {
+      /* keep walking upwards */
+    }
+
+    const parent = path.dirname(current);
+    if (parent === current) return '0.0.0';
+    current = parent;
   }
-  return '0.0.0';
 }
+
 
 /**
  * Prints the bare version and reports the exit code. Nothing else — no banner,
