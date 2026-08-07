@@ -330,10 +330,146 @@ plain end-to-end runs cannot prove.
    command module. This is the actual root cause of the `--version` bug, not the formatting of
    the version string.
 
-### Not verified here
+---
 
-The acceptance run against `91.107.249.248` (one-line clean reinstall, live panel discovery,
-Telegram validation with a real token, final service health) has **not** been executed in this
-pass — this environment has no SSH access to that host. The regression suite covers the logic
-those steps exercise, but the on-server run remains outstanding and should be performed with
-`npm run test:installer` green as the precondition.
+## Acceptance run on the real server (`91.107.249.248`)
+
+Executed against the live host, not a fixture. Helper scripts are committed under
+`scripts/acceptance/` so the run is repeatable rather than a one-off paste.
+
+### 1. Survey — what the host actually had
+
+```powershell
+plink -ssh root@91.107.249.248 -batch -m scripts/acceptance/01-survey.sh
+```
+
+Confirmed exactly the documented acceptance target: 3X-UI **v3.6.0**, HTTPS panel on
+**17342**, base path **/MTYFUStdaiG35FGCaU/**, subscription port **2096**, panel database
+**/etc/x-ui/x-ui.db**. Two details from this host drove real code changes:
+
+- there is **no `sqlite3` CLI**, so only the `python3` read-only fallback can read settings;
+- the settings table has **no `subPort` row at all** — the operator never moved the
+  subscription port off the stock default, yet `x-ui` is demonstrably bound to `2096`.
+
+### 2. Safe cleanup — Tazaxy only
+
+```powershell
+plink -ssh root@91.107.249.248 -batch -m scripts/acceptance/02-safe-cleanup.sh
+```
+
+`.env` and `installer-state.json` were backed up first, then only Tazaxy-owned files, the
+launcher, Tazaxy services, `tazaxy-*` containers, `tazaxy_*` networks and volumes labelled
+`com.tazaxy.managed=true` were removed. Verified afterwards:
+
+| Preserved | Check | Result |
+| --- | --- | --- |
+| `/etc/x-ui/x-ui.db` | `sha256sum` before vs. after | **identical** |
+| `x-ui.service` | `systemctl is-active` | **active**, never restarted |
+| Ports `17342` / `2096` | `ss -ltnp` | **still bound by x-ui** |
+| Unrelated Docker resources | `docker ps -a`, `docker volume ls` | **untouched** |
+
+### 3. Bug this run exposed: subscription port reported as `n/a`
+
+Reading the settings table alone, the CLI printed `sub port n/a` on a panel that was plainly
+serving subscriptions on `2096`. The panel stores nothing when the default is kept, so
+settings-only detection cannot see it.
+
+`xui-runtime-detector.js` now resolves the subscription port from two sources in priority
+order — an explicit `subPort` row first, then a **bound** `2096` observed in `ss -ltnp` — and
+reports which one answered via `subPortSource` (`settings` | `default-bound` | `unknown`).
+`subEnable` follows the same rule instead of staying `undefined`. Detection is still strictly
+read-only: nothing is written and the port is reported, never renegotiated.
+
+Four regression tests pin this, driven by the real host's shape (no `sqlite3`, python3
+fallback, `2096` bound by `x-ui`):
+
+- stock default is inferred as `2096` / `default-bound`, and the detail line no longer says `n/a`;
+- an explicit `subPort` wins over the bound default;
+- with `2096` **not** bound, the port is honestly `null` / `unknown` rather than guessed;
+- discovery still never reports `CONFIGURED` or `CONNECTED` without authentication.
+
+### Commands and results
+
+```powershell
+node --test cli/installer/installer-detectors.test.cjs cli/installer/installation-flow.test.cjs
+#   tests 34 / pass 34 / fail 0 / cancelled 0 / skipped 0 / todo 0
+```
+
+The 4 subscription-port tests are new; the other 30 are the existing installer suite, still green.
+(Superseded below: the suite is now 36/36 after the Telegram reachability fix.)
+
+
+### Still outstanding
+
+The **one-line clean reinstall** on the server (`clone/build launcher → infrastructure →
+3X-UI discovery/authentication → Telegram Bot → environment generation → service startup →
+final health verification`) has not been run to completion, because the Telegram step is
+mandatory and needs a **real `TELEGRAM_BOT_TOKEN`** to validate against `getMe`. Supplying a
+placeholder would make the Telegram stage report `NEEDS_CREDENTIALS` and prove nothing about
+the `CONNECTED` path, so it was not faked.
+
+Preconditions for that run are met: the panel is untouched and healthy, the host is clean of
+Tazaxy artifacts, and `node --test` is green at 36/36.
+
+---
+
+## Bug found while attempting the Telegram step: a blocked network was reported as a bad token
+
+### What happened
+
+Attempting the mandatory Telegram stage on the acceptance host, `getMe` never completed —
+outbound HTTPS to `api.telegram.org` is blocked from that server. The CLI reported
+**`NEEDS_CREDENTIALS`** and asked for the token again. That is the wrong diagnosis and the
+most expensive kind: the operator re-types a perfectly valid token indefinitely while the
+actual fault is the network. The token had never been checked at all.
+
+Root cause: `validateToken()` treated *any* non-`ok` outcome as a rejection. A connection
+refusal, a DNS failure, a timeout and a genuine HTTP 401 all landed in the same branch.
+
+### Fix
+
+`cli/installer/telegram-detector.js` now separates *not answered* from *answered "no"*:
+
+| Outcome | State | What the operator is told |
+| --- | --- | --- |
+| No response (refused / DNS / timeout) | `FAILED` | "the token was not checked" — fix outbound HTTPS, then retry |
+| HTTP 5xx from Telegram | `FAILED` | Telegram-side error; retry shortly |
+| HTTP 4xx / `ok:false` | `NEEDS_CREDENTIALS` | Verify the token with @BotFather |
+| `ok:true` | `CONNECTED` | Shows `@username` |
+
+`NEEDS_CREDENTIALS` now means only one thing: **Telegram itself rejected the token.** The
+token is still never printed, never logged and never saved unless `getMe` accepted it.
+
+### Commands and results
+
+```powershell
+node --test cli/installer/installer-detectors.test.cjs cli/installer/installation-flow.test.cjs
+#   tests 36 / pass 36 / fail 0 / cancelled 0 / skipped 0 / todo 0
+#   EXIT=0
+
+# proves the two new tests are non-vacuous: strips the guards and re-checks
+node scripts/acceptance/prefix-check.cjs
+#   pre-fix unreachable -> NEEDS_CREDENTIALS
+#   pre-fix HTTP 502    -> NEEDS_CREDENTIALS
+#   OK: without the guards both are misreported, so the tests are non-vacuous.
+#   EXIT=0
+```
+
+Two tests were added: one pins an unreachable API to `FAILED` with a "token was not checked"
+recovery, the other pins HTTP 502 to `FAILED` while keeping a real 401 at `NEEDS_CREDENTIALS`.
+Both assert the token never appears in the returned object.
+
+### What this means for the outstanding acceptance run
+
+The `CONNECTED` path still needs a real `TELEGRAM_BOT_TOKEN` **and** a host that can reach
+`api.telegram.org`. On `91.107.249.248` the second condition does not hold today, so that
+stage cannot be completed there regardless of the token. Before retrying, confirm from the
+server itself:
+
+```bash
+curl -sS -o /dev/null -w '%{http_code}\n' https://api.telegram.org
+# anything other than a response means the Telegram stage will now correctly say FAILED,
+# not NEEDS_CREDENTIALS
+```
+
+

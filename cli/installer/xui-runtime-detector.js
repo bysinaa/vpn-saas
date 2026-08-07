@@ -21,7 +21,12 @@ const { createXuiDetectorRuntime } = require('./xui-detector-runtime');
 const { createXuiDetector } = require('./xui-detector');
 const { STATES, result } = require('./detection-states');
 
+// 3x-ui's built-in subscription port. Panels that never changed it store no
+// `subPort` row at all, so the value has to be inferred from bound sockets.
+const DEFAULT_SUB_PORT = 2096;
+
 const DB_PATHS = ['/etc/x-ui/x-ui.db', '/etc/3x-ui/3x-ui.db', '/usr/local/x-ui/x-ui.db', '/opt/3x-ui/3x-ui.db'];
+
 const BINARIES = ['/usr/local/x-ui/x-ui', '/usr/local/3x-ui/3x-ui', '/usr/bin/x-ui'];
 const SERVICE_FILES = ['/etc/systemd/system/x-ui.service', '/etc/systemd/system/3x-ui.service', '/usr/lib/systemd/system/x-ui.service'];
 
@@ -186,8 +191,14 @@ function createXuiRuntimeDetector({ runtime: overrides } = {}) {
       const tlsEnabled = Boolean(settings.webCertFile || settings.tlsHint || settings.webKeyFile);
       const host = options.publicHost || settings.webDomain || '127.0.0.1';
       const scheme = tlsEnabled ? 'https' : 'http';
-      const subPort = Number(settings.subPort || 0) || null;
+      // A panel left on the stock subscription port stores no `subPort` row, so
+      // treat a bound 2096 as the effective value rather than reporting "n/a".
+      const declaredSubPort = Number(settings.subPort || 0) || null;
+      const subPortBound = listening.ports.includes(DEFAULT_SUB_PORT);
+      const subPort = declaredSubPort || (subPortBound ? DEFAULT_SUB_PORT : null);
+      const subPortSource = declaredSubPort ? 'settings' : subPortBound ? 'default-bound' : 'unknown';
       const subPath = settings.subPath ? `/${String(settings.subPath).replace(/^\/+|\/+$/g, '')}/` : '/sub/';
+
       const dbPath = database?.dbPath || DB_PATHS.find(exists) || null;
       const username = settings.username || (await readStoredUsername(dbPath));
       const portBound = webPort ? listening.ports.includes(webPort) : false;
@@ -199,8 +210,11 @@ function createXuiRuntimeDetector({ runtime: overrides } = {}) {
         basePath,
         tlsEnabled,
         subPort,
+        subPortSource,
         subPath,
-        subEnable: settings.subEnable === undefined ? undefined : String(settings.subEnable) === 'true',
+        // Absent `subEnable` with a bound port means the stock default is live.
+        subEnable: settings.subEnable === undefined ? subPortBound || undefined : String(settings.subEnable) === 'true',
+
         host,
         username: username || null,
         hasDefaultCredential: settings.hasDefaultCredential === undefined ? undefined : String(settings.hasDefaultCredential) === 'true',

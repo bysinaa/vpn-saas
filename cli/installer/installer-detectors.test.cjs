@@ -6,6 +6,8 @@ const { createXuiDetector } = require('./xui-detector');
 const { createXuiCredentialValidator } = require('./xui-credential-validator');
 const { createPostgresDetector } = require('./postgres-detector');
 const { createInstallerAdapter } = require('./installer-adapter');
+const { createXuiRuntimeDetector } = require('./xui-runtime-detector');
+
 
 function fixtureRuntime({ files = {}, commands = {}, request = async () => ({ statusCode: 404, headers: {}, body: '' }) } = {}) {
   const writes = [];
@@ -134,3 +136,83 @@ test('PostgreSQL authentication validation exposes no password or URL', async ()
   const result = await detector.validateAuthentication({ candidate: { connection: { host: 'db', port: 5432, database: 'tazaxy' } }, username: 'alice', password: 'secret', validate: async () => false });
   assert.equal(result.status, 'ERROR'); assert.ok(!JSON.stringify(result).includes('secret'));
 });
+
+/**
+ * Reproduces the acceptance host (3x-ui v3.6.0, HTTPS 17342, base path
+ * /MTYFUStdaiG35FGCaU/): the settings table carries no `subPort` row because the
+ * operator never moved the subscription port off the 2096 default, yet x-ui is
+ * demonstrably bound to it. Reading settings alone reported "sub port n/a".
+ */
+function livePanelRuntime({ settings, listening }) {
+  const dbPath = '/etc/x-ui/x-ui.db';
+  const rows = JSON.stringify(settings);
+  const runtime = fixtureRuntime({
+    files: { [dbPath]: '', '/etc/systemd/system/x-ui.service': 'ExecStart=/usr/local/x-ui/x-ui\n' },
+    commands: {},
+  });
+  // The live host ships no sqlite3 CLI, so only the python3 fallback answers.
+  runtime.exec = (command, _options, done) => {
+    if (command.includes('systemctl is-active')) return done(null, 'active', '');
+    if (command.startsWith('sqlite3 ')) return done(new Error('sqlite3: not found'), '', '');
+    if (command.includes('SELECT key, value FROM settings')) return done(null, rows, '');
+    if (command.includes('SELECT username FROM users')) return done(null, 'admin', '');
+    if (command.includes('ss -ltnp')) return done(null, listening, '');
+    return done(new Error('missing-fixture'), '', '');
+  };
+  return runtime;
+}
+
+const LIVE_LISTENING = [
+  'State Recv-Q Send-Q Local Address:Port Peer Address:PortProcess',
+  'LISTEN 0 4096 *:17342 *:* users:(("x-ui",pid=421796,fd=11))',
+  'LISTEN 0 4096 *:2096 *:* users:(("x-ui",pid=421796,fd=12))',
+].join('\n');
+
+test('XUI runtime detector infers the stock 2096 subscription port when no subPort row exists', async () => {
+  const runtime = livePanelRuntime({
+    settings: { webPort: '17342', webBasePath: '/MTYFUStdaiG35FGCaU/', webCertFile: '/root/cert/ip/fullchain.pem', webKeyFile: '/root/cert/ip/privkey.pem' },
+    listening: LIVE_LISTENING,
+  });
+  const detection = await createXuiRuntimeDetector({ runtime }).discover();
+
+  assert.equal(detection.state, 'DETECTED');
+  assert.equal(detection.data.webPort, 17342);
+  assert.equal(detection.data.basePath, '/MTYFUStdaiG35FGCaU/');
+  assert.equal(detection.data.tlsEnabled, true);
+  assert.equal(detection.data.url, 'https://127.0.0.1:17342/MTYFUStdaiG35FGCaU/');
+  // The regression: 2096 is bound by x-ui, so it must not be reported as absent.
+  assert.equal(detection.data.subPort, 2096);
+  assert.equal(detection.data.subPortSource, 'default-bound');
+  assert.equal(detection.data.subEnable, true);
+  assert.ok(!detection.detail.includes('n/a'));
+});
+
+test('XUI runtime detector prefers an explicit subPort over the bound default', async () => {
+  const runtime = livePanelRuntime({
+    settings: { webPort: '17342', webBasePath: '/MTYFUStdaiG35FGCaU/', subPort: '8443', subEnable: 'true' },
+    listening: LIVE_LISTENING,
+  });
+  const detection = await createXuiRuntimeDetector({ runtime }).discover();
+  assert.equal(detection.data.subPort, 8443);
+  assert.equal(detection.data.subPortSource, 'settings');
+});
+
+test('XUI runtime detector reports no subscription port when 2096 is not bound', async () => {
+  const runtime = livePanelRuntime({
+    settings: { webPort: '17342' },
+    listening: 'LISTEN 0 4096 *:17342 *:* users:(("x-ui",pid=421796,fd=11))',
+  });
+  const detection = await createXuiRuntimeDetector({ runtime }).discover();
+  assert.equal(detection.data.subPort, null);
+  assert.equal(detection.data.subPortSource, 'unknown');
+  assert.equal(detection.data.subEnable, undefined);
+});
+
+test('XUI runtime discovery never reports CONNECTED without authentication', async () => {
+  const runtime = livePanelRuntime({ settings: { webPort: '17342', webBasePath: '/MTYFUStdaiG35FGCaU/' }, listening: LIVE_LISTENING });
+  const detection = await createXuiRuntimeDetector({ runtime }).discover();
+  // Service detection alone must never be promoted past DETECTED.
+  assert.notEqual(detection.state, 'CONNECTED');
+  assert.notEqual(detection.state, 'CONFIGURED');
+});
+

@@ -106,12 +106,36 @@ function createTelegramDetector({ runtime: overrides } = {}) {
     }
     try {
       const response = await runtime.request(`https://api.telegram.org/bot${value}/getMe`, { method: 'GET', timeout: options.timeout || 15000 });
+
+      // A transport failure is not a rejected token. Telling the user to
+      // re-enter a valid token because the network is blocked sends them
+      // chasing the wrong problem, so this stays FAILED.
+      if (!response.statusCode) {
+        return result('telegram', STATES.FAILED, {
+          now,
+          data: { reachable: false },
+          detail: `Could not reach api.telegram.org (${redactToken(response.error || 'no response')})`,
+          recovery: 'The token was not checked. Restore outbound HTTPS to api.telegram.org (proxy/VPN/DNS) and retry.',
+        });
+      }
+
       let payload = {};
       try {
         payload = JSON.parse(response.body || '{}');
       } catch {
         payload = {};
       }
+
+      // 5xx is Telegram failing, not the operator; only a 4xx actually rejects the token.
+      if (response.statusCode >= 500) {
+        return result('telegram', STATES.FAILED, {
+          now,
+          data: { reachable: true, httpStatus: response.statusCode },
+          detail: `Telegram returned HTTP ${response.statusCode}; the token was not checked`,
+          recovery: 'This is a Telegram-side error. Retry in a moment.',
+        });
+      }
+
       if (payload.ok !== true || !payload.result) {
         return result('telegram', STATES.NEEDS_CREDENTIALS, {
           now,
@@ -120,7 +144,9 @@ function createTelegramDetector({ runtime: overrides } = {}) {
           recovery: 'Verify the token with @BotFather and enter it again.',
         });
       }
+
       const bot = payload.result;
+
       return result('telegram', STATES.CONNECTED, {
         now,
         data: { username: bot.username, botId: bot.id, firstName: bot.first_name, canJoinGroups: bot.can_join_groups === true },

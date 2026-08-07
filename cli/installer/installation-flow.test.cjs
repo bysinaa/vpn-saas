@@ -530,7 +530,52 @@ test('tazaxy --version prints only the version and exits 0', () => {
   assert.equal(printVersion({ argv: ['version'], write: () => {}, readFileSync: () => '{"version":"2.0.0"}' }), 0);
 });
 
+// Found on a host where api.telegram.org resolved to a black-hole address and
+// refused the connection: the detector reported NEEDS_CREDENTIALS, which tells
+// the operator to re-type a token that was never actually checked.
+test('an unreachable Telegram API is FAILED, not a rejected token', async () => {
+  const attempts = [];
+  const detector = createTelegramDetector({
+    runtime: {
+      request: async (url) => {
+        attempts.push(url);
+        return { statusCode: 0, headers: {}, body: '', error: 'connect ECONNREFUSED 10.10.34.35:443' };
+      },
+    },
+  });
+
+  const outcome = await detector.validateToken(BOT_TOKEN);
+
+  assert.equal(outcome.state, STATES.FAILED, 'a blocked network must not be reported as a credential problem');
+  assert.notEqual(outcome.state, STATES.NEEDS_CREDENTIALS);
+  assert.equal(outcome.data.reachable, false);
+  assert.match(outcome.detail, /could not reach api\.telegram\.org/i);
+  assert.match(outcome.recovery, /token was not checked/i, 'the operator must be told the token was never checked');
+  assert.equal(attempts.length, 1);
+  assert.ok(!JSON.stringify(outcome).includes(BOT_TOKEN), 'the token must never appear in the result');
+});
+
+test('Telegram 5xx is FAILED while a real rejection stays NEEDS_CREDENTIALS', async () => {
+  const serverError = await createTelegramDetector({
+    runtime: { request: async () => ({ statusCode: 502, headers: {}, body: '<html>bad gateway</html>' }) },
+  }).validateToken(BOT_TOKEN);
+
+  assert.equal(serverError.state, STATES.FAILED, 'a Telegram-side outage is not the operator\'s fault');
+  assert.match(serverError.detail, /502/);
+
+  const rejected = await createTelegramDetector({
+    runtime: {
+      request: async () => ({ statusCode: 401, headers: {}, body: JSON.stringify({ ok: false, error_code: 401, description: 'Unauthorized' }) }),
+    },
+  }).validateToken(BOT_TOKEN);
+
+  assert.equal(rejected.state, STATES.NEEDS_CREDENTIALS, 'only Telegram actually rejecting the token asks for a new one');
+  assert.match(rejected.recovery, /BotFather/);
+  assert.ok(!JSON.stringify(rejected).includes(BOT_TOKEN));
+});
+
 test('version handling ignores other commands and survives an unreadable package.json', () => {
+
   assert.equal(printVersion({ argv: ['install'], write: () => assert.fail('must not print') }), null);
   assert.equal(isVersionRequest(['panel', '--version']), false, '--version after a command is a command option');
   assert.equal(
