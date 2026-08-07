@@ -238,3 +238,102 @@ node -e "const sm=require('./cli/installer/state-manager.js'); const s=sm.loadSt
 - The panel still has **default credentials** — rotate before this is treated as production.
 - Discovery caps at 70% confidence; it never reaches 100% without a successful authenticated
   call, which discovery deliberately does not perform.
+
+---
+
+## State-driven installer redesign
+
+The installer is no longer a sequence of prompts with patches bolted on. It is a single
+automatic flow: **detect everything first, then ask only for what cannot be detected.**
+
+### Modules
+
+| File | Responsibility |
+| --- | --- |
+| `cli/installer/detection-states.js` | The six states and the `result()` helper every detector returns. |
+| `cli/installer/environment-detector.js` | OS/arch/root, Docker + Compose, prior Tazaxy install, PostgreSQL, app/Redis/MinIO containers, `.env`. |
+| `cli/installer/xui-runtime-detector.js` | Reads `x-ui.service`, `x-ui setting -show true`, listening ports and `/etc/x-ui/x-ui.db`; then CSRF → login → authenticated API probe. |
+| `cli/installer/telegram-detector.js` | Validates `TELEGRAM_BOT_TOKEN` against `getMe`. |
+| `cli/installer/clean-install.js` | Backs up `.env` + state, then removes **only** Tazaxy-owned resources. |
+| `cli/installer/installation-flow.js` | Orders the ten steps and owns failure/recovery reporting. |
+| `cli/installer/menu-navigator.js` | Menu stack with Back / Retry / Refresh on every submenu. |
+| `cli/installer/cli-version.js` | `--version` handling, isolated from all command modules. |
+
+### States
+
+`NOT_FOUND · DETECTED · NEEDS_CREDENTIALS · CONFIGURED · CONNECTED · FAILED`
+
+`CONNECTED` is reachable **only** after a successful login *and* an authenticated API call.
+A running service, an open port or a value left in `installer-state.json` can raise a component
+to `DETECTED` at most — never to `CONFIGURED` and never to `CONNECTED`. Stale state is
+re-validated rather than trusted, which is why a saved-but-revoked bot token now reports
+`NEEDS_CREDENTIALS` instead of `configured`.
+
+### Existing 3X-UI is reused, never rebuilt
+
+Discovery is strictly read-only. The detector never installs a panel, never writes a setting and
+never touches a port; TLS, port and base path are read, not asked. `Preparing 3X-UI runtime` is
+skipped entirely once a healthy panel is found, and port `2096` is reported but never
+renegotiated. Login handles CSRF tokens, the session cookie and 3X-UI's habit of answering a
+rejected login with HTTP 200 + `success:false`. If the username or password cannot be recovered
+from the panel database, the flow shows `NEEDS_CREDENTIALS`, asks for them, retries on rejection,
+and refreshes CLI status the moment they are accepted — without failing the installation.
+
+### Installation order
+
+```
+preflight → detection summary → optional safe cleanup → clone/build launcher →
+infrastructure → 3X-UI discovery/authentication → Telegram Bot →
+environment generation → service startup → final health verification
+```
+
+`STEPS` in `installation-flow.js` is the single source of this order and is asserted by test.
+
+### Safe clean install
+
+`.env` and `installer-state.json` are backed up first. Removal is limited to Tazaxy paths, the
+launcher, Tazaxy services, `tazaxy-*` containers, `tazaxy_*` networks and volumes carrying
+`com.tazaxy.managed=true`. A protected-path guard refuses `/etc/x-ui` and
+`/etc/x-ui/x-ui.db` even if a caller passes them explicitly, so the panel, unrelated PostgreSQL
+databases, unlabelled volumes and third-party containers all survive.
+
+### Commands and results
+
+```powershell
+# installer regression suite (17 new tests + 13 pre-existing detector tests)
+npm run test:installer
+#   tests 30 / pass 30 / fail 0 / cancelled 0
+
+# --version prints only the version and exits 0
+npx ts-node cli/index.ts --version
+#   1.0.0
+#   EXIT_CODE=0
+
+# CLI typecheck
+npx tsc -p cli/tsconfig.json --noEmit
+#   TSC_EXIT=0
+```
+
+Fixtures mirror the acceptance server exactly: 3X-UI v3.6.0, HTTPS port `17342`, base path
+`/MTYFUStdaiG35FGCaU/`, subscription port `2096`, database `/etc/x-ui/x-ui.db`. The host is
+faked at the `exec` / `fs` / HTTP boundary, so the tests assert what the installer *does not*
+do — no panel install, no port rewrite, no printed token, no removal of protected paths — which
+plain end-to-end runs cannot prove.
+
+### Two real bugs found and fixed while verifying
+
+1. `cli/commands/install.3xui.ts` required `../../installer/xui-credential-validator`; from
+   `cli/commands/` the correct path is `../installer/…`. The module never resolved.
+2. Because `cli/index.ts` imported every command eagerly, that broken require made **every**
+   invocation fail — including `--version`, which exited 1 with a stack trace. Commands are now
+   loaded lazily on dispatch, so `--version` and `help` cannot be taken down by an unrelated
+   command module. This is the actual root cause of the `--version` bug, not the formatting of
+   the version string.
+
+### Not verified here
+
+The acceptance run against `91.107.249.248` (one-line clean reinstall, live panel discovery,
+Telegram validation with a real token, final service health) has **not** been executed in this
+pass — this environment has no SSH access to that host. The regression suite covers the logic
+those steps exercise, but the on-server run remains outstanding and should be performed with
+`npm run test:installer` green as the precondition.

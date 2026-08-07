@@ -4,7 +4,8 @@
 import { BaseCommand, type InstallOptions, type TazaxyPanelRuntimeConfig } from './install.interface';
 export type { InstallOptions };
 
-const { createXuiCredentialValidator } = require('../../installer/xui-credential-validator') as {
+// cli/commands -> cli/installer is one level up, not two.
+const { createXuiCredentialValidator } = require('../installer/xui-credential-validator') as {
   createXuiCredentialValidator: () => {
     validate(input: { connection: { url: string }; username: string; password: string }): Promise<{ status: string }>;
   };

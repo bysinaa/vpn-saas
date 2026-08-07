@@ -38,6 +38,9 @@ function createXuiDetectorRuntime(overrides = {}) {
     https: overrides.https || https,
     request: overrides.request || ((url, options) => requestWith({ http: overrides.http || http, https: overrides.https || https }, url, options)),
     now: overrides.now || (() => new Date()),
+    // Root detection must be injectable: the tests exercise both privileged and
+    // unprivileged runs, and process.getuid does not exist on Windows.
+    getuid: overrides.getuid || (typeof process.getuid === 'function' ? () => process.getuid() : () => null),
     loadState: overrides.loadState,
     saveState: overrides.saveState,
     cwd: overrides.cwd || (() => process.cwd()),

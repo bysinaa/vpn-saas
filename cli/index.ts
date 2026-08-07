@@ -5,13 +5,27 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { InstallCommand, type InstallOptions } from './commands/install.3xui';
-import { AdminCommand, type AdminOptions } from './commands/admin';
-import { PanelCommand, type PanelOptions } from './commands/panel';
-import { StatusCommand, type StatusOptions } from './commands/status';
-import { PaymentCommand, type PaymentOptions } from './commands/payment';
-import { MaintenanceCommand, type MaintenanceOptions } from './commands/maintenance';
-import { InfrastructureCommand, type InfrastructureOptions } from './commands/infrastructure';
+// Command implementations are loaded lazily, on dispatch. Importing them all up
+// front made every invocation — including `--version` and `help` — fail if any
+// single command module threw at load time. Types are erased, so `import type`
+// keeps full type-checking with no runtime cost.
+import type { InstallOptions } from './commands/install.3xui';
+import type { AdminOptions } from './commands/admin';
+import type { PanelOptions } from './commands/panel';
+import type { StatusOptions } from './commands/status';
+import type { PaymentOptions } from './commands/payment';
+import type { MaintenanceOptions } from './commands/maintenance';
+import type { InfrastructureOptions } from './commands/infrastructure';
+
+const load = {
+  install: async () => (await import('./commands/install.3xui')).InstallCommand,
+  admin: async () => (await import('./commands/admin')).AdminCommand,
+  panel: async () => (await import('./commands/panel')).PanelCommand,
+  status: async () => (await import('./commands/status')).StatusCommand,
+  payment: async () => (await import('./commands/payment')).PaymentCommand,
+  maintenance: async () => (await import('./commands/maintenance')).MaintenanceCommand,
+  infrastructure: async () => (await import('./commands/infrastructure')).InfrastructureCommand,
+};
 
 type ParsedOptions = Record<string, unknown>;
 
@@ -39,55 +53,64 @@ const workspaceRoot = resolveWorkspaceRoot();
 process.chdir(workspaceRoot);
 
 async function main() {
+  // `--version` must emit only the version and exit 0. It is handled before the
+  // banner so nothing else is ever written to stdout.
+  const { printVersion } = require('./installer/cli-version') as typeof import('./installer/cli-version');
+  const versionExitCode = printVersion({ argv: args });
+  if (versionExitCode !== null) {
+    process.exitCode = versionExitCode;
+    return;
+  }
+
   console.log('\n🔧 Tazaxy CLI v2.0.0\n');
 
   switch (command) {
     case 'install':
     case 'i':
-      await new InstallCommand().execute(options as InstallOptions);
+      await new (await load.install())().execute(options as InstallOptions);
       break;
 
     case 'admin':
     case 'admins':
     case 'a':
-      await new AdminCommand().execute(options as AdminOptions);
+      await new (await load.admin())().execute(options as AdminOptions);
       break;
 
     case 'panel':
     case 'panels':
     case 'p':
-      await new PanelCommand().execute(options as PanelOptions);
+      await new (await load.panel())().execute(options as PanelOptions);
       break;
 
     case 'payments':
     case 'payment':
-      await new PaymentCommand().execute(options as PaymentOptions);
+      await new (await load.payment())().execute(options as PaymentOptions);
       break;
 
      case 'status':
      case 'health':
      case 's':
-       await new StatusCommand().execute(options as StatusOptions);
+       await new (await load.status())().execute(options as StatusOptions);
        break;
  
      case 'infrastructure':
      case 'infra':
      case 'db':
-       await new InfrastructureCommand().execute(options as InfrastructureOptions);
+       await new (await load.infrastructure())().execute(options as InfrastructureOptions);
        break;
  
      case 'update':
-      await new MaintenanceCommand().execute({ ...(options as MaintenanceOptions), update: true });
+      await new (await load.maintenance())().execute({ ...(options as MaintenanceOptions), update: true });
       break;
 
     case 'uninstall':
-      await new MaintenanceCommand().execute({ ...(options as MaintenanceOptions), uninstall: true });
+      await new (await load.maintenance())().execute({ ...(options as MaintenanceOptions), uninstall: true });
       break;
 
     case 'install-3xui':
     case 'install3xui':
     case 'xui':
-      await new MaintenanceCommand().execute({ ...(options as MaintenanceOptions), install3xui: true });
+      await new (await load.maintenance())().execute({ ...(options as MaintenanceOptions), install3xui: true });
       break;
 
     case 'menu':
@@ -174,19 +197,19 @@ async function showInteractiveMenu() {
     try {
       switch (action) {
         case 'install':
-          await new InstallCommand().execute(options as InstallOptions);
+          await new (await load.install())().execute(options as InstallOptions);
           break;
         case 'editEnv':
           await manageEnvFile();
           break;
         case 'status':
-          await new StatusCommand().execute(options as StatusOptions);
+          await new (await load.status())().execute(options as StatusOptions);
           break;
         case 'admin':
-          await new AdminCommand().execute(options as AdminOptions);
+          await new (await load.admin())().execute(options as AdminOptions);
           break;
         case 'panel':
-          await new PanelCommand().execute(options as PanelOptions);
+          await new (await load.panel())().execute(options as PanelOptions);
           break;
         case 'start':
           await runLifecycleAction('start');
@@ -201,19 +224,19 @@ async function showInteractiveMenu() {
           await runComposeCommand('logs --tail=100 app');
           break;
          case 'payments':
-           await new PaymentCommand().execute({});
+           await new (await load.payment())().execute({});
            break;
          case 'infrastructure':
-           await new InfrastructureCommand().execute({});
+           await new (await load.infrastructure())().execute({});
            break;
          case 'update':
-          await new MaintenanceCommand().execute({ update: true });
+          await new (await load.maintenance())().execute({ update: true });
           break;
         case 'install3xui':
-          await new MaintenanceCommand().execute({ install3xui: true });
+          await new (await load.maintenance())().execute({ install3xui: true });
           break;
         case 'uninstall':
-          await new MaintenanceCommand().execute({ uninstall: true });
+          await new (await load.maintenance())().execute({ uninstall: true });
           break;
       }
     } catch (error: unknown) {
