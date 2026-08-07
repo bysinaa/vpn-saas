@@ -472,4 +472,129 @@ curl -sS -o /dev/null -w '%{http_code}\n' https://api.telegram.org
 # not NEEDS_CREDENTIALS
 ```
 
+---
+
+## Session 3 — real-server verification on 91.107.249.248
+
+### Correction to the note above: Telegram *is* reachable
+
+The claim that `91.107.249.248` cannot reach `api.telegram.org` was **wrong**. Re-probed
+from the server itself:
+
+```bash
+curl -sS -m 20 -o /dev/null -w '%{http_code}' https://api.telegram.org
+# 302
+curl -sS -m 20 -o /dev/null -w '%{http_code}' https://api.telegram.org/bot000:invalid/getMe
+# 401
+```
+
+A `302` and a `401` are real HTTP responses from Telegram — the host reaches the API fine.
+`401` is exactly the "invalid token" answer `getMe` should give. The earlier conclusion was
+drawn from a single failed probe and should not have been recorded as a network fact.
+**The Telegram stage is therefore not blocked by the network on this host.**
+
+### Bug found on the real server: the shipped CLI could not start at all
+
+Every previous session verified `--version` with `ts-node cli/index.ts --version` and
+`tsc --noEmit`. Both pass while the *installed* CLI is broken, so the fix reported at the
+end of Session 2 never actually worked on a real install:
+
+```bash
+tazaxy --version
+# Error: Cannot find module './installer/cli-version'
+# Require stack:
+# - /opt/tazaxy/cli/dist-cli/index.js
+```
+
+Root cause: `cli/tsconfig.json` compiles `./**/*.ts` only, so the hand-written CommonJS
+modules in `cli/installer/*.js` were never emitted into `cli/dist-cli/`. The compiled
+`index.js` still required them at runtime. `tsc --noEmit` is satisfied by
+`cli-version.d.ts`, and `ts-node` resolves the real source file — neither can see it.
+This broke **every** CLI invocation, not just `--version`.
+
+Reproduced locally first:
+
+```powershell
+npx tsc -p cli/tsconfig.json          # BUILD=0
+Test-Path cli/dist-cli/installer      # False
+node cli/dist-cli/index.js --version  # Cannot find module -> exit 1
+```
+
+Fixed in `83209a1`:
+
+* `scripts/copy-cli-assets.cjs` copies the 28 installer runtime modules into
+  `cli/dist-cli/installer/`, excluding `*.test.cjs`; wired into `cli:build`.
+* `readVersion()` now walks up to the nearest `package.json`. The old fixed `../..`
+  resolved to the repo root from source but to `cli/` inside the bundle, so the installed
+  CLI silently printed the `0.0.0` fallback. This was only visible after the first fix.
+* `cli/installer/cli-bundle.test.cjs` — 4 tests that **run the built entry point**, assert
+  the printed version equals `package.json`, assert no test fixture ships, and assert a
+  bundle missing its modules fails loudly.
+
+### Commands run on the server and their results
+
+```bash
+# 1. update from git + rebuild (same path scripts/install.sh takes)
+cd /opt/tazaxy && git fetch origin && git reset --hard origin/main && npm install && npm run cli:build
+# commit=83209a1
+# [cli:build] copied 28 installer module(s) into cli/dist-cli/installer
+
+# 2. acceptance item 8
+tazaxy --version
+# stdout=[1.0.0]  stderr=[]  exit=0  lines=1
+```
+
+```bash
+# 3. regression suite on the server (Linux, Node 20.20.2)
+npm run test:installer
+# tests 40 / pass 40 / fail 0
+```
+
+```bash
+# 4. automatic 3X-UI discovery, read-only, from the installed bundle
+node -e 'require("/opt/tazaxy/cli/dist-cli/installer/xui-runtime-detector.js")
+  .createXuiRuntimeDetector().discover().then(r => console.log(r.state, r.data))'
+```
+
+| Field | Discovered | Expected |
+| --- | --- | --- |
+| state | `DETECTED` | not `CONFIGURED` — nothing authenticated yet |
+| webPort | `17342` | `17342` |
+| basePath | `/MTYFUStdaiG35FGCaU/` | `/MTYFUStdaiG35FGCaU/` |
+| subPort | `2096` | `2096` |
+| subEnable | `true` | enabled |
+| dbPath | `/etc/x-ui/x-ui.db` | `/etc/x-ui/x-ui.db` |
+| username | `admin` | read from the panel DB |
+| url | `https://127.0.0.1:17342/MTYFUStdaiG35FGCaU/` | TLS on |
+
+Every port, the base path and the database path were discovered automatically. Nothing was
+asked, nothing was changed, and the state is correctly `DETECTED` rather than `CONFIGURED`
+— matching the rule that only a successful authenticated probe may report `CONNECTED`.
+
+```bash
+# 5. panel untouched after the whole run
+systemctl is-active x-ui   # active
+ss -ltnp | grep -E ':(17342|2096) '   # *:17342  *:2096
+md5sum /etc/x-ui/x-ui.db   # unchanged, panel DB never written
+```
+
+### What is verified and what is not
+
+Verified on the real server: git install path, CLI build, `tazaxy --version` (item 8),
+40/40 regression tests on Linux, fully automatic panel discovery of all four acceptance
+values, and that 3X-UI is left completely untouched.
+
+**Not yet verified end to end:** the interactive stages — credential fallback prompt,
+`TELEGRAM_BOT_TOKEN` entry and `getMe` validation, live menu refresh, and final service
+health. These need a terminal and your real bot token; the SSH sessions used here are
+non-interactive (`plink -m script`), so the installer's prompts cannot be driven from them.
+Their unit/integration coverage passes, but that is not the same as a live run. To finish:
+
+```bash
+ssh root@91.107.249.248
+bash <(curl -fsSL https://raw.githubusercontent.com/bysinaa/vpn-saas/main/scripts/install.sh)
+# paste the bot token when the Telegram step asks; it is never echoed or logged
+```
+
+
 
