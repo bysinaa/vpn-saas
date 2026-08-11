@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "updatedAt": "2026-07-31T17:44:36.925Z",
+  "superAdmins": [],
+  "backup": {
+    "directory": "C:\\Users\\TAZA\\Desktop\\tazaxy\\backups"
+  },
+  "paths": {
+    "envFile": "C:\\Users\\TAZA\\Desktop\\tazaxy\\.env",
+    "installLogFile": "C:\\Users\\TAZA\\Desktop\\tazaxy\\.tazaxy\\installer.log",
+    "stateFile": "C:\\Users\\TAZA\\Desktop\\tazaxy\\.tazaxy\\config.json"
+  },
+  "panel": {
+    "panelUrl": "http://127.0.0.1:2053",
+    "panelUser": "admin",
+    "panelPass": "",
+    "apiUrl": "http://127.0.0.1:2053/panel/api",
+    "subscriptionBaseUrl": "http://127.0.0.1:2053",
+    "subscriptionPath": "sub",
+    "subscriptionPort": 2053,
+    "tlsEnabled": false,
+    "updatedAt": "2026-07-31T17:44:36.848Z",
+    "webRoot": "/",
+    "metadata": {
+      "loginStatusCode": 200
+    }
+  }
+}
