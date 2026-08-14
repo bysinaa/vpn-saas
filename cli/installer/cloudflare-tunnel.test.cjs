@@ -94,6 +94,15 @@ test('accepts the two public URLs and keeps the detected panel path', () => {
     normalizePublicUrls('https://panel.example.com/custom/', 'https://sub.example.com', '/api/').panelUrl,
     'https://panel.example.com/custom/',
   );
+  assert.deepEqual(
+    normalizePublicUrls('api.mivezone.ir', 'sub.mivezone.ir', '/api/'),
+    {
+      panelUrl: 'https://api.mivezone.ir/api/',
+      panelHostname: 'api.mivezone.ir',
+      subscriptionBaseUrl: 'https://sub.mivezone.ir',
+      subscriptionHostname: 'sub.mivezone.ir',
+    },
+  );
   assert.throws(() => normalizePublicUrls('http://panel.example.com', 'https://sub.example.com'));
 });
 

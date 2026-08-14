@@ -17,7 +17,8 @@ function normalizePublicUrls(panelValue, subscriptionValue, detectedPanelPath = 
   const parse = (value, label) => {
     let url;
     try {
-      url = new URL(value);
+      const input = String(value || '').trim();
+      url = new URL(input.includes('://') ? input : `https://${input}`);
     } catch {
       throw new Error(`Invalid ${label} public URL: ${value}`);
     }
