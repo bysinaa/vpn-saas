@@ -4,8 +4,7 @@ import { PrismaService } from '@/common/prisma/prisma.service';
 import { BotRuntime } from '../bot-runtime';
 import { t } from '../i18n';
 import { mainMenuKeyboard, referralKeyboard } from '../keyboards';
-import { formatDate } from '../format.util';
-import { fromMinor } from '@/common/utils/money.util';
+import { formatDate, formatTraffic } from '../format.util';
 import { randomCode } from '@/common/utils/crypto.util';
 
 const HISTORY_PAGE_SIZE = 8;
@@ -62,42 +61,39 @@ export class ReferralFlow {
 
       // Total invited + active (referred users with at least one ACTIVE/TRIAL sub).
       const totalInvited = await this.prisma.referralLog.count({
-        where: { referrerId: session.userId },
+        where: { referrerId: session.userId, rewardType: 'TRAFFIC' },
       });
       const activeInvited = await this.prisma.referralLog.count({
         where: {
           referrerId: session.userId,
-          status: 'COMPLETED',
+          rewardType: 'TRAFFIC',
+          status: 'REWARDED',
         },
       });
 
-      // Commission earned (REFERRAL_REWARD wallet transactions for this user).
-      const earningsAgg = await this.prisma.walletTransaction.aggregate({
-        where: { wallet: { userId: session.userId }, type: 'REFERRAL_REWARD' },
-        _sum: { amount: true },
-      });
-      const commission = earningsAgg._sum?.amount ?? 0n;
-
-      // Pending rewards (referral logs still PENDING).
-      const pendingAgg = await this.prisma.referralLog.aggregate({
-        where: { referrerId: session.userId, status: 'PENDING' },
+      const trafficAgg = await this.prisma.referralLog.aggregate({
+        where: { referrerId: session.userId, rewardType: 'TRAFFIC', status: 'REWARDED' },
         _sum: { referrerReward: true },
       });
-      const pending = pendingAgg._sum?.referrerReward ?? 0n;
+      const rewardedTraffic = trafficAgg._sum?.referrerReward ?? 0n;
+
+      const pendingInvites = await this.prisma.referralLog.count({
+        where: {
+          referrerId: session.userId,
+          rewardType: 'TRAFFIC',
+          status: { in: ['PENDING', 'COMPLETED'] },
+        },
+      });
 
       // Leaderboard rank: count referrers with more total referrals.
       const higherCount = await this.prisma.referralLog.groupBy({
         by: ['referrerId'],
-        where: { referrerId: { not: session.userId } },
+        where: { referrerId: { not: session.userId }, rewardType: 'TRAFFIC' },
         _count: { _all: true },
       });
       const myCount = totalInvited;
       const rank = higherCount.filter((g) => g._count._all > myCount).length + 1;
       const totalReferrers = higherCount.length + 1;
-
-      // Wallet currency for display.
-      const wallet = await this.prisma.wallet.findUnique({ where: { userId: session.userId } });
-      const currency = wallet?.currency ?? 'IRR';
 
       const link = this.runtime.buildReferralLink(user.referralCode);
       const shareText = t(locale, 'referral.share.text', {
@@ -111,16 +107,14 @@ export class ReferralFlow {
         `${t(locale, 'referral.code', { code: user.referralCode })}\n` +
         `${t(locale, 'referral.totalInvited', { count: totalInvited })}\n` +
         `${t(locale, 'referral.activeInvited', { count: activeInvited })}\n` +
-        `${t(locale, 'referral.commission', { amount: fromMinor(commission), currency })}\n` +
-        `${t(locale, 'referral.pending', { amount: fromMinor(pending), currency })}\n` +
+        `${t(locale, 'referral.trafficReward', { traffic: formatTraffic(rewardedTraffic) })}\n` +
+        `${t(locale, 'referral.pendingInvites', { count: pendingInvites })}\n` +
         `${t(locale, 'referral.leaderboard', { rank, total: totalReferrers })}`;
 
       await this.runtime.pushMenu(telegramId, 'referral');
       await this.runtime.setState(telegramId, 'idle');
       await this.runtime.alert(ctx);
-      await this.runtime.render(ctx, msg, referralKeyboard(locale, link, shareText), {
-        parseMode: 'Markdown',
-      });
+      await this.runtime.render(ctx, msg, referralKeyboard(locale, link, shareText));
     } catch (err: any) {
       await this.runtime.alert(ctx);
       await this.runtime.render(
@@ -139,13 +133,10 @@ export class ReferralFlow {
     const session = await this.runtime.getSession(telegramId);
     if (!session.userId) return;
 
-    // Read configurable rule values from SystemSetting (with sensible defaults).
-    const commissionPct = Number(
-      (await this.runtime.getSetting('referral.commissionPercent')) ?? '10',
-    );
-    const bonusMinor = BigInt((await this.runtime.getSetting('referral.referredReward')) ?? '0');
-    const wallet = await this.prisma.wallet.findUnique({ where: { userId: session.userId } });
-    const currency = wallet?.currency ?? 'IRR';
+    const rewardGb = (await this.runtime.getSetting('referral.rewardTrafficGb')) ?? '1';
+    const body =
+      (await this.runtime.getSetting('referral.rulesText')) ??
+      t(locale, 'referral.rules.body', { rewardGb });
 
     const referralCode =
       (await this.prisma.user.findUnique({ where: { id: session.userId } }))?.referralCode ?? '';
@@ -155,16 +146,8 @@ export class ReferralFlow {
       link,
     });
 
-    const body = t(locale, 'referral.rules.body', {
-      commission: commissionPct,
-      bonus: fromMinor(bonusMinor),
-      currency,
-    });
-
     await this.runtime.alert(ctx);
-    await this.runtime.render(ctx, body, referralKeyboard(locale, link, shareText), {
-      parseMode: 'Markdown',
-    });
+    await this.runtime.render(ctx, body, referralKeyboard(locale, link, shareText));
   }
 
   /** Show the referral history (`refhistory`), paginated. */
@@ -180,9 +163,11 @@ export class ReferralFlow {
 
     try {
       const [total, referrals] = await Promise.all([
-        this.prisma.referralLog.count({ where: { referrerId: session.userId } }),
+        this.prisma.referralLog.count({
+          where: { referrerId: session.userId, rewardType: 'TRAFFIC' },
+        }),
         this.prisma.referralLog.findMany({
-          where: { referrerId: session.userId },
+          where: { referrerId: session.userId, rewardType: 'TRAFFIC' },
           orderBy: { createdAt: 'desc' },
           skip: page * HISTORY_PAGE_SIZE,
           take: HISTORY_PAGE_SIZE,

@@ -10,6 +10,7 @@ import { PasswordService } from './password.service';
 import { JwtTokenService } from './jwt-token.service';
 import { LoginInput, LoginResult } from './auth.types';
 import { AuthSchemas } from './auth.schemas';
+import { AffiliateService, ReferralTrafficRewardResult } from '../affiliate/affiliate.service';
 
 /**
  * AuthService - the heart of authentication. Handles registration, login,
@@ -26,6 +27,7 @@ export class AuthService {
     private readonly audit: AuditService,
     private readonly passwords: PasswordService,
     private readonly tokens: JwtTokenService,
+    private readonly affiliate: AffiliateService,
   ) {}
 
   // ---------- Registration (email/password) ----------
@@ -221,7 +223,7 @@ export class AuthService {
           await this.prisma.systemSetting.findMany({
             where: {
               key: {
-                in: ['referral.enabled', 'referral.referrerReward', 'referral.referredReward'],
+                in: ['referral.enabled', 'referral.rewardTrafficGb'],
               },
             },
             select: { key: true, value: true },
@@ -240,8 +242,14 @@ export class AuthService {
             })
           : null;
       const newReferralCode = await this.generateReferralCode();
-      const referrerReward = BigInt(referralSettings.get('referral.referrerReward') ?? '0');
-      const referredReward = BigInt(referralSettings.get('referral.referredReward') ?? '0');
+      const configuredRewardGb = Number(referralSettings.get('referral.rewardTrafficGb') ?? '1');
+      const rewardGb =
+        Number.isFinite(configuredRewardGb) &&
+        configuredRewardGb >= 0.1 &&
+        configuredRewardGb <= 1000
+          ? configuredRewardGb
+          : 1;
+      const rewardBytes = BigInt(Math.round(rewardGb * 1024 * 1024 * 1024));
 
       user = await this.prisma.withTransaction(async (tx) => {
         const createdUser = await tx.user.create({
@@ -262,73 +270,20 @@ export class AuthService {
         });
 
         if (referrer) {
-          const existingReferral = await tx.referralLog.findFirst({
-            where: {
-              OR: [{ referredId: createdUser.id }, { referred: { telegramId: input.telegramId } }],
+          await tx.referralLog.create({
+            data: {
+              referrerId: referrer.id,
+              referredId: createdUser.id,
+              status: 'PENDING',
+              rewardType: 'TRAFFIC',
+              referrerReward: rewardBytes,
+              referredReward: rewardBytes,
+              metadata: {
+                source: 'telegram_start',
+                telegramId: input.telegramId,
+              } as Prisma.InputJsonValue,
             },
-            select: { id: true },
           });
-
-          if (!existingReferral) {
-            await tx.referralLog.create({
-              data: {
-                referrerId: referrer.id,
-                referredId: createdUser.id,
-                status: 'PENDING',
-                referrerReward,
-                referredReward,
-                metadata: {
-                  source: 'telegram_start',
-                  telegramId: input.telegramId,
-                  signupRewardedAt:
-                    referrerReward > 0n || referredReward > 0n ? new Date().toISOString() : null,
-                } as Prisma.InputJsonValue,
-              },
-            });
-
-            const creditReferralReward = async (
-              walletUserId: bigint,
-              amount: bigint,
-              description: string,
-            ) => {
-              if (amount <= 0n) return;
-              const referrerWallet = await tx.wallet.upsert({
-                where: { userId: walletUserId },
-                update: {},
-                create: { userId: walletUserId },
-              });
-              const updatedWallet = await tx.wallet.update({
-                where: { id: referrerWallet.id },
-                data: { balance: { increment: amount } },
-              });
-
-              await tx.walletTransaction.create({
-                data: {
-                  publicId: randomUUID(),
-                  walletId: referrerWallet.id,
-                  type: 'REFERRAL_REWARD',
-                  status: 'CONFIRMED',
-                  amount,
-                  fee: 0n,
-                  balanceBefore: updatedWallet.balance - amount,
-                  balanceAfter: updatedWallet.balance,
-                  description,
-                  reference: referralCode,
-                  metadata: {
-                    referredTelegramId: input.telegramId,
-                    referredUserId: createdUser.id.toString(),
-                  } as Prisma.InputJsonValue,
-                },
-              });
-            };
-
-            await creditReferralReward(
-              referrer.id,
-              referrerReward,
-              `Referral signup reward for ${input.telegramId}`,
-            );
-            await creditReferralReward(createdUser.id, referredReward, 'Referral welcome reward');
-          }
         }
 
         return createdUser;
@@ -362,10 +317,22 @@ export class AuthService {
       }
     }
 
-    return this.issueSession(user!.id, user!.publicId, user!.role, user!.email, user!.telegramId, {
-      userAgent: 'telegram-bot',
-      ip: input.ip ?? '',
-    });
+    let referralReward: ReferralTrafficRewardResult | null = null;
+    if (user!.referredById) {
+      referralReward = await this.affiliate.fulfillTelegramSignupReferral(user!.id);
+    }
+    const result = await this.issueSession(
+      user!.id,
+      user!.publicId,
+      user!.role,
+      user!.email,
+      user!.telegramId,
+      {
+        userAgent: 'telegram-bot',
+        ip: input.ip ?? '',
+      },
+    );
+    return referralReward ? { ...result, referralReward } : result;
   }
 
   // ---------- RBAC permission resolution ----------

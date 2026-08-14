@@ -11,6 +11,31 @@ jest.mock('@/common/redis/redis.service', () => ({ RedisService: class RedisServ
 import { BotRuntime } from './bot-runtime';
 
 describe('BotRuntime receipt notifications', () => {
+  it('preserves a pending referral payload across onboarding state changes', async () => {
+    const redis = {
+      getJson: jest.fn().mockResolvedValue({
+        telegramId: '20',
+        locale: 'fa',
+        state: 'idle',
+        data: { pendingStartPayload: 'REF-CODE' },
+        menuStack: ['main'],
+      }),
+      setJson: jest.fn().mockResolvedValue(undefined),
+    };
+    const runtime = new BotRuntime({} as any, redis as any);
+
+    await runtime.setState('20', 'awaiting_language');
+
+    expect(redis.setJson).toHaveBeenCalledWith(
+      'bot:session:20',
+      expect.objectContaining({
+        state: 'awaiting_language',
+        data: { pendingStartPayload: 'REF-CODE' },
+      }),
+      expect.any(Number),
+    );
+  });
+
   it('delivers simultaneous receipts independently to configured and database admins', async () => {
     const prisma = {
       user: {

@@ -407,6 +407,46 @@ export class AdminFlow {
     }
   }
 
+  async onReferralAction(ctx: Context, verb: string): Promise<void> {
+    const locale = await this.guard(ctx);
+    if (!locale) return;
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
+    try {
+      if (verb === 'toggle') {
+        const enabled = await this.settings.getValue<boolean>('referral.enabled', true);
+        await this.settings.upsert({
+          key: 'referral.enabled',
+          value: String(!enabled),
+          category: 'REFERRAL',
+          type: 'BOOLEAN',
+          isPublic: true,
+        });
+        await this.runtime.alert(ctx, '✅ ذخیره شد.');
+        await this.viewReferrals(ctx);
+        return;
+      }
+      const field = verb === 'gb' ? 'rewardTrafficGb' : 'rulesText';
+      await this.runtime.setState(telegramId, 'admin_referral_awaiting_value', {
+        adminWizard: 'referral_edit',
+        adminField: field,
+      });
+      await this.runtime.editOrSend(
+        ctx,
+        field === 'rewardTrafficGb'
+          ? 'حجم هدیه برای هر نفر را به گیگ وارد کنید (مثال: 1 یا 1.5):'
+          : 'متن کامل قوانین رفرال را ارسال کنید:',
+        this.backHomeKeyboard(locale),
+      );
+    } catch (err: any) {
+      await this.runtime.editOrSend(
+        ctx,
+        this.runtime.translateError(locale, err),
+        this.backHomeKeyboard(locale),
+      );
+    }
+  }
+
   // ===========================================================================
   // Dashboard
   // ===========================================================================
@@ -1180,24 +1220,39 @@ export class AdminFlow {
     );
   }
 
-  /** REFERRALS — top referrers + recent commissions. */
+  /** REFERRALS — canonical traffic reward settings and usage. */
   private async viewReferrals(ctx: Context): Promise<void> {
     const locale = await this.guard(ctx);
     if (!locale) return;
-    const [accounts, commissions] = await Promise.all([
-      this.prisma.affiliateAccount.findMany({
-        orderBy: { totalEarnings: 'desc' },
-        take: 8,
-        include: { user: true },
-      }),
-      this.prisma.affiliateCommission.count({ where: { status: 'PENDING' } }),
+    const [enabled, rewardGb, rules, total, rewarded] = await Promise.all([
+      this.settings.getValue<boolean>('referral.enabled', true),
+      this.settings.getValue<number>('referral.rewardTrafficGb', 1),
+      this.settings.getValue<string>(
+        'referral.rulesText',
+        'هر کاربر جدید پس از عضویت در کانال‌ها و شروع ربات، برای خودش و معرفش هدیه حجم دریافت می‌کند.',
+      ),
+      this.prisma.referralLog.count({ where: { rewardType: 'TRAFFIC' } }),
+      this.prisma.referralLog.count({ where: { rewardType: 'TRAFFIC', status: 'REWARDED' } }),
     ]);
-    const lines = accounts.map((a) => {
-      const name = a.user?.firstName ?? a.user?.telegramId ?? '—';
-      return `• ${name}\n   ${fromMinor(a.totalEarnings)} درآمد · ${fromMinor(a.availableBalance)} در انتظار`;
-    });
-    const msg = `👥 سیستم معرف\n\nکمیسیون‌های در انتظار پرداخت: ${commissions}\n\nبرترین‌ها:\n${lines.join('\n\n') || '—'}`;
-    await this.runtime.editOrSend(ctx, msg, this.backHomeKeyboard(locale));
+    const msg =
+      `👥 سیستم معرفی\n\n` +
+      `وضعیت: ${enabled ? '✅ فعال' : '⛔ غیرفعال'}\n` +
+      `هدیه هر نفر: ${rewardGb} گیگ\n` +
+      `دعوت‌های موفق: ${rewarded} از ${total}\n\n` +
+      `📜 قوانین فعلی:\n${rules}`;
+    await this.runtime.editOrSend(
+      ctx,
+      msg,
+      Markup.inlineKeyboard([
+        [Markup.button.callback(enabled ? '⛔ غیرفعال‌سازی' : '✅ فعال‌سازی', 'aref:toggle')],
+        [Markup.button.callback('✏️ ویرایش حجم هدیه', 'aref:gb')],
+        [Markup.button.callback('📝 ویرایش قوانین', 'aref:rules')],
+        [
+          Markup.button.callback(`◀️ ${t(locale, 'menu.back')}`, 'adm:dash'),
+          Markup.button.callback(`🏠 ${t(locale, 'menu.home')}`, 'home'),
+        ],
+      ]),
+    );
   }
 
   /** TRIAL SETTINGS — show current trial config from DB settings. */
@@ -1664,6 +1719,7 @@ export class AdminFlow {
         state === 'admin_card_awaiting_field' ||
         state === 'admin_crypto_awaiting_field' ||
         state === 'admin_gateway_awaiting_field' ||
+        state === 'admin_referral_awaiting_value' ||
         state === 'admin_join_channel_awaiting_username'
       ) {
         await this.runtime.clearState(telegramId);
@@ -1694,6 +1750,10 @@ export class AdminFlow {
     }
     if (state === 'admin_gateway_awaiting_field') {
       await this.handleGatewayWizardText(ctx, text);
+      return true;
+    }
+    if (state === 'admin_referral_awaiting_value') {
+      await this.handleReferralWizardText(ctx, text);
       return true;
     }
     if (state === 'admin_join_channel_awaiting_username') {
@@ -2004,6 +2064,54 @@ export class AdminFlow {
         ctx,
         this.runtime.translateError(locale, err),
         this.paymentPromptKeyboard(locale, 'gateway'),
+      );
+    }
+  }
+
+  private async handleReferralWizardText(ctx: Context, text: string): Promise<void> {
+    const telegramId = this.getTelegramId(ctx);
+    if (!telegramId) return;
+    const locale = await this.runtime.getLocale(telegramId);
+    const session = await this.runtime.getSession(telegramId);
+    const field = String(session.data?.adminField ?? '');
+    const value = text.trim();
+    try {
+      if (field === 'rewardTrafficGb') {
+        const gigabytes = Number(value.replace(',', '.'));
+        if (!Number.isFinite(gigabytes) || gigabytes < 0.1 || gigabytes > 1000) {
+          throw new Error('حجم هدیه باید عددی بین ۰.۱ تا ۱۰۰۰ گیگ باشد.');
+        }
+        await this.settings.upsert({
+          key: 'referral.rewardTrafficGb',
+          value: String(gigabytes),
+          category: 'REFERRAL',
+          type: 'NUMBER',
+          isPublic: true,
+          description: 'Traffic reward in GB for both referral participants',
+        });
+      } else if (field === 'rulesText') {
+        if (!value || value.length > 3000) {
+          throw new Error('متن قوانین باید بین ۱ تا ۳۰۰۰ نویسه باشد.');
+        }
+        await this.settings.upsert({
+          key: 'referral.rulesText',
+          value,
+          category: 'REFERRAL',
+          type: 'STRING',
+          isPublic: true,
+          description: 'Admin-authored referral rules shown in Telegram',
+        });
+      } else {
+        throw new Error('ویرایش رفرال معتبر نیست.');
+      }
+      await this.runtime.clearState(telegramId);
+      await this.runtime.alert(ctx, '✅ تنظیمات رفرال ذخیره شد.');
+      await this.viewReferrals(ctx);
+    } catch (err: any) {
+      await this.runtime.editOrSend(
+        ctx,
+        this.runtime.translateError(locale, err),
+        this.backHomeKeyboard(locale),
       );
     }
   }

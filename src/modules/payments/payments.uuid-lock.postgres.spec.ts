@@ -15,7 +15,9 @@ const databaseUrl = process.env.PAYMENTS_POSTGRES_TEST_DATABASE_URL;
 const describePostgres = databaseUrl ? describe : describe.skip;
 
 describePostgres('PaymentsService PostgreSQL UUID order lock', () => {
-  const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl! } } });
+  const prisma = databaseUrl
+    ? new PrismaClient({ datasources: { db: { url: databaseUrl } } })
+    : (null as unknown as PrismaClient);
   let userId: bigint;
   let planId: bigint;
   let orderPublicId: string;

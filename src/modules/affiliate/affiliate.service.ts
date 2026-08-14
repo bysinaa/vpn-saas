@@ -10,6 +10,17 @@ import {
   skipTake,
 } from '@/common/pagination/pagination.dto';
 import { randomCode } from '@/common/utils/crypto.util';
+import { VpnService } from '../vpn/vpn.service';
+
+export interface ReferralTrafficRewardResult {
+  referrerTelegramId: string | null;
+  referrerName: string;
+  referredTelegramId: string | null;
+  referredName: string;
+  rewardBytes: string;
+  referrerSubscriptionLink: string | null;
+  referredSubscriptionLink: string | null;
+}
 
 export interface AffiliateAccountDto {
   id: string;
@@ -45,7 +56,151 @@ export class AffiliateService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly wallet: WalletService,
+    private readonly vpn: VpnService,
   ) {}
+
+  /**
+   * Apply a Telegram signup reward exactly once, then synchronize the same
+   * per-user trial client in XUI. COMPLETED means the database quota is safely
+   * committed but remote provisioning still needs a retry.
+   */
+  async fulfillTelegramSignupReferral(
+    referredUserId: bigint,
+    retryOnConflict = true,
+  ): Promise<ReferralTrafficRewardResult | null> {
+    const referral = await this.prisma.referralLog.findFirst({
+      where: { referredId: referredUserId, rewardType: 'TRAFFIC' },
+      include: {
+        referrer: { select: { telegramId: true, firstName: true, username: true } },
+        referred: { select: { telegramId: true, firstName: true, username: true } },
+      },
+    });
+    if (!referral || referral.status === 'REWARDED' || referral.status === 'CANCELLED') return null;
+
+    const rewardBytes = referral.referrerReward;
+    if (rewardBytes <= 0n || referral.referredReward !== rewardBytes) {
+      throw BusinessException.conflict('Invalid referral traffic reward');
+    }
+
+    let subscriptionIds: bigint[] = [];
+    if (referral.status === 'PENDING') {
+      const plan = await this.prisma.plan.findFirst({
+        where: { isTrial: true, isEnabled: true, status: { not: 'ARCHIVED' } },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (!plan) throw BusinessException.conflict('Free Trial plan is not available');
+
+      try {
+        subscriptionIds = await this.prisma.withTransaction(async (tx) => {
+          const claimed = await tx.referralLog.updateMany({
+            where: { id: referral.id, status: 'PENDING' },
+            data: { status: 'COMPLETED', completedAt: new Date() },
+          });
+          if (!claimed.count) return [];
+
+          const now = new Date();
+          const rewardExpiry = plan.durationDays
+            ? new Date(now.getTime() + plan.durationDays * 86_400_000)
+            : null;
+          const ids: bigint[] = [];
+          for (const userId of [referral.referrerId, referral.referredId]) {
+            const existing = await tx.subscription.findFirst({
+              where: { userId, isTrial: true },
+              orderBy: { createdAt: 'asc' },
+            });
+            if (existing) {
+              const updated = await tx.subscription.update({
+                where: { id: existing.id },
+                data: {
+                  trafficLimitBytes:
+                    existing.trafficLimitBytes == null
+                      ? rewardBytes
+                      : { increment: rewardBytes },
+                  status: 'TRIAL',
+                  expiresAt:
+                    existing.expiresAt && existing.expiresAt > now
+                      ? existing.expiresAt
+                      : rewardExpiry,
+                },
+              });
+              ids.push(updated.id);
+            } else {
+              const created = await tx.subscription.create({
+                data: {
+                  userId,
+                  planId: plan.id,
+                  status: 'TRIAL',
+                  type: plan.type,
+                  trafficLimitBytes: rewardBytes,
+                  durationDays: plan.durationDays,
+                  startsAt: now,
+                  expiresAt: rewardExpiry,
+                  deviceLimit: plan.deviceLimit,
+                  isTrial: true,
+                  metadata: { source: 'telegram_referral' },
+                },
+              });
+              await tx.subscriptionEvent.create({
+                data: {
+                  subscriptionId: created.id,
+                  event: 'CREATED',
+                  payload: { source: 'telegram_referral', referralId: referral.id.toString() },
+                },
+              });
+              ids.push(created.id);
+            }
+          }
+          return ids;
+        });
+      } catch (error: any) {
+        if (retryOnConflict && ['P2002', 'P2034'].includes(error?.code)) {
+          return this.fulfillTelegramSignupReferral(referredUserId, false);
+        }
+        throw error;
+      }
+    }
+
+    if (!subscriptionIds.length) {
+      const subscriptions = await this.prisma.subscription.findMany({
+        where: {
+          userId: { in: [referral.referrerId, referral.referredId] },
+          isTrial: true,
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+      subscriptionIds = [referral.referrerId, referral.referredId]
+        .map((userId) => subscriptions.find((subscription) => subscription.userId === userId)?.id)
+        .filter((id): id is bigint => id != null);
+    }
+    if (subscriptionIds.length !== 2) {
+      throw BusinessException.conflict('Referral trial subscription is incomplete');
+    }
+
+    for (const subscriptionId of subscriptionIds) {
+      await this.vpn.createVpnUserForSubscription(subscriptionId);
+    }
+    await this.prisma.referralLog.updateMany({
+      where: { id: referral.id, status: 'COMPLETED' },
+      data: { status: 'REWARDED' },
+    });
+
+    const subscriptions = await this.prisma.subscription.findMany({
+      where: { id: { in: subscriptionIds } },
+      select: { userId: true, subscriptionLink: true },
+    });
+    const linkFor = (userId: bigint) =>
+      subscriptions.find((subscription) => subscription.userId === userId)?.subscriptionLink ??
+      null;
+    return {
+      referrerTelegramId: referral.referrer.telegramId,
+      referrerName: referral.referrer.firstName ?? referral.referrer.username ?? 'کاربر جدید',
+      referredTelegramId: referral.referred.telegramId,
+      referredName: referral.referred.firstName ?? referral.referred.username ?? 'کاربر جدید',
+      rewardBytes: rewardBytes.toString(),
+      referrerSubscriptionLink: linkFor(referral.referrerId),
+      referredSubscriptionLink: linkFor(referral.referredId),
+    };
+  }
 
   /** Apply for the affiliate program. */
   async apply(userId: bigint): Promise<AffiliateAccountDto> {

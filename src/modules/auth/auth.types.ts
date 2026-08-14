@@ -45,4 +45,13 @@ export interface LoginResult {
     language: string;
   };
   tokens: TokenPair;
+  referralReward?: {
+    referrerTelegramId: string | null;
+    referrerName: string;
+    referredTelegramId: string | null;
+    referredName: string;
+    rewardBytes: string;
+    referrerSubscriptionLink: string | null;
+    referredSubscriptionLink: string | null;
+  };
 }

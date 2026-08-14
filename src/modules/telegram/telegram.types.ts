@@ -44,6 +44,7 @@ export type BotState =
   | 'admin_card_awaiting_field'
   | 'admin_crypto_awaiting_field'
   | 'admin_gateway_awaiting_field'
+  | 'admin_referral_awaiting_value'
   | 'admin_join_channel_awaiting_username'
   // admin broadcast
   | 'admin_broadcast_awaiting_message'
@@ -99,6 +100,7 @@ export interface BotSessionData {
     | 'crypto_create'
     | 'crypto_edit'
     | 'gateway_edit'
+    | 'referral_edit'
     | 'join_channel_add';
   adminTargetId?: string; // publicId/key of the entity being edited
   adminField?: string; // which field of the wizard we're awaiting text for

@@ -8,9 +8,11 @@ import { JwtTokenService } from './jwt-token.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AuthorizationGuard } from './guards/authorization.guard';
 import { config } from '@/config';
+import { AffiliateModule } from '../affiliate/affiliate.module';
 
 @Module({
   imports: [
+    AffiliateModule,
     JwtModule.registerAsync({
       useFactory: () => ({
         secret: config.jwt.accessSecret,

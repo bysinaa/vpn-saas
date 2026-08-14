@@ -438,6 +438,9 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
     this.bot.action(/agw:(toggle|merchant|callback|sandbox)/, (ctx) =>
       this.admin.onGatewayAction(ctx, this.match(ctx, /agw:(toggle|merchant|callback|sandbox)/)!),
     );
+    this.bot.action(/aref:(toggle|gb|rules)/, (ctx) =>
+      this.admin.onReferralAction(ctx, this.match(ctx, /aref:(toggle|gb|rules)/)!),
+    );
     this.bot.action(/ajoin:(toggle|add|remove)(?::(\d+))?/, (ctx) => {
       const match = ((ctx.callbackQuery as any)?.data ?? '').match(
         /ajoin:(toggle|add|remove)(?::(\d+))?/,
@@ -749,6 +752,29 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
     session.userId = BigInt(result.user.id);
     if (session.data) delete session.data.pendingStartPayload;
     await this.runtime.setSession(session);
+    if (result.referralReward) {
+      const rewardGb = Number(result.referralReward.rewardBytes) / 1024 ** 3;
+      const rewardLabel = Number.isInteger(rewardGb) ? String(rewardGb) : rewardGb.toFixed(2);
+      const referredMessage =
+        `🎁 هدیه معرفی شما فعال شد: ${rewardLabel} گیگ به اشتراک Free Trial اضافه شد.` +
+        (result.referralReward.referredSubscriptionLink
+          ? `\n\nلینک اشتراک:\n${result.referralReward.referredSubscriptionLink}`
+          : '');
+      const referrerMessage =
+        `🎉 ${result.referralReward.referredName} با لینک معرفی شما عضو شد. ` +
+        `${rewardLabel} گیگ به اشتراک Free Trial شما اضافه شد.` +
+        (result.referralReward.referrerSubscriptionLink
+          ? `\n\nلینک اشتراک:\n${result.referralReward.referrerSubscriptionLink}`
+          : '');
+      await Promise.allSettled([
+        result.referralReward.referredTelegramId
+          ? this.runtime.sendTelegram(result.referralReward.referredTelegramId, referredMessage)
+          : Promise.resolve(),
+        result.referralReward.referrerTelegramId
+          ? this.runtime.sendTelegram(result.referralReward.referrerTelegramId, referrerMessage)
+          : Promise.resolve(),
+      ]);
+    }
   }
 
   private async showMenu(ctx: Context): Promise<void> {
@@ -937,6 +963,7 @@ export class TelegramBotService implements OnModuleInit, OnApplicationBootstrap,
         session.state === 'admin_card_awaiting_field' ||
         session.state === 'admin_crypto_awaiting_field' ||
         session.state === 'admin_gateway_awaiting_field' ||
+        session.state === 'admin_referral_awaiting_value' ||
         session.state === 'admin_join_channel_awaiting_username'
       ) {
         const handled = await this.admin.onWizardText(ctx, text);

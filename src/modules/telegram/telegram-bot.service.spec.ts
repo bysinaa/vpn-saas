@@ -68,7 +68,10 @@ describe('TelegramBotService main-menu navigation', () => {
   });
 
   it('blocks a regular user until all configured channel memberships are confirmed', async () => {
-    const runtime = { editOrSend: jest.fn().mockResolvedValue(undefined) };
+    const runtime = {
+      editOrSend: jest.fn().mockResolvedValue(undefined),
+      setState: jest.fn().mockResolvedValue(undefined),
+    };
     const settings = {
       getValue: jest.fn(async (key: string) =>
         key.endsWith('enabled')
@@ -97,6 +100,7 @@ describe('TelegramBotService main-menu navigation', () => {
     const next = jest.fn();
     const ctx = {
       from: { id: 2 },
+      startPayload: 'REF-CODE',
       telegram: { getChatMember: jest.fn().mockResolvedValue({ status: 'left' }) },
     } as any;
 
@@ -108,6 +112,9 @@ describe('TelegramBotService main-menu navigation', () => {
       expect.stringContaining('عضو شوید'),
       expect.anything(),
     );
+    expect(runtime.setState).toHaveBeenCalledWith('2', 'idle', {
+      pendingStartPayload: 'REF-CODE',
+    });
   });
 
   it('exempts administrators from mandatory membership checks', async () => {
@@ -134,6 +141,64 @@ describe('TelegramBotService main-menu navigation', () => {
     await (service as any).mandatoryJoinGuard({ from: { id: 2 } } as any, next);
     expect(next).toHaveBeenCalled();
     expect(settings.getValue).not.toHaveBeenCalled();
+  });
+
+  it('notifies both users after a new referral adds traffic to their Free Trial clients', async () => {
+    const session: any = {
+      telegramId: '20',
+      locale: 'fa',
+      data: { pendingStartPayload: 'REF-CODE' },
+    };
+    const runtime = {
+      getSession: jest.fn().mockResolvedValue(session),
+      setSession: jest.fn().mockResolvedValue(undefined),
+      sendTelegram: jest.fn().mockResolvedValue(undefined),
+    };
+    const auth = {
+      mintForTelegramUser: jest.fn().mockResolvedValue({
+        user: { id: '20' },
+        tokens: {},
+        referralReward: {
+          referrerTelegramId: '10',
+          referrerName: 'Inviter',
+          referredTelegramId: '20',
+          referredName: 'New user',
+          rewardBytes: String(1024 ** 3),
+          referrerSubscriptionLink: 'https://example.test/referrer',
+          referredSubscriptionLink: 'https://example.test/referred',
+        },
+      }),
+    };
+    const service = new TelegramBotService(
+      {} as any,
+      auth as any,
+      {} as any,
+      runtime as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+    const ctx = { from: { id: 20, first_name: 'New user' } } as any;
+
+    await (service as any).ensureUser(ctx);
+
+    expect(auth.mintForTelegramUser).toHaveBeenCalledWith(
+      expect.objectContaining({ telegramId: '20', referralCode: 'REF-CODE' }),
+    );
+    expect(runtime.sendTelegram).toHaveBeenCalledWith(
+      '10',
+      expect.stringContaining('با لینک معرفی شما عضو شد'),
+    );
+    expect(runtime.sendTelegram).toHaveBeenCalledWith('20', expect.stringContaining('1 گیگ'));
   });
 
   it('dispatches mandatory-channel username text to the active admin wizard', async () => {
