@@ -179,15 +179,23 @@ export class AdminCommand extends BaseCommand {
       return;
     }
 
+    config.superAdmins.forEach((telegramId) => this.validateTelegramId(telegramId));
     const joinedAdmins = config.superAdmins.join(',');
-    const command = `node -e "const fs=require('fs'); const env=fs.readFileSync('${envPath.replace(/\\/g, '\\\\')}', 'utf8'); env.split(/\\r?\\n/).filter(Boolean).forEach((line)=>{ const idx=line.indexOf('='); if(idx>0){ const key=line.slice(0,idx); const value=line.slice(idx+1); if(!process.env[key]) process.env[key]=value; }}); process.env.TELEGRAM_ADMIN_IDS='${joinedAdmins}'; console.log('super-admin-sync-ready');"`;
-    const result = await this.execCommand(command, { allowFailure: true });
+    const script = 'const {PrismaClient}=require("@prisma/client");' +
+      'const prisma=new PrismaClient();' +
+      'const ids=process.env.TELEGRAM_ADMIN_IDS.split(",").filter(Boolean);' +
+      'prisma.user.updateMany({where:{telegramId:{in:ids},role:"USER"},data:{role:"SUPER_ADMIN"}})' +
+      '.then(({count})=>console.log(JSON.stringify({promoted:count})))' +
+      '.finally(()=>prisma.$disconnect());';
+    const result = await this.execCommand(
+      this.composeCommand(`exec -T -e TELEGRAM_ADMIN_IDS=${joinedAdmins} app node -e '${script}'`),
+      { allowFailure: true },
+    );
 
     if (!result.ok) {
-      this.log('Database synchronization helper could not be executed. Runtime configuration was still updated.', 'warn');
-      return;
+      throw new Error(`Super admin database synchronization failed: ${result.stderr || 'app container unavailable'}`);
     }
 
-    this.log('Environment-based super admin configuration synchronized.', 'info');
+    this.log('Database roles synchronized for configured super admins.', 'info');
   }
 }
