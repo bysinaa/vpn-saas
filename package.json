@@ -17,7 +17,7 @@
     "start:prod": "node dist/main.js",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
-    "test:installer": "node --test cli/installer/installation-flow.test.cjs cli/installer/installer-detectors.test.cjs cli/installer/cli-bundle.test.cjs cli/installer/db-route.test.cjs cli/installer/canonical-runtime.test.cjs cli/installer/compose-lifecycle.test.cjs cli/installer/production-install-path.test.cjs",
+    "test:installer": "node --test cli/installer/installation-flow.test.cjs cli/installer/installer-detectors.test.cjs cli/installer/cli-bundle.test.cjs cli/installer/db-route.test.cjs cli/installer/canonical-runtime.test.cjs cli/installer/cloudflare-tunnel.test.cjs cli/installer/compose-lifecycle.test.cjs cli/installer/production-install-path.test.cjs",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config ./test/jest-e2e.json",

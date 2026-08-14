@@ -13,6 +13,75 @@ function validateHostname(value) {
   return hostname;
 }
 
+function normalizePublicUrls(panelValue, subscriptionValue, detectedPanelPath = '/') {
+  const parse = (value, label) => {
+    let url;
+    try {
+      url = new URL(value);
+    } catch {
+      throw new Error(`Invalid ${label} public URL: ${value}`);
+    }
+    if (url.protocol !== 'https:' || url.username || url.password || url.port || url.search || url.hash) {
+      throw new Error(`${label} public URL must be HTTPS with no credentials, port, query, or fragment`);
+    }
+    validateHostname(url.hostname);
+    return url;
+  };
+  const panel = parse(panelValue, 'panel');
+  const subscription = parse(subscriptionValue, 'subscription');
+  if (panel.pathname === '/') {
+    panel.pathname = `/${String(detectedPanelPath || '/').replace(/^\/+|\/+$/g, '')}`;
+  }
+  if (!panel.pathname.endsWith('/')) panel.pathname += '/';
+  return {
+    panelUrl: panel.toString(),
+    panelHostname: panel.hostname,
+    subscriptionBaseUrl: subscription.origin,
+    subscriptionHostname: subscription.hostname,
+  };
+}
+
+function discoverRoutes(source, panelOrigin, subscriptionOrigin) {
+  const targetPort = (value) => {
+    const url = new URL(value);
+    return url.port || (url.protocol === 'https:' ? '443' : '80');
+  };
+  const panelPort = targetPort(panelOrigin);
+  const subscriptionPort = targetPort(subscriptionOrigin);
+  if (panelPort === subscriptionPort) return {};
+
+  const routes = [];
+  let hostname = '';
+  for (const line of String(source).split(/\r?\n/)) {
+    const hostMatch = line.match(/^\s*- hostname:\s*(\S+)\s*$/);
+    if (hostMatch) {
+      hostname = hostMatch[1];
+      continue;
+    }
+    const serviceMatch = line.match(/^\s+service:\s*(https?:\/\/\S+)\s*$/);
+    if (hostname && serviceMatch) {
+      try {
+        routes.push({
+          hostname: validateHostname(hostname),
+          service: serviceMatch[1],
+          port: targetPort(serviceMatch[1]),
+        });
+      } catch {
+        // Ignore unrelated or malformed operator-managed rules.
+      }
+      hostname = '';
+    }
+  }
+  const panel = routes.find((route) => route.port === panelPort);
+  const subscription = routes.find((route) => route.port === subscriptionPort);
+  return {
+    panelHostname: panel?.hostname,
+    panelService: panel?.service,
+    subscriptionHostname: subscription?.hostname,
+    subscriptionService: subscription?.service,
+  };
+}
+
 function managedRules(panelHostname, panelService, subscriptionHostname, subscriptionService) {
   const rule = (hostname, service) => [
     `  - hostname: ${validateHostname(hostname)}`,
@@ -23,7 +92,17 @@ function managedRules(panelHostname, panelService, subscriptionHostname, subscri
 }
 
 function mergeConfig(source, rules) {
-  const withoutOld = String(source).replace(new RegExp(`^${START}[\\s\\S]*?^${END}\\r?\\n?`, 'm'), '');
+  let withoutOld = String(source).replace(new RegExp(`^${START}[\\s\\S]*?^${END}\\r?\\n?`, 'm'), '');
+  const managedHostnames = rules.flatMap((line) => {
+    const match = line.match(/^\s*- hostname:\s*(\S+)$/);
+    return match ? [match[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')] : [];
+  });
+  for (const hostname of managedHostnames) {
+    withoutOld = withoutOld.replace(
+      new RegExp(`^  - hostname:\\s*${hostname}\\s*\\r?\\n(?:(?: {4}| {6}).*\\r?\\n)*`, 'gm'),
+      '',
+    );
+  }
   const lines = withoutOld.trimEnd().split(/\r?\n/);
   const ingress = lines.findIndex((line) => /^ingress:\s*$/.test(line));
   if (ingress < 0) throw new Error('Cloudflare config has no ingress section');
@@ -52,4 +131,11 @@ if (require.main === module) {
   }
 }
 
-module.exports = { managedRules, mergeConfig, updateFile, validateHostname };
+module.exports = {
+  discoverRoutes,
+  managedRules,
+  mergeConfig,
+  normalizePublicUrls,
+  updateFile,
+  validateHostname,
+};

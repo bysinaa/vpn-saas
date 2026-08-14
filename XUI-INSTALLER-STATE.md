@@ -74,5 +74,17 @@ Phase 5 COMPLETE. XUI installer execution plan complete.
 
 ## Cloudflare public endpoints (2026-08-12)
 
-- `tazaxy cloudflare` invokes the idempotent `scripts/setup-cloudflare-xui.sh` workflow. It discovers authoritative local panel/subscription origins, asks only for the Cloudflare base domain and desired panel/subscription labels, reuses or creates a locally-managed tunnel, adds DNS routes, validates ordered ingress, and runs it as a systemd service.
+- `tazaxy cloudflare` invokes the idempotent `scripts/setup-cloudflare-xui.sh` workflow. It discovers authoritative local panel/subscription origins, asks for the two public HTTPS URLs, reuses or creates a locally-managed tunnel, adds DNS routes, validates ordered ingress, and runs it as a systemd service.
 - Internal XUI API coordinates remain unchanged. Public panel/subscription URLs are stored in sanitized runtime metadata; subscription URL generation uses the public subscription override, and existing persisted user/subscription links are migrated transactionally.
+
+## Cloudflare route adoption (2026-08-13)
+
+- The Cloudflare command discovers an active config/process and matches existing panel/subscription ingress by authoritative origin ports. It offers reuse first or editable detected defaults, adopts routes without duplicates, and preserves working origins.
+- Public panel URLs retain the XUI web base path. Health updates preserve public endpoint metadata, and usage sync reconciles the real XUI sub ID into tunneled `VpnUser`/`Subscription` delivery links.
+- Production adopted `api.mivezone.ir/api/` and `sub.mivezone.ir`; 5/5 mappings and links reconciled, all five subscription probes returned 200, app is healthy, and `cloudflared-tazaxy` is active.
+
+## Cloudflare installer repair (2026-08-14)
+
+- The Cloudflare workflow installs the official `cloudflared` Linux binary when absent, then asks for exactly two explicit HTTPS inputs: the public Panel URL and public Subscription base URL. Zone API discovery and base-domain/subdomain prompts were removed after live-server acceptance showed they did not match the operator workflow.
+- The public Panel URL preserves an explicitly supplied path or receives the authoritative discovered XUI panel path; the Subscription input is normalized to its HTTPS origin. Existing matching ingress routes remain adoptable and idempotent.
+- `npm run test:installer` PASS (89 passed, one Docker-daemon-dependent test skipped on Windows); Bash syntax, `npm run build`, `npm run cli:build`, and `git diff --check` PASS.

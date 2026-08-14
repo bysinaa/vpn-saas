@@ -3,9 +3,8 @@ import * as path from 'path';
 import { BaseCommand } from './install.interface';
 
 export interface CloudflareOptions {
-  domain?: string;
-  panelSubdomain?: string;
-  subscriptionSubdomain?: string;
+  panelUrl?: string;
+  subscriptionUrl?: string;
   tunnel?: string;
 }
 
@@ -18,9 +17,8 @@ export class CloudflareCommand extends BaseCommand {
     const add = (flag: string, value?: string) => {
       if (value) args.push(flag, value);
     };
-    add('--domain', options.domain);
-    add('--panel-subdomain', options.panelSubdomain);
-    add('--subscription-subdomain', options.subscriptionSubdomain);
+    add('--panel-url', options.panelUrl);
+    add('--subscription-url', options.subscriptionUrl);
     add('--tunnel', options.tunnel);
     await new Promise<void>((resolve, reject) => {
       const child = spawn('bash', args, { cwd: this.workspaceRoot, stdio: 'inherit' });
